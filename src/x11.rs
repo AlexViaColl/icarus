@@ -23,6 +23,7 @@ extern "C" {
     pub fn XSetErrorHandler(handler: XErrorHandler) -> XErrorHandler;
     pub fn XSetIOErrorHandler(handler: XIOErrorHandler) -> XIOErrorHandler;
     pub fn XStoreName(display: *mut Display, window: Window, window_name: *const i8) -> i32;
+    pub fn XLookupKeysym(key_event: *mut XKeyEvent, index: i32) -> KeySym;
 }
 
 pub type Bool = i32;
@@ -30,6 +31,7 @@ pub type XID = u64;
 pub type CARD32 = XID;
 pub type Window = XID;
 pub type Time = CARD32;
+pub type KeySym = XID;
 
 #[repr(C)]
 pub struct Display {

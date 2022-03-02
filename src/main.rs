@@ -33,11 +33,13 @@ fn main() {
         let mut running = true;
         while running {
             while XPending(display) > 0 {
-                let mut event = XEvent { ttype: 0 };
-                assert_ne!(XNextEvent(display, &mut event), 0);
+                let mut event = XEvent { pad: [0; 24] };
+                XNextEvent(display, &mut event);
                 match event.ttype {
                     KeyPress => {
+                        let keysym = XLookupKeysym(&mut event.xkey, 0);
                         let event = event.xkey;
+                        println!("KeySym: {} / KeyCode: {}", keysym, event.keycode);
                         match event.keycode {
                             9 => running = false,
                             n => println!("Keycode: {}", n),
@@ -48,6 +50,6 @@ fn main() {
             }
         }
 
-        assert_ne!(XCloseDisplay(display), 0);
+        XCloseDisplay(display);
     };
 }
