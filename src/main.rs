@@ -2,6 +2,8 @@
 #![allow(non_snake_case)]
 use icarus::*;
 
+use core::ffi::c_void;
+use std::ffi::CStr;
 use std::process;
 use std::ptr;
 
@@ -19,7 +21,30 @@ fn main() {
     unsafe {
         let mut extension_count = 0;
         vkEnumerateInstanceExtensionProperties(ptr::null(), &mut extension_count, ptr::null_mut());
-        println!("extension count: {}", extension_count);
+
+        let mut extensions = vec![VkExtensionProperties::default(); extension_count as usize];
+        vkEnumerateInstanceExtensionProperties(
+            ptr::null(),
+            &mut extension_count,
+            extensions.as_mut_ptr(),
+        );
+        println!("Extensions ({}):", extension_count);
+        for extension in &extensions {
+            println!("{:?}", CStr::from_ptr(extension.extensionName.as_ptr()));
+        }
+
+        let mut layer_count = 0;
+        vkEnumerateInstanceLayerProperties(&mut layer_count, ptr::null_mut());
+        let mut layers = vec![VkLayerProperties::default(); layer_count as usize];
+        vkEnumerateInstanceLayerProperties(&mut layer_count, layers.as_mut_ptr());
+        println!("\nLayers ({}):", layer_count);
+        for layer in &layers {
+            println!(
+                "{:?}: {:?}",
+                CStr::from_ptr(layer.layerName.as_ptr()),
+                CStr::from_ptr(layer.layerName.as_ptr()),
+            );
+        }
 
         let mut instance = ptr::null_mut();
         let result = vkCreateInstance(
@@ -36,15 +61,53 @@ fn main() {
                     engineVersion: 0,
                     apiVersion: 0,
                 },
-                enabledLayerCount: 0,
-                ppEnabledLayerNames: ptr::null(),
-                enabledExtensionCount: 0,
-                ppEnabledExtensionNames: ptr::null(),
+                enabledLayerCount: 1,
+                ppEnabledLayerNames: [b"VK_LAYER_KHRONOS_validation\0".as_ptr() as *const i8]
+                    .as_ptr(),
+                enabledExtensionCount: 3,
+                ppEnabledExtensionNames: [
+                    b"VK_KHR_surface\0".as_ptr() as *const i8,
+                    b"VK_KHR_xlib_surface\0".as_ptr() as *const i8,
+                    b"VK_EXT_debug_utils\0".as_ptr() as *const i8, // Actually defined as VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+                ]
+                .as_ptr(),
             },
             ptr::null(),
             &mut instance,
         );
-        println!("vkCreateInfo result: {:?}", result);
+        println!("vkCreateInstance result: {:?}", result);
+
+        let mut debug_messenger = ptr::null_mut();
+        let func = vkGetInstanceProcAddr(
+            instance,
+            b"vkCreateDebugUtilsMessengerEXT\0".as_ptr() as *const i8,
+        );
+        let func = std::mem::transmute::<_, PFN_vkCreateDebugUtilsMessengerEXT>(func);
+        println!("vkCreateDebugUtilsMessengerEXT: {:?}", func);
+        let result = func(
+            instance,
+            &VkDebugUtilsMessengerCreateInfoEXT {
+                sType: VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
+                pNext: ptr::null(),
+                flags: 0,
+                messageSeverity: 0, //VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+                //                    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+                //                    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
+                messageType: 0, // VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+                //                    | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                //                    | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT,
+                pfnUserCallback: debug_callback,
+                pUserData: ptr::null_mut(),
+            },
+            ptr::null(),
+            &mut debug_messenger,
+        );
+        println!(
+            "result: {:?}, debug_messenger: {:?}",
+            result, debug_messenger
+        );
+
+        vkDestroyInstance(instance, ptr::null());
         process::exit(1);
 
         let display = XOpenDisplay(std::ptr::null());
@@ -96,4 +159,14 @@ fn main() {
 
         XCloseDisplay(display);
     };
+}
+
+extern "C" fn debug_callback(
+    message_severity: VkDebugUtilsMessageSeverityFlagsEXT,
+    message_type: VkDebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,
+    p_user_data: *mut c_void,
+) -> VkBool32 {
+    println!("Inside debug_callback");
+    0
 }
