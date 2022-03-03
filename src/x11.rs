@@ -16,6 +16,8 @@ extern "C" {
         background: u64,
     ) -> Window;
     pub fn XDefaultRootWindow(display: *mut Display) -> Window;
+    pub fn XRootWindow(display: *mut Display, screen_number: i32) -> Window;
+    pub fn XDefaultScreen(display: *mut Display) -> i32;
     pub fn XSelectInput(display: *mut Display, window: Window, event_mask: i64) -> i32;
     pub fn XMapWindow(display: *mut Display, window: Window) -> i32;
     pub fn XPending(display: *mut Display) -> i32;
@@ -24,6 +26,16 @@ extern "C" {
     pub fn XSetIOErrorHandler(handler: XIOErrorHandler) -> XIOErrorHandler;
     pub fn XStoreName(display: *mut Display, window: Window, window_name: *const i8) -> i32;
     pub fn XLookupKeysym(key_event: *mut XKeyEvent, index: i32) -> KeySym;
+    pub fn XDefaultGC(display: *mut Display, screen_number: i32) -> GC;
+    pub fn XFillRectangle(
+        display: *mut Display,
+        d: Drawable,
+        gc: GC,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+    ) -> i32;
 }
 
 pub type Bool = i32;
@@ -32,12 +44,21 @@ pub type CARD32 = XID;
 pub type Window = XID;
 pub type Time = CARD32;
 pub type KeySym = XID;
+pub type Drawable = XID;
 
 #[repr(C)]
 pub struct Display {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct _GC {
+    _data: [u8; 0],
+    _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+pub type GC = *mut _GC;
 
 pub type XErrorHandler = extern "C" fn(display: *mut Display, event: *mut XErrorEvent) -> i32;
 pub type XIOErrorHandler = extern "C" fn(display: *mut Display) -> i32;
@@ -87,6 +108,10 @@ pub struct XKeyEvent {
 
 pub const NoEventMask: i64 = 0;
 pub const KeyPressMask: i64 = 1 << 0;
+// ...
+pub const ExposureMask: i64 = 1 << 15;
 
 pub const KeyPress: i32 = 2;
 pub const KeyRelease: i32 = 3;
+// ...
+pub const Expose: i32 = 12;

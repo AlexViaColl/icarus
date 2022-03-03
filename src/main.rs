@@ -1,4 +1,5 @@
 #![allow(non_upper_case_globals)]
+#![allow(non_snake_case)]
 use icarus::*;
 
 extern "C" fn error_handler(_display: *mut Display, _event: *mut XErrorEvent) -> i32 {
@@ -20,14 +21,18 @@ fn main() {
         let _orig_err_handler = XSetErrorHandler(error_handler);
         let _orig_err_io_handler = XSetIOErrorHandler(error_io_handler);
 
-        let root = XDefaultRootWindow(display);
-        let window = XCreateSimpleWindow(display, root, 0, 0, 100, 100, 1, 0, 0);
+        let screen = XDefaultScreen(display);
+        let root = XRootWindow(display, screen);
+        let window = XCreateSimpleWindow(display, root, 0, 0, 100, 100, 1, 0, 0xFFFFFFFF);
 
         assert_ne!(
             XStoreName(display, window, b"Icarus\0".as_ptr() as *const i8),
             0
         );
-        assert_ne!(XSelectInput(display, window, KeyPressMask), 0);
+        assert_ne!(
+            XSelectInput(display, window, KeyPressMask | ExposureMask),
+            0
+        );
         assert_ne!(XMapWindow(display, window), 0);
 
         let mut running = true;
@@ -44,6 +49,10 @@ fn main() {
                             9 => running = false,
                             n => println!("Keycode: {}", n),
                         }
+                    }
+                    Expose => {
+                        let gc = XDefaultGC(display, screen);
+                        XFillRectangle(display, window, gc, 20, 20, 10, 10);
                     }
                     _ => {}
                 }
