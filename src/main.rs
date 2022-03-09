@@ -30,6 +30,7 @@ fn cstr_to_string(ptr: *const i8) -> String {
 
 fn main() {
     unsafe {
+        // Vulkan initialization
         let mut extension_count = 0;
         check!(vkEnumerateInstanceExtensionProperties(ptr::null(), &mut extension_count, ptr::null_mut()));
 
@@ -107,7 +108,7 @@ fn main() {
         // pick physical device
         let mut device_count = 0;
         check!(vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut()));
-        println!("There are {} physical devices", device_count);
+        println!("Devices ({}):", device_count);
         assert_ne!(device_count, 0);
         let mut physical_devices = vec![ptr::null_mut(); device_count as usize];
         check!(vkEnumeratePhysicalDevices(instance, &mut device_count, physical_devices.as_mut_ptr()));
@@ -123,20 +124,55 @@ fn main() {
 
             let mut queue_family_count = 0;
             vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
-            println!("queue family count: {}", queue_family_count);
             let mut queue_families = vec![VkQueueFamilyProperties::default(); queue_family_count as usize];
             vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
-            println!("{:#?}", queue_families);
-            for (index, queue_family) in queue_families.iter().enumerate() {
+            // println!("{:#?}", queue_families);
+            for (_index, queue_family) in queue_families.iter().enumerate() {
                 if (*queue_family).queueFlags & VK_QUEUE_GRAPHICS_BIT != 0 {
-                    println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", index);
+                    // println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", _index);
                 }
             }
         }
         // TODO: Score physical devices and pick the "best" one.
         // TODO: Prefer dedicated gpu over integrated.
         // TODO: The chosen gpu should have at least one queue family supporting graphics.
-        let physical_device = physical_devices[0]; // Pick the first physical device for now (Intel HD).
+        let physical_device = physical_devices[0]; // Pick the first physical device for now.
+
+        let graphics_family_index = 0; // TODO: Actually grab this
+
+        let mut device = ptr::null_mut();
+        check!(vkCreateDevice(
+            physical_device,
+            &VkDeviceCreateInfo {
+                sType: VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                queueCreateInfoCount: 1,
+                pQueueCreateInfos: [VkDeviceQueueCreateInfo {
+                    sType: VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                    pNext: ptr::null(),
+                    flags: 0,
+                    queueFamilyIndex: graphics_family_index,
+                    queueCount: 1,
+                    pQueuePriorities: [1.0].as_ptr(),
+                }]
+                .as_ptr(),
+                enabledLayerCount: 0,
+                ppEnabledLayerNames: ptr::null(),
+                enabledExtensionCount: 0,
+                ppEnabledExtensionNames: ptr::null(),
+                pEnabledFeatures: &VkPhysicalDeviceFeatures::default(),
+            },
+            ptr::null(),
+            &mut device,
+        ));
+
+        let mut graphics_queue = ptr::null_mut();
+        vkGetDeviceQueue(device, graphics_family_index, 0, &mut graphics_queue);
+        println!("Queue: {:?}", graphics_queue);
+
+        // Cleanup
+        vkDestroyDevice(device, ptr::null());
 
         // destroy debug_messenger
         let vkDestroyDebugUtilsMessengerEXT = std::mem::transmute::<_, PFN_vkDestroyDebugUtilsMessengerEXT>(

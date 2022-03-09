@@ -36,6 +36,14 @@ extern "C" {
         pQueueFamilyPropertyCount: *mut u32,
         pQueueFamilyProperties: *mut VkQueueFamilyProperties,
     );
+    pub fn vkCreateDevice(
+        physicalDevice: VkPhysicalDevice,
+        pCreateInfo: *const VkDeviceCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pDevice: *mut VkDevice,
+    ) -> VkResult;
+    pub fn vkDestroyDevice(device: VkDevice, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkGetDeviceQueue(device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *mut VkQueue);
 }
 
 pub const VK_UUID_SIZE: usize = 16;
@@ -119,6 +127,8 @@ pub type VkDebugUtilsMessengerCreateFlagsEXT = VkFlags;
 pub type VkDebugUtilsMessengerCallbackDataFlagsEXT = VkFlags;
 pub type VkSampleCountFlags = VkFlags;
 pub type VkQueueFlags = VkFlags;
+pub type VkDeviceCreateFlags = VkFlags;
+pub type VkDeviceQueueCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -481,6 +491,30 @@ pub struct VkExtent3D {
     pub depth: u32,
 }
 
+#[repr(C)]
+pub struct VkDeviceCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkDeviceCreateFlags,
+    pub queueCreateInfoCount: u32,
+    pub pQueueCreateInfos: *const VkDeviceQueueCreateInfo,
+    pub enabledLayerCount: u32,
+    pub ppEnabledLayerNames: *const *const i8,
+    pub enabledExtensionCount: u32,
+    pub ppEnabledExtensionNames: *const *const i8,
+    pub pEnabledFeatures: *const VkPhysicalDeviceFeatures,
+}
+
+#[repr(C)]
+pub struct VkDeviceQueueCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkDeviceQueueCreateFlags,
+    pub queueFamilyIndex: u32,
+    pub queueCount: u32,
+    pub pQueuePriorities: *const f32,
+}
+
 // Enums
 #[repr(C)]
 #[derive(Debug, PartialEq)]
@@ -496,6 +530,8 @@ pub use VkResult::*;
 pub enum VkStructureType {
     VK_STRUCTURE_TYPE_APPLICATION_INFO = 0,
     VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO = 1,
+    VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO = 2,
+    VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO = 3,
     // ...
     VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT = 1000128004,
     // TODO
