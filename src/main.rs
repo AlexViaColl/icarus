@@ -90,7 +90,8 @@ fn main() {
                 sType: VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
                 pNext: ptr::null(),
                 flags: 0,
-                messageSeverity: VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+                messageSeverity: 0 //| VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+                    //| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
                     | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
                     | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,
                 messageType: VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
@@ -102,6 +103,40 @@ fn main() {
             ptr::null(),
             &mut debug_messenger,
         ));
+
+        // pick physical device
+        let mut device_count = 0;
+        check!(vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut()));
+        println!("There are {} physical devices", device_count);
+        assert_ne!(device_count, 0);
+        let mut physical_devices = vec![ptr::null_mut(); device_count as usize];
+        check!(vkEnumeratePhysicalDevices(instance, &mut device_count, physical_devices.as_mut_ptr()));
+        for device in &physical_devices {
+            let mut properties = VkPhysicalDeviceProperties::default();
+            vkGetPhysicalDeviceProperties(*device, &mut properties);
+            println!("{}", cstr_to_string(properties.deviceName.as_ptr()));
+            // println!("{:#?}", properties);
+
+            let mut features = VkPhysicalDeviceFeatures::default();
+            vkGetPhysicalDeviceFeatures(*device, &mut features);
+            // println!("{:#?}", features);
+
+            let mut queue_family_count = 0;
+            vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, ptr::null_mut());
+            println!("queue family count: {}", queue_family_count);
+            let mut queue_families = vec![VkQueueFamilyProperties::default(); queue_family_count as usize];
+            vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
+            println!("{:#?}", queue_families);
+            for (index, queue_family) in queue_families.iter().enumerate() {
+                if (*queue_family).queueFlags & VK_QUEUE_GRAPHICS_BIT != 0 {
+                    println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", index);
+                }
+            }
+        }
+        // TODO: Score physical devices and pick the "best" one.
+        // TODO: Prefer dedicated gpu over integrated.
+        // TODO: The chosen gpu should have at least one queue family supporting graphics.
+        let physical_device = physical_devices[0]; // Pick the first physical device for now (Intel HD).
 
         // destroy debug_messenger
         let vkDestroyDebugUtilsMessengerEXT = std::mem::transmute::<_, PFN_vkDestroyDebugUtilsMessengerEXT>(
@@ -160,8 +195,8 @@ fn main() {
 }
 
 extern "C" fn debug_callback(
-    message_severity: VkDebugUtilsMessageSeverityFlagsEXT,
-    message_type: VkDebugUtilsMessageTypeFlagsEXT,
+    _message_severity: VkDebugUtilsMessageSeverityFlagsEXT,
+    _message_type: VkDebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,
     _p_user_data: *mut c_void,
 ) -> VkBool32 {
