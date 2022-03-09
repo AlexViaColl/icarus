@@ -44,6 +44,15 @@ extern "C" {
     ) -> VkResult;
     pub fn vkDestroyDevice(device: VkDevice, pAllocator: *const VkAllocationCallbacks);
     pub fn vkGetDeviceQueue(device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *mut VkQueue);
+
+    // Extensions
+    pub fn vkCreateXlibSurfaceKHR(
+        instance: VkInstance,
+        pCreateInfo: *const VkXlibSurfaceCreateInfoKHR,
+        pAllocator: *const VkAllocationCallbacks,
+        pSurface: *mut VkSurfaceKHR,
+    ) -> VkResult;
+    pub fn vkDestroySurfaceKHR(instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *const VkAllocationCallbacks);
 }
 
 pub const VK_UUID_SIZE: usize = 16;
@@ -120,6 +129,10 @@ pub type VkFramebuffer = *mut VkFramebuffer_;
 VK_DEFINE_HANDLE!(VkCommandPool_);
 pub type VkCommandPool = *mut VkCommandPool_;
 
+// Extensions
+VK_DEFINE_HANDLE!(VkSurfaceKHR_);
+pub type VkSurfaceKHR = *mut VkSurfaceKHR_;
+
 pub type VkInstanceCreateFlags = VkFlags;
 pub type VkDebugUtilsMessageTypeFlagsEXT = VkFlags;
 pub type VkDebugUtilsMessageSeverityFlagsEXT = VkFlags;
@@ -129,6 +142,7 @@ pub type VkSampleCountFlags = VkFlags;
 pub type VkQueueFlags = VkFlags;
 pub type VkDeviceCreateFlags = VkFlags;
 pub type VkDeviceQueueCreateFlags = VkFlags;
+pub type VkXlibSurfaceCreateFlagsKHR = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -515,6 +529,16 @@ pub struct VkDeviceQueueCreateInfo {
     pub pQueuePriorities: *const f32,
 }
 
+// Extension specific
+#[repr(C)]
+pub struct VkXlibSurfaceCreateInfoKHR {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkXlibSurfaceCreateFlagsKHR,
+    pub dpy: *mut crate::x11::Display,
+    pub window: crate::x11::Window,
+}
+
 // Enums
 #[repr(C)]
 #[derive(Debug, PartialEq)]
@@ -532,6 +556,8 @@ pub enum VkStructureType {
     VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO = 1,
     VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO = 2,
     VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO = 3,
+    // ...
+    VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR = 1000004000,
     // ...
     VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT = 1000128004,
     // TODO

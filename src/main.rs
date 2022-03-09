@@ -30,6 +30,23 @@ fn cstr_to_string(ptr: *const i8) -> String {
 
 fn main() {
     unsafe {
+        let display = XOpenDisplay(std::ptr::null());
+        if display.is_null() {
+            eprintln!("Cannot open display");
+            process::exit(1);
+        }
+
+        let _orig_err_handler = XSetErrorHandler(error_handler);
+        let _orig_err_io_handler = XSetIOErrorHandler(error_io_handler);
+
+        let screen = XDefaultScreen(display);
+        let root = XRootWindow(display, screen);
+        let window = XCreateSimpleWindow(display, root, 0, 0, 100, 100, 1, 0, BG_COLOR);
+
+        assert_ne!(XStoreName(display, window, b"Icarus\0".as_ptr() as *const i8), 0);
+        assert_ne!(XSelectInput(display, window, KeyPressMask | ExposureMask), 0);
+        assert_ne!(XMapWindow(display, window), 0);
+
         // Vulkan initialization
         let mut extension_count = 0;
         check!(vkEnumerateInstanceExtensionProperties(ptr::null(), &mut extension_count, ptr::null_mut()));
@@ -104,6 +121,22 @@ fn main() {
             ptr::null(),
             &mut debug_messenger,
         ));
+
+        // create surface
+        let mut surface = ptr::null_mut();
+        check!(vkCreateXlibSurfaceKHR(
+            instance,
+            &VkXlibSurfaceCreateInfoKHR {
+                sType: VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
+                pNext: ptr::null(),
+                flags: 0,
+                dpy: display,
+                window,
+            },
+            ptr::null(),
+            &mut surface,
+        ));
+        println!("Surface: {:?}", surface);
 
         // pick physical device
         let mut device_count = 0;
@@ -180,25 +213,10 @@ fn main() {
         );
         vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, ptr::null());
 
+        vkDestroySurfaceKHR(instance, surface, ptr::null());
+
         vkDestroyInstance(instance, ptr::null());
         process::exit(1);
-
-        let display = XOpenDisplay(std::ptr::null());
-        if display.is_null() {
-            eprintln!("Cannot open display");
-            process::exit(1);
-        }
-
-        let _orig_err_handler = XSetErrorHandler(error_handler);
-        let _orig_err_io_handler = XSetIOErrorHandler(error_io_handler);
-
-        let screen = XDefaultScreen(display);
-        let root = XRootWindow(display, screen);
-        let window = XCreateSimpleWindow(display, root, 0, 0, 100, 100, 1, 0, BG_COLOR);
-
-        assert_ne!(XStoreName(display, window, b"Icarus\0".as_ptr() as *const i8), 0);
-        assert_ne!(XSelectInput(display, window, KeyPressMask | ExposureMask), 0);
-        assert_ne!(XMapWindow(display, window), 0);
 
         let mut running = true;
         while running {
