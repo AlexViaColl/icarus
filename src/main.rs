@@ -282,6 +282,12 @@ fn main() {
             &mut swapchain
         ));
 
+        let mut swapchain_image_count = 0;
+        check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, ptr::null_mut()));
+        let mut swapchain_images = vec![ptr::null_mut(); swapchain_image_count as usize];
+        check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, swapchain_images.as_mut_ptr()));
+        println!("Swapchain created with {} images", swapchain_image_count);
+
         // Cleanup
         vkDestroySwapchainKHR(device, swapchain, ptr::null());
 

@@ -84,6 +84,12 @@ extern "C" {
         pSwapchain: *mut VkSwapchainKHR,
     ) -> VkResult;
     pub fn vkDestroySwapchainKHR(device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkGetSwapchainImagesKHR(
+        device: VkDevice,
+        swapchain: VkSwapchainKHR,
+        pSwapchainImageCount: *mut u32,
+        pSwapchainImages: *mut VkImage,
+    ) -> VkResult;
 }
 
 pub const VK_FALSE: VkBool32 = 0;
