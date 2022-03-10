@@ -5,6 +5,7 @@ use icarus::*;
 
 use core::ffi::c_void;
 use std::ffi::CStr;
+use std::fs;
 use std::process;
 use std::ptr;
 
@@ -181,6 +182,7 @@ fn main() {
             println!("Queue supports presentation and graphics operations.");
         }
 
+        // create logical device
         let mut device = ptr::null_mut();
         check!(vkCreateDevice(
             physical_device,
@@ -318,7 +320,41 @@ fn main() {
             );
         }
 
+        // Create graphics pipeline
+        let vs_code = fs::read("vert.spv").expect("Failed to load vertex shader");
+        let fs_code = fs::read("frag.spv").expect("Failed to load fragment shader");
+
+        let mut vs_shader_module = ptr::null_mut();
+        check!(vkCreateShaderModule(
+            device,
+            &VkShaderModuleCreateInfo {
+                sType: VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                codeSize: vs_code.len(),
+                pCode: vs_code.as_ptr() as *const u32,
+            },
+            ptr::null(),
+            &mut vs_shader_module
+        ));
+        let mut fs_shader_module = ptr::null_mut();
+        check!(vkCreateShaderModule(
+            device,
+            &VkShaderModuleCreateInfo {
+                sType: VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                codeSize: fs_code.len(),
+                pCode: fs_code.as_ptr() as *const u32,
+            },
+            ptr::null(),
+            &mut fs_shader_module
+        ));
+
         // Cleanup
+        vkDestroyShaderModule(device, fs_shader_module, ptr::null());
+        vkDestroyShaderModule(device, vs_shader_module, ptr::null());
+
         for image_view in swapchain_image_views {
             vkDestroyImageView(device, image_view, ptr::null());
         }

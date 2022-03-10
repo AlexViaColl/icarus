@@ -97,6 +97,17 @@ extern "C" {
         pView: *mut VkImageView,
     ) -> VkResult;
     pub fn vkDestroyImageView(device: VkDevice, imageView: VkImageView, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateShaderModule(
+        device: VkDevice,
+        pCreateInfo: *const VkShaderModuleCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pShaderModule: *mut VkShaderModule,
+    ) -> VkResult;
+    pub fn vkDestroyShaderModule(
+        device: VkDevice,
+        shaderModule: VkShaderModule,
+        pAllocator: *const VkAllocationCallbacks,
+    );
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -198,6 +209,7 @@ pub type VkSurfaceTransformFlagsKHR = VkFlags;
 pub type VkCompositeAlphaFlagsKHR = VkFlags;
 pub type VkImageViewCreateFlags = VkFlags;
 pub type VkImageAspectFlags = VkFlags;
+pub type VkShaderModuleCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -672,6 +684,15 @@ pub struct VkImageSubresourceRange {
     pub levelCount: u32,
     pub baseArrayLayer: u32,
     pub layerCount: u32,
+}
+
+#[repr(C)]
+pub struct VkShaderModuleCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkShaderModuleCreateFlags,
+    pub codeSize: usize,
+    pub pCode: *const u32,
 }
 
 // Enums
