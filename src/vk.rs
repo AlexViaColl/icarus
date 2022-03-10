@@ -90,6 +90,13 @@ extern "C" {
         pSwapchainImageCount: *mut u32,
         pSwapchainImages: *mut VkImage,
     ) -> VkResult;
+    pub fn vkCreateImageView(
+        device: VkDevice,
+        pCreateInfo: *const VkImageViewCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pView: *mut VkImageView,
+    ) -> VkResult;
+    pub fn vkDestroyImageView(device: VkDevice, imageView: VkImageView, pAllocator: *const VkAllocationCallbacks);
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -189,6 +196,8 @@ pub type VkSwapchainCreateFlagsKHR = VkFlags;
 pub type VkImageUsageFlags = VkFlags;
 pub type VkSurfaceTransformFlagsKHR = VkFlags;
 pub type VkCompositeAlphaFlagsKHR = VkFlags;
+pub type VkImageViewCreateFlags = VkFlags;
+pub type VkImageAspectFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -634,6 +643,35 @@ pub struct VkSwapchainCreateInfoKHR {
 pub struct VkExtent2D {
     pub width: u32,
     pub height: u32,
+}
+
+#[repr(C)]
+pub struct VkImageViewCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkImageViewCreateFlags,
+    pub image: VkImage,
+    pub viewType: VkImageViewType,
+    pub format: VkFormat,
+    pub components: VkComponentMapping,
+    pub subresourceRange: VkImageSubresourceRange,
+}
+
+#[repr(C)]
+pub struct VkComponentMapping {
+    pub r: VkComponentSwizzle,
+    pub g: VkComponentSwizzle,
+    pub b: VkComponentSwizzle,
+    pub a: VkComponentSwizzle,
+}
+
+#[repr(C)]
+pub struct VkImageSubresourceRange {
+    pub aspectMask: VkImageAspectFlags,
+    pub baseMipLevel: u32,
+    pub levelCount: u32,
+    pub baseArrayLayer: u32,
+    pub layerCount: u32,
 }
 
 // Enums
@@ -1526,6 +1564,24 @@ pub const VK_IMAGE_USAGE_INVOCATION_MASK_BIT_HUAWEI: VkFlags = 0x00040000;
 pub const VK_IMAGE_USAGE_SHADING_RATE_IMAGE_BIT_NV: VkFlags = VK_IMAGE_USAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
 pub const VK_IMAGE_USAGE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
 
+pub const VK_IMAGE_ASPECT_COLOR_BIT: VkFlags = 0x00000001;
+pub const VK_IMAGE_ASPECT_DEPTH_BIT: VkFlags = 0x00000002;
+pub const VK_IMAGE_ASPECT_STENCIL_BIT: VkFlags = 0x00000004;
+pub const VK_IMAGE_ASPECT_METADATA_BIT: VkFlags = 0x00000008;
+pub const VK_IMAGE_ASPECT_PLANE_0_BIT: VkFlags = 0x00000010;
+pub const VK_IMAGE_ASPECT_PLANE_1_BIT: VkFlags = 0x00000020;
+pub const VK_IMAGE_ASPECT_PLANE_2_BIT: VkFlags = 0x00000040;
+pub const VK_IMAGE_ASPECT_NONE: VkFlags = 0;
+pub const VK_IMAGE_ASPECT_MEMORY_PLANE_0_BIT_EXT: VkFlags = 0x00000080;
+pub const VK_IMAGE_ASPECT_MEMORY_PLANE_1_BIT_EXT: VkFlags = 0x00000100;
+pub const VK_IMAGE_ASPECT_MEMORY_PLANE_2_BIT_EXT: VkFlags = 0x00000200;
+pub const VK_IMAGE_ASPECT_MEMORY_PLANE_3_BIT_EXT: VkFlags = 0x00000400;
+pub const VK_IMAGE_ASPECT_PLANE_0_BIT_KHR: VkFlags = VK_IMAGE_ASPECT_PLANE_0_BIT;
+pub const VK_IMAGE_ASPECT_PLANE_1_BIT_KHR: VkFlags = VK_IMAGE_ASPECT_PLANE_1_BIT;
+pub const VK_IMAGE_ASPECT_PLANE_2_BIT_KHR: VkFlags = VK_IMAGE_ASPECT_PLANE_2_BIT;
+pub const VK_IMAGE_ASPECT_NONE_KHR: VkFlags = VK_IMAGE_ASPECT_NONE;
+pub const VK_IMAGE_ASPECT_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum VkFormat {
@@ -1897,3 +1953,29 @@ impl Default for VkPresentModeKHR {
         VK_PRESENT_MODE_IMMEDIATE_KHR
     }
 }
+
+#[repr(C)]
+pub enum VkImageViewType {
+    VK_IMAGE_VIEW_TYPE_1D = 0,
+    VK_IMAGE_VIEW_TYPE_2D = 1,
+    VK_IMAGE_VIEW_TYPE_3D = 2,
+    VK_IMAGE_VIEW_TYPE_CUBE = 3,
+    VK_IMAGE_VIEW_TYPE_1D_ARRAY = 4,
+    VK_IMAGE_VIEW_TYPE_2D_ARRAY = 5,
+    VK_IMAGE_VIEW_TYPE_CUBE_ARRAY = 6,
+    VK_IMAGE_VIEW_TYPE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkImageViewType::*;
+
+#[repr(C)]
+pub enum VkComponentSwizzle {
+    VK_COMPONENT_SWIZZLE_IDENTITY = 0,
+    VK_COMPONENT_SWIZZLE_ZERO = 1,
+    VK_COMPONENT_SWIZZLE_ONE = 2,
+    VK_COMPONENT_SWIZZLE_R = 3,
+    VK_COMPONENT_SWIZZLE_G = 4,
+    VK_COMPONENT_SWIZZLE_B = 5,
+    VK_COMPONENT_SWIZZLE_A = 6,
+    VK_COMPONENT_SWIZZLE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkComponentSwizzle::*;

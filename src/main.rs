@@ -288,7 +288,41 @@ fn main() {
         check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, swapchain_images.as_mut_ptr()));
         println!("Swapchain created with {} images", swapchain_image_count);
 
+        let mut swapchain_image_views = vec![ptr::null_mut(); swapchain_images.len()];
+        for i in 0..swapchain_image_views.len() {
+            vkCreateImageView(
+                device,
+                &VkImageViewCreateInfo {
+                    sType: VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+                    pNext: ptr::null(),
+                    flags: 0,
+                    image: swapchain_images[i],
+                    viewType: VK_IMAGE_VIEW_TYPE_2D,
+                    format: VK_FORMAT_B8G8R8A8_SRGB,
+                    components: VkComponentMapping {
+                        r: VK_COMPONENT_SWIZZLE_IDENTITY,
+                        g: VK_COMPONENT_SWIZZLE_IDENTITY,
+                        b: VK_COMPONENT_SWIZZLE_IDENTITY,
+                        a: VK_COMPONENT_SWIZZLE_IDENTITY,
+                    },
+                    subresourceRange: VkImageSubresourceRange {
+                        aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
+                        baseMipLevel: 0,
+                        levelCount: 1,
+                        baseArrayLayer: 0,
+                        layerCount: 1,
+                    },
+                },
+                ptr::null(),
+                &mut swapchain_image_views[i],
+            );
+        }
+
         // Cleanup
+        for image_view in swapchain_image_views {
+            vkDestroyImageView(device, image_view, ptr::null());
+        }
+
         vkDestroySwapchainKHR(device, swapchain, ptr::null());
 
         vkDestroyDevice(device, ptr::null());
