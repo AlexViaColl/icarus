@@ -108,6 +108,17 @@ extern "C" {
         shaderModule: VkShaderModule,
         pAllocator: *const VkAllocationCallbacks,
     );
+    pub fn vkCreatePipelineLayout(
+        device: VkDevice,
+        pCreateInfo: *const VkPipelineLayoutCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pPipelineLayout: *mut VkPipelineLayout,
+    ) -> VkResult;
+    pub fn vkDestroyPipelineLayout(
+        device: VkDevice,
+        pipelineLayout: VkPipelineLayout,
+        pAllocator: *const VkAllocationCallbacks,
+    );
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -178,6 +189,10 @@ VK_DEFINE_HANDLE!(VkPipeline_);
 pub type VkPipeline = *mut VkPipeline_;
 VK_DEFINE_HANDLE!(VkRenderPass_);
 pub type VkRenderPass = *mut VkRenderPass_;
+VK_DEFINE_HANDLE!(VkDescriptorSetLayout_);
+pub type VkDescriptorSetLayout = *mut VkDescriptorSetLayout_;
+VK_DEFINE_HANDLE!(VkSampler_);
+pub type VkSampler = *mut VkSampler_;
 VK_DEFINE_HANDLE!(VkDescriptorSet_);
 pub type VkDescriptorSet = *mut VkDescriptorSet_;
 VK_DEFINE_HANDLE!(VkDescriptorPool_);
@@ -210,6 +225,18 @@ pub type VkCompositeAlphaFlagsKHR = VkFlags;
 pub type VkImageViewCreateFlags = VkFlags;
 pub type VkImageAspectFlags = VkFlags;
 pub type VkShaderModuleCreateFlags = VkFlags;
+pub type VkPipelineShaderStageCreateFlags = VkFlags;
+pub type VkShaderStageFlags = VkFlags;
+pub type VkPipelineVertexInputStateCreateFlags = VkFlags;
+pub type VkPipelineInputAssemblyStateCreateFlags = VkFlags;
+pub type VkPipelineViewportStateCreateFlags = VkFlags;
+pub type VkPipelineRasterizationStateCreateFlags = VkFlags;
+pub type VkCullModeFlags = VkFlags;
+pub type VkPipelineMultisampleStateCreateFlags = VkFlags;
+pub type VkColorComponentFlags = VkFlags;
+pub type VkPipelineColorBlendStateCreateFlags = VkFlags;
+pub type VkPipelineDynamicStateCreateFlags = VkFlags;
+pub type VkPipelineLayoutCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -651,7 +678,7 @@ pub struct VkSwapchainCreateInfoKHR {
 }
 
 #[repr(C)]
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct VkExtent2D {
     pub width: u32,
     pub height: u32,
@@ -693,6 +720,188 @@ pub struct VkShaderModuleCreateInfo {
     pub flags: VkShaderModuleCreateFlags,
     pub codeSize: usize,
     pub pCode: *const u32,
+}
+
+#[repr(C)]
+pub struct VkPipelineShaderStageCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineShaderStageCreateFlags,
+    pub stage: VkShaderStageFlags, // VkShaderStageFlagBits
+    pub module: VkShaderModule,
+    pub pName: *const i8,
+    pub pSpecializationInfo: *const VkSpecializationInfo,
+}
+
+#[repr(C)]
+pub struct VkSpecializationInfo {
+    pub mapEntryCount: u32,
+    pub pMapEntries: *const VkSpecializationMapEntry,
+    pub dataSize: usize,
+    pub pData: *const c_void,
+}
+
+#[repr(C)]
+pub struct VkSpecializationMapEntry {
+    pub constantID: u32,
+    pub offset: u32,
+    pub size: usize,
+}
+
+#[repr(C)]
+pub struct VkPipelineVertexInputStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineVertexInputStateCreateFlags,
+    pub vertexBindingDescriptionCount: u32,
+    pub pVertexBindingDescriptions: *const VkVertexInputBindingDescription,
+    pub vertexAttributeDescriptionCount: u32,
+    pub pVertexAttributeDescriptions: *const VkVertexInputAttributeDescription,
+}
+
+#[repr(C)]
+pub struct VkVertexInputBindingDescription {
+    pub binding: u32,
+    pub stride: u32,
+    pub inputRate: VkVertexInputRate,
+}
+
+#[repr(C)]
+pub struct VkVertexInputAttributeDescription {
+    pub location: u32,
+    pub binding: u32,
+    pub format: VkFormat,
+    pub offset: u32,
+}
+
+#[repr(C)]
+pub struct VkPipelineInputAssemblyStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineInputAssemblyStateCreateFlags,
+    pub topology: VkPrimitiveTopology,
+    pub primitiveRestartEnable: VkBool32,
+}
+
+#[repr(C)]
+pub struct VkViewport {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub minDepth: f32,
+    pub maxDepth: f32,
+}
+
+#[repr(C)]
+pub struct VkRect2D {
+    pub offset: VkOffset2D,
+    pub extent: VkExtent2D,
+}
+
+#[repr(C)]
+pub struct VkOffset2D {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[repr(C)]
+pub struct VkOffset3D {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+#[repr(C)]
+pub struct VkPipelineViewportStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineViewportStateCreateFlags,
+    pub viewportCount: u32,
+    pub pViewports: *const VkViewport,
+    pub scissorCount: u32,
+    pub pScissors: *const VkRect2D,
+}
+
+#[repr(C)]
+pub struct VkPipelineRasterizationStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineRasterizationStateCreateFlags,
+    pub depthClampEnable: VkBool32,
+    pub rasterizerDiscardEnable: VkBool32,
+    pub polygonMode: VkPolygonMode,
+    pub cullMode: VkCullModeFlags,
+    pub frontFace: VkFrontFace,
+    pub depthBiasEnable: VkBool32,
+    pub depthBiasConstantFactor: f32,
+    pub depthBiasClamp: f32,
+    pub depthBiasSlopeFactor: f32,
+    pub lineWidth: f32,
+}
+
+#[repr(C)]
+pub struct VkPipelineMultisampleStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineMultisampleStateCreateFlags,
+    pub rasterizationSamples: VkSampleCountFlags, // VkSampleCountFlagBits,
+    pub sampleShadingEnable: VkBool32,
+    pub minSampleShading: f32,
+    pub pSampleMask: *const VkSampleMask,
+    pub alphaToCoverageEnable: VkBool32,
+    pub alphaToOneEnable: VkBool32,
+}
+
+#[repr(C)]
+pub struct VkPipelineColorBlendStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineColorBlendStateCreateFlags,
+    pub logicOpEnable: VkBool32,
+    pub logicOp: VkLogicOp,
+    pub attachmentCount: u32,
+    pub pAttachments: *const VkPipelineColorBlendAttachmentState,
+    pub blendConstants: [f32; 4],
+}
+
+#[repr(C)]
+pub struct VkPipelineColorBlendAttachmentState {
+    pub blendEnable: VkBool32,
+    pub srcColorBlendFactor: VkBlendFactor,
+    pub dstColorBlendFactor: VkBlendFactor,
+    pub colorBlendOp: VkBlendOp,
+    pub srcAlphaBlendFactor: VkBlendFactor,
+    pub dstAlphaBlendFactor: VkBlendFactor,
+    pub alphaBlendOp: VkBlendOp,
+    pub colorWriteMask: VkColorComponentFlags,
+}
+
+#[repr(C)]
+pub struct VkPipelineDynamicStateCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineDynamicStateCreateFlags,
+    pub dynamicStateCount: u32,
+    pub pDynamicStates: *const VkDynamicState,
+}
+
+#[repr(C)]
+pub struct VkPipelineLayoutCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineLayoutCreateFlags,
+    pub setLayoutCount: u32,
+    pub pSetLayouts: *const VkDescriptorSetLayout,
+    pub pushConstantRangeCount: u32,
+    pub pPushConstantRanges: *const VkPushConstantRange,
+}
+
+#[repr(C)]
+pub struct VkPushConstantRange {
+    pub stageFlags: VkShaderStageFlags,
+    pub offset: u32,
+    pub size: u32,
 }
 
 // Enums
@@ -1603,6 +1812,52 @@ pub const VK_IMAGE_ASPECT_PLANE_2_BIT_KHR: VkFlags = VK_IMAGE_ASPECT_PLANE_2_BIT
 pub const VK_IMAGE_ASPECT_NONE_KHR: VkFlags = VK_IMAGE_ASPECT_NONE;
 pub const VK_IMAGE_ASPECT_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
 
+pub const VK_SHADER_STAGE_VERTEX_BIT: VkFlags = 0x00000001;
+pub const VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT: VkFlags = 0x00000002;
+pub const VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT: VkFlags = 0x00000004;
+pub const VK_SHADER_STAGE_GEOMETRY_BIT: VkFlags = 0x00000008;
+pub const VK_SHADER_STAGE_FRAGMENT_BIT: VkFlags = 0x00000010;
+pub const VK_SHADER_STAGE_COMPUTE_BIT: VkFlags = 0x00000020;
+pub const VK_SHADER_STAGE_ALL_GRAPHICS: VkFlags = 0x0000001F;
+pub const VK_SHADER_STAGE_ALL: VkFlags = 0x7FFFFFFF;
+pub const VK_SHADER_STAGE_RAYGEN_BIT_KHR: VkFlags = 0x00000100;
+pub const VK_SHADER_STAGE_ANY_HIT_BIT_KHR: VkFlags = 0x00000200;
+pub const VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR: VkFlags = 0x00000400;
+pub const VK_SHADER_STAGE_MISS_BIT_KHR: VkFlags = 0x00000800;
+pub const VK_SHADER_STAGE_INTERSECTION_BIT_KHR: VkFlags = 0x00001000;
+pub const VK_SHADER_STAGE_CALLABLE_BIT_KHR: VkFlags = 0x00002000;
+pub const VK_SHADER_STAGE_TASK_BIT_NV: VkFlags = 0x00000040;
+pub const VK_SHADER_STAGE_MESH_BIT_NV: VkFlags = 0x00000080;
+pub const VK_SHADER_STAGE_SUBPASS_SHADING_BIT_HUAWEI: VkFlags = 0x00004000;
+pub const VK_SHADER_STAGE_RAYGEN_BIT_NV: VkFlags = VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+pub const VK_SHADER_STAGE_ANY_HIT_BIT_NV: VkFlags = VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+pub const VK_SHADER_STAGE_CLOSEST_HIT_BIT_NV: VkFlags = VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+pub const VK_SHADER_STAGE_MISS_BIT_NV: VkFlags = VK_SHADER_STAGE_MISS_BIT_KHR;
+pub const VK_SHADER_STAGE_INTERSECTION_BIT_NV: VkFlags = VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+pub const VK_SHADER_STAGE_CALLABLE_BIT_NV: VkFlags = VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+pub const VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_CULL_MODE_NONE: VkFlags = 0;
+pub const VK_CULL_MODE_FRONT_BIT: VkFlags = 0x00000001;
+pub const VK_CULL_MODE_BACK_BIT: VkFlags = 0x00000002;
+pub const VK_CULL_MODE_FRONT_AND_BACK: VkFlags = 0x00000003;
+pub const VK_CULL_MODE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_SAMPLE_COUNT_1_BIT: VkFlags = 0x00000001;
+pub const VK_SAMPLE_COUNT_2_BIT: VkFlags = 0x00000002;
+pub const VK_SAMPLE_COUNT_4_BIT: VkFlags = 0x00000004;
+pub const VK_SAMPLE_COUNT_8_BIT: VkFlags = 0x00000008;
+pub const VK_SAMPLE_COUNT_16_BIT: VkFlags = 0x00000010;
+pub const VK_SAMPLE_COUNT_32_BIT: VkFlags = 0x00000020;
+pub const VK_SAMPLE_COUNT_64_BIT: VkFlags = 0x00000040;
+pub const VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_COLOR_COMPONENT_R_BIT: VkFlags = 0x00000001;
+pub const VK_COLOR_COMPONENT_G_BIT: VkFlags = 0x00000002;
+pub const VK_COLOR_COMPONENT_B_BIT: VkFlags = 0x00000004;
+pub const VK_COLOR_COMPONENT_A_BIT: VkFlags = 0x00000008;
+pub const VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum VkFormat {
@@ -2000,3 +2255,208 @@ pub enum VkComponentSwizzle {
     VK_COMPONENT_SWIZZLE_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkComponentSwizzle::*;
+
+#[repr(C)]
+pub enum VkVertexInputRate {
+    VK_VERTEX_INPUT_RATE_VERTEX = 0,
+    VK_VERTEX_INPUT_RATE_INSTANCE = 1,
+    VK_VERTEX_INPUT_RATE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkVertexInputRate::*;
+
+#[repr(C)]
+pub enum VkPrimitiveTopology {
+    VK_PRIMITIVE_TOPOLOGY_POINT_LIST = 0,
+    VK_PRIMITIVE_TOPOLOGY_LINE_LIST = 1,
+    VK_PRIMITIVE_TOPOLOGY_LINE_STRIP = 2,
+    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST = 3,
+    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP = 4,
+    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_FAN = 5,
+    VK_PRIMITIVE_TOPOLOGY_LINE_LIST_WITH_ADJACENCY = 6,
+    VK_PRIMITIVE_TOPOLOGY_LINE_STRIP_WITH_ADJACENCY = 7,
+    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST_WITH_ADJACENCY = 8,
+    VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP_WITH_ADJACENCY = 9,
+    VK_PRIMITIVE_TOPOLOGY_PATCH_LIST = 10,
+    VK_PRIMITIVE_TOPOLOGY_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkPrimitiveTopology::*;
+
+#[repr(C)]
+pub enum VkPolygonMode {
+    VK_POLYGON_MODE_FILL = 0,
+    VK_POLYGON_MODE_LINE = 1,
+    VK_POLYGON_MODE_POINT = 2,
+    VK_POLYGON_MODE_FILL_RECTANGLE_NV = 1000153000,
+    VK_POLYGON_MODE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkPolygonMode::*;
+
+#[repr(C)]
+pub enum VkFrontFace {
+    VK_FRONT_FACE_COUNTER_CLOCKWISE = 0,
+    VK_FRONT_FACE_CLOCKWISE = 1,
+    VK_FRONT_FACE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkFrontFace::*;
+
+#[repr(C)]
+pub enum VkBlendFactor {
+    VK_BLEND_FACTOR_ZERO = 0,
+    VK_BLEND_FACTOR_ONE = 1,
+    VK_BLEND_FACTOR_SRC_COLOR = 2,
+    VK_BLEND_FACTOR_ONE_MINUS_SRC_COLOR = 3,
+    VK_BLEND_FACTOR_DST_COLOR = 4,
+    VK_BLEND_FACTOR_ONE_MINUS_DST_COLOR = 5,
+    VK_BLEND_FACTOR_SRC_ALPHA = 6,
+    VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA = 7,
+    VK_BLEND_FACTOR_DST_ALPHA = 8,
+    VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA = 9,
+    VK_BLEND_FACTOR_CONSTANT_COLOR = 10,
+    VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR = 11,
+    VK_BLEND_FACTOR_CONSTANT_ALPHA = 12,
+    VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA = 13,
+    VK_BLEND_FACTOR_SRC_ALPHA_SATURATE = 14,
+    VK_BLEND_FACTOR_SRC1_COLOR = 15,
+    VK_BLEND_FACTOR_ONE_MINUS_SRC1_COLOR = 16,
+    VK_BLEND_FACTOR_SRC1_ALPHA = 17,
+    VK_BLEND_FACTOR_ONE_MINUS_SRC1_ALPHA = 18,
+    VK_BLEND_FACTOR_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkBlendFactor::*;
+
+#[repr(C)]
+pub enum VkBlendOp {
+    VK_BLEND_OP_ADD = 0,
+    VK_BLEND_OP_SUBTRACT = 1,
+    VK_BLEND_OP_REVERSE_SUBTRACT = 2,
+    VK_BLEND_OP_MIN = 3,
+    VK_BLEND_OP_MAX = 4,
+    VK_BLEND_OP_ZERO_EXT = 1000148000,
+    VK_BLEND_OP_SRC_EXT = 1000148001,
+    VK_BLEND_OP_DST_EXT = 1000148002,
+    VK_BLEND_OP_SRC_OVER_EXT = 1000148003,
+    VK_BLEND_OP_DST_OVER_EXT = 1000148004,
+    VK_BLEND_OP_SRC_IN_EXT = 1000148005,
+    VK_BLEND_OP_DST_IN_EXT = 1000148006,
+    VK_BLEND_OP_SRC_OUT_EXT = 1000148007,
+    VK_BLEND_OP_DST_OUT_EXT = 1000148008,
+    VK_BLEND_OP_SRC_ATOP_EXT = 1000148009,
+    VK_BLEND_OP_DST_ATOP_EXT = 1000148010,
+    VK_BLEND_OP_XOR_EXT = 1000148011,
+    VK_BLEND_OP_MULTIPLY_EXT = 1000148012,
+    VK_BLEND_OP_SCREEN_EXT = 1000148013,
+    VK_BLEND_OP_OVERLAY_EXT = 1000148014,
+    VK_BLEND_OP_DARKEN_EXT = 1000148015,
+    VK_BLEND_OP_LIGHTEN_EXT = 1000148016,
+    VK_BLEND_OP_COLORDODGE_EXT = 1000148017,
+    VK_BLEND_OP_COLORBURN_EXT = 1000148018,
+    VK_BLEND_OP_HARDLIGHT_EXT = 1000148019,
+    VK_BLEND_OP_SOFTLIGHT_EXT = 1000148020,
+    VK_BLEND_OP_DIFFERENCE_EXT = 1000148021,
+    VK_BLEND_OP_EXCLUSION_EXT = 1000148022,
+    VK_BLEND_OP_INVERT_EXT = 1000148023,
+    VK_BLEND_OP_INVERT_RGB_EXT = 1000148024,
+    VK_BLEND_OP_LINEARDODGE_EXT = 1000148025,
+    VK_BLEND_OP_LINEARBURN_EXT = 1000148026,
+    VK_BLEND_OP_VIVIDLIGHT_EXT = 1000148027,
+    VK_BLEND_OP_LINEARLIGHT_EXT = 1000148028,
+    VK_BLEND_OP_PINLIGHT_EXT = 1000148029,
+    VK_BLEND_OP_HARDMIX_EXT = 1000148030,
+    VK_BLEND_OP_HSL_HUE_EXT = 1000148031,
+    VK_BLEND_OP_HSL_SATURATION_EXT = 1000148032,
+    VK_BLEND_OP_HSL_COLOR_EXT = 1000148033,
+    VK_BLEND_OP_HSL_LUMINOSITY_EXT = 1000148034,
+    VK_BLEND_OP_PLUS_EXT = 1000148035,
+    VK_BLEND_OP_PLUS_CLAMPED_EXT = 1000148036,
+    VK_BLEND_OP_PLUS_CLAMPED_ALPHA_EXT = 1000148037,
+    VK_BLEND_OP_PLUS_DARKER_EXT = 1000148038,
+    VK_BLEND_OP_MINUS_EXT = 1000148039,
+    VK_BLEND_OP_MINUS_CLAMPED_EXT = 1000148040,
+    VK_BLEND_OP_CONTRAST_EXT = 1000148041,
+    VK_BLEND_OP_INVERT_OVG_EXT = 1000148042,
+    VK_BLEND_OP_RED_EXT = 1000148043,
+    VK_BLEND_OP_GREEN_EXT = 1000148044,
+    VK_BLEND_OP_BLUE_EXT = 1000148045,
+    VK_BLEND_OP_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkBlendOp::*;
+
+#[repr(C)]
+pub enum VkLogicOp {
+    VK_LOGIC_OP_CLEAR = 0,
+    VK_LOGIC_OP_AND = 1,
+    VK_LOGIC_OP_AND_REVERSE = 2,
+    VK_LOGIC_OP_COPY = 3,
+    VK_LOGIC_OP_AND_INVERTED = 4,
+    VK_LOGIC_OP_NO_OP = 5,
+    VK_LOGIC_OP_XOR = 6,
+    VK_LOGIC_OP_OR = 7,
+    VK_LOGIC_OP_NOR = 8,
+    VK_LOGIC_OP_EQUIVALENT = 9,
+    VK_LOGIC_OP_INVERT = 10,
+    VK_LOGIC_OP_OR_REVERSE = 11,
+    VK_LOGIC_OP_COPY_INVERTED = 12,
+    VK_LOGIC_OP_OR_INVERTED = 13,
+    VK_LOGIC_OP_NAND = 14,
+    VK_LOGIC_OP_SET = 15,
+    VK_LOGIC_OP_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkLogicOp::*;
+
+#[repr(C)]
+pub enum VkDynamicState {
+    VK_DYNAMIC_STATE_VIEWPORT = 0,
+    VK_DYNAMIC_STATE_SCISSOR = 1,
+    VK_DYNAMIC_STATE_LINE_WIDTH = 2,
+    VK_DYNAMIC_STATE_DEPTH_BIAS = 3,
+    VK_DYNAMIC_STATE_BLEND_CONSTANTS = 4,
+    VK_DYNAMIC_STATE_DEPTH_BOUNDS = 5,
+    VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK = 6,
+    VK_DYNAMIC_STATE_STENCIL_WRITE_MASK = 7,
+    VK_DYNAMIC_STATE_STENCIL_REFERENCE = 8,
+    VK_DYNAMIC_STATE_CULL_MODE = 1000267000,
+    VK_DYNAMIC_STATE_FRONT_FACE = 1000267001,
+    VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY = 1000267002,
+    VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT = 1000267003,
+    VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT = 1000267004,
+    VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE = 1000267005,
+    VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE = 1000267006,
+    VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE = 1000267007,
+    VK_DYNAMIC_STATE_DEPTH_COMPARE_OP = 1000267008,
+    VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE = 1000267009,
+    VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE = 1000267010,
+    VK_DYNAMIC_STATE_STENCIL_OP = 1000267011,
+    VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE = 1000377001,
+    VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE = 1000377002,
+    VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE = 1000377004,
+    VK_DYNAMIC_STATE_VIEWPORT_W_SCALING_NV = 1000087000,
+    VK_DYNAMIC_STATE_DISCARD_RECTANGLE_EXT = 1000099000,
+    VK_DYNAMIC_STATE_SAMPLE_LOCATIONS_EXT = 1000143000,
+    VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR = 1000347000,
+    VK_DYNAMIC_STATE_VIEWPORT_SHADING_RATE_PALETTE_NV = 1000164004,
+    VK_DYNAMIC_STATE_VIEWPORT_COARSE_SAMPLE_ORDER_NV = 1000164006,
+    VK_DYNAMIC_STATE_EXCLUSIVE_SCISSOR_NV = 1000205001,
+    VK_DYNAMIC_STATE_FRAGMENT_SHADING_RATE_KHR = 1000226000,
+    VK_DYNAMIC_STATE_LINE_STIPPLE_EXT = 1000259000,
+    VK_DYNAMIC_STATE_VERTEX_INPUT_EXT = 1000352000,
+    VK_DYNAMIC_STATE_PATCH_CONTROL_POINTS_EXT = 1000377000,
+    VK_DYNAMIC_STATE_LOGIC_OP_EXT = 1000377003,
+    VK_DYNAMIC_STATE_COLOR_WRITE_ENABLE_EXT = 1000381000,
+    //    VK_DYNAMIC_STATE_CULL_MODE_EXT = VK_DYNAMIC_STATE_CULL_MODE,
+    //    VK_DYNAMIC_STATE_FRONT_FACE_EXT = VK_DYNAMIC_STATE_FRONT_FACE,
+    //    VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY_EXT = VK_DYNAMIC_STATE_PRIMITIVE_TOPOLOGY,
+    //    VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT_EXT = VK_DYNAMIC_STATE_VIEWPORT_WITH_COUNT,
+    //    VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT_EXT = VK_DYNAMIC_STATE_SCISSOR_WITH_COUNT,
+    //    VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE_EXT = VK_DYNAMIC_STATE_VERTEX_INPUT_BINDING_STRIDE,
+    //    VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT = VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE,
+    //    VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT = VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE,
+    //    VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT = VK_DYNAMIC_STATE_DEPTH_COMPARE_OP,
+    //    VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT = VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE,
+    //    VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT = VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE,
+    //    VK_DYNAMIC_STATE_STENCIL_OP_EXT = VK_DYNAMIC_STATE_STENCIL_OP,
+    //    VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE_EXT = VK_DYNAMIC_STATE_RASTERIZER_DISCARD_ENABLE,
+    //    VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE_EXT = VK_DYNAMIC_STATE_DEPTH_BIAS_ENABLE,
+    //    VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE_EXT = VK_DYNAMIC_STATE_PRIMITIVE_RESTART_ENABLE,
+    VK_DYNAMIC_STATE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkDynamicState::*;

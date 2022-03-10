@@ -351,7 +351,143 @@ fn main() {
             &mut fs_shader_module
         ));
 
+        let _shader_stages = [
+            VkPipelineShaderStageCreateInfo {
+                sType: VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                stage: VK_SHADER_STAGE_VERTEX_BIT,
+                module: vs_shader_module,
+                pName: b"main\0".as_ptr() as *const i8,
+                pSpecializationInfo: ptr::null(),
+            },
+            VkPipelineShaderStageCreateInfo {
+                sType: VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                stage: VK_SHADER_STAGE_FRAGMENT_BIT,
+                module: fs_shader_module,
+                pName: b"main\0".as_ptr() as *const i8,
+                pSpecializationInfo: ptr::null(),
+            },
+        ];
+
+        let _vertex_input_info = VkPipelineVertexInputStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            vertexBindingDescriptionCount: 0,
+            pVertexBindingDescriptions: ptr::null(),
+            vertexAttributeDescriptionCount: 0,
+            pVertexAttributeDescriptions: ptr::null(),
+        };
+        let _input_assembly = VkPipelineInputAssemblyStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            topology: VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            primitiveRestartEnable: VK_FALSE,
+        };
+        let viewport = VkViewport {
+            x: 0.0,
+            y: 0.0,
+            width: surface_caps.currentExtent.width as f32,
+            height: surface_caps.currentExtent.height as f32,
+            minDepth: 0.0,
+            maxDepth: 1.0,
+        };
+        let scissor = VkRect2D {
+            offset: VkOffset2D {
+                x: 0,
+                y: 0,
+            },
+            extent: surface_caps.currentExtent,
+        };
+        let _viewport_state = VkPipelineViewportStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            viewportCount: 1,
+            pViewports: &viewport,
+            scissorCount: 1,
+            pScissors: &scissor,
+        };
+        let _rasterizer = VkPipelineRasterizationStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            depthClampEnable: VK_FALSE,
+            rasterizerDiscardEnable: VK_FALSE,
+            polygonMode: VK_POLYGON_MODE_FILL,
+            cullMode: VK_CULL_MODE_BACK_BIT,
+            frontFace: VK_FRONT_FACE_CLOCKWISE,
+            depthBiasEnable: VK_FALSE,
+            depthBiasConstantFactor: 0.0,
+            depthBiasClamp: 0.0,
+            depthBiasSlopeFactor: 0.0,
+            lineWidth: 1.0,
+        };
+        let _multisampling = VkPipelineMultisampleStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            rasterizationSamples: VK_SAMPLE_COUNT_1_BIT,
+            sampleShadingEnable: VK_FALSE,
+            minSampleShading: 1.0,
+            pSampleMask: ptr::null(),
+            alphaToCoverageEnable: VK_FALSE,
+            alphaToOneEnable: VK_FALSE,
+        };
+        let _color_blending = VkPipelineColorBlendStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            logicOpEnable: VK_FALSE,
+            logicOp: VK_LOGIC_OP_COPY,
+            attachmentCount: 1,
+            pAttachments: &VkPipelineColorBlendAttachmentState {
+                blendEnable: VK_TRUE,
+                srcColorBlendFactor: VK_BLEND_FACTOR_SRC_ALPHA,
+                dstColorBlendFactor: VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                colorBlendOp: VK_BLEND_OP_ADD,
+                srcAlphaBlendFactor: VK_BLEND_FACTOR_ONE,
+                dstAlphaBlendFactor: VK_BLEND_FACTOR_ZERO,
+                alphaBlendOp: VK_BLEND_OP_ADD,
+                colorWriteMask: VK_COLOR_COMPONENT_R_BIT
+                    | VK_COLOR_COMPONENT_G_BIT
+                    | VK_COLOR_COMPONENT_B_BIT
+                    | VK_COLOR_COMPONENT_A_BIT,
+            },
+            blendConstants: [0.0; 4],
+        };
+        // We can specify a few properties dynamically without having to recreate the pipeline.
+        let _dynamic_state = VkPipelineDynamicStateCreateInfo {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+            dynamicStateCount: 2,
+            pDynamicStates: [VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_LINE_WIDTH].as_ptr(),
+        };
+
+        let mut pipeline_layout = ptr::null_mut();
+        check!(vkCreatePipelineLayout(
+            device,
+            &VkPipelineLayoutCreateInfo {
+                sType: VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                setLayoutCount: 0,
+                pSetLayouts: ptr::null(),
+                pushConstantRangeCount: 0,
+                pPushConstantRanges: ptr::null(),
+            },
+            ptr::null(),
+            &mut pipeline_layout
+        ));
+
         // Cleanup
+        vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
+
         vkDestroyShaderModule(device, fs_shader_module, ptr::null());
         vkDestroyShaderModule(device, vs_shader_module, ptr::null());
 
