@@ -160,10 +160,12 @@ fn main() {
             let mut queue_families = vec![VkQueueFamilyProperties::default(); queue_family_count as usize];
             vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
             // println!("{:#?}", queue_families);
-            for (_index, queue_family) in queue_families.iter().enumerate() {
+            for (index, queue_family) in queue_families.iter().enumerate() {
                 if (*queue_family).queueFlags & VK_QUEUE_GRAPHICS_BIT != 0 {
-                    // println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", _index);
+                    // println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", index);
                 }
+                let mut present_support = 0;
+                vkGetPhysicalDeviceSurfaceSupportKHR(*device, index as u32, surface, &mut present_support);
             }
         }
         // TODO: Score physical devices and pick the "best" one.
@@ -172,6 +174,12 @@ fn main() {
         let physical_device = physical_devices[0]; // Pick the first physical device for now.
 
         let graphics_family_index = 0; // TODO: Actually grab this
+
+        let mut present_support = 0;
+        vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, graphics_family_index, surface, &mut present_support);
+        if present_support != 0 {
+            println!("Queue supports presentation and graphics operations.");
+        }
 
         let mut device = ptr::null_mut();
         check!(vkCreateDevice(
@@ -192,19 +200,91 @@ fn main() {
                 .as_ptr(),
                 enabledLayerCount: 0,
                 ppEnabledLayerNames: ptr::null(),
-                enabledExtensionCount: 0,
-                ppEnabledExtensionNames: ptr::null(),
+                enabledExtensionCount: 1,
+                // TODO: Check that extension is actually supported
+                ppEnabledExtensionNames: [VK_KHR_SWAPCHAIN_EXTENSION_NAME].as_ptr(),
                 pEnabledFeatures: &VkPhysicalDeviceFeatures::default(),
             },
             ptr::null(),
             &mut device,
         ));
 
+        // We are assuming this queue supports presentation to the surface as well!
         let mut graphics_queue = ptr::null_mut();
         vkGetDeviceQueue(device, graphics_family_index, 0, &mut graphics_queue);
-        println!("Queue: {:?}", graphics_queue);
+
+        let mut surface_caps = VkSurfaceCapabilitiesKHR::default();
+        check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &mut surface_caps));
+        println!("{:#?}", surface_caps);
+
+        let mut surface_formats_count = 0;
+        check!(vkGetPhysicalDeviceSurfaceFormatsKHR(
+            physical_device,
+            surface,
+            &mut surface_formats_count,
+            ptr::null_mut()
+        ));
+        let mut surface_formats = vec![VkSurfaceFormatKHR::default(); surface_formats_count as usize];
+        check!(vkGetPhysicalDeviceSurfaceFormatsKHR(
+            physical_device,
+            surface,
+            &mut surface_formats_count,
+            surface_formats.as_mut_ptr()
+        ));
+        println!("{:#?}", surface_formats);
+
+        let mut surface_present_modes_count = 0;
+        check!(vkGetPhysicalDeviceSurfacePresentModesKHR(
+            physical_device,
+            surface,
+            &mut surface_present_modes_count,
+            ptr::null_mut()
+        ));
+        let mut surface_present_modes = vec![VkPresentModeKHR::default(); surface_present_modes_count as usize];
+        check!(vkGetPhysicalDeviceSurfacePresentModesKHR(
+            physical_device,
+            surface,
+            &mut surface_present_modes_count,
+            surface_present_modes.as_mut_ptr()
+        ));
+        println!("{:#?}", surface_present_modes);
+
+        assert!(surface_formats.contains(&VkSurfaceFormatKHR {
+            format: VK_FORMAT_B8G8R8A8_SRGB,
+            colorSpace: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+        }));
+        assert!(surface_present_modes.contains(&VK_PRESENT_MODE_MAILBOX_KHR));
+
+        let mut swapchain = ptr::null_mut();
+        check!(vkCreateSwapchainKHR(
+            device,
+            &VkSwapchainCreateInfoKHR {
+                sType: VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+                pNext: ptr::null(),
+                flags: 0,
+                surface,
+                minImageCount: surface_caps.minImageCount + 1,
+                imageFormat: VK_FORMAT_B8G8R8A8_SRGB,
+                imageColorSpace: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                imageExtent: surface_caps.currentExtent,
+                imageArrayLayers: 1,
+                imageUsage: VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                imageSharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                queueFamilyIndexCount: 0,
+                pQueueFamilyIndices: ptr::null(),
+                preTransform: surface_caps.currentTransform,
+                compositeAlpha: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+                presentMode: VK_PRESENT_MODE_MAILBOX_KHR,
+                clipped: VK_TRUE,
+                oldSwapchain: ptr::null_mut(),
+            },
+            ptr::null(),
+            &mut swapchain
+        ));
 
         // Cleanup
+        vkDestroySwapchainKHR(device, swapchain, ptr::null());
+
         vkDestroyDevice(device, ptr::null());
 
         // destroy debug_messenger
