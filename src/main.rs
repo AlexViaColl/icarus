@@ -603,6 +603,27 @@ fn main() {
             &mut command_buffer
         ));
 
+        let mut image_available_semaphore = ptr::null_mut();
+        let mut render_finished_semaphore = ptr::null_mut();
+        let mut in_flight_fence = ptr::null_mut();
+        let semaphore_create_info = VkSemaphoreCreateInfo {
+            sType: VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0,
+        };
+        check!(vkCreateSemaphore(device, &semaphore_create_info, ptr::null(), &mut image_available_semaphore));
+        check!(vkCreateSemaphore(device, &semaphore_create_info, ptr::null(), &mut render_finished_semaphore));
+        check!(vkCreateFence(
+            device,
+            &VkFenceCreateInfo {
+                sType: VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+            },
+            ptr::null(),
+            &mut in_flight_fence
+        ));
+
         // Record command buffer
         let image_index = 0;
         check!(vkBeginCommandBuffer(
@@ -672,9 +693,14 @@ fn main() {
                     _ => {}
                 }
             }
+
+            // draw
         }
 
         // Cleanup
+        vkDestroyFence(device, in_flight_fence, ptr::null());
+        vkDestroySemaphore(device, render_finished_semaphore, ptr::null());
+        vkDestroySemaphore(device, image_available_semaphore, ptr::null());
         vkDestroyCommandPool(device, command_pool, ptr::null());
         for framebuffer in framebuffers {
             vkDestroyFramebuffer(device, framebuffer, ptr::null());

@@ -154,6 +154,28 @@ extern "C" {
         pAllocateInfo: *const VkCommandBufferAllocateInfo,
         pCommandBuffers: *mut VkCommandBuffer,
     ) -> VkResult;
+    pub fn vkCreateSemaphore(
+        device: VkDevice,
+        pCreateInfo: *const VkSemaphoreCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pSemaphore: *mut VkSemaphore,
+    ) -> VkResult;
+    pub fn vkDestroySemaphore(device: VkDevice, semaphore: VkSemaphore, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateFence(
+        device: VkDevice,
+        pCreateInfo: *const VkFenceCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pFence: *mut VkFence,
+    ) -> VkResult;
+    pub fn vkDestroyFence(device: VkDevice, fence: VkFence, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkWaitForFences(
+        device: VkDevice,
+        fenceCount: u32,
+        pFences: *const VkFence,
+        waitAll: VkBool32,
+        timeout: u64,
+    ) -> VkResult;
+    pub fn vkResetFences(device: VkDevice, fenceCount: u32, pFences: *const VkFence);
     pub fn vkBeginCommandBuffer(
         commandBuffer: VkCommandBuffer,
         pBeginInfo: *const VkCommandBufferBeginInfo,
@@ -309,6 +331,8 @@ pub type VkCommandPoolCreateFlags = VkFlags;
 pub type VkCommandBufferUsageFlags = VkFlags;
 pub type VkQueryControlFlags = VkFlags;
 pub type VkQueryPipelineStatisticsFlags = VkFlags;
+pub type VkSemaphoreCreateFlags = VkFlags;
+pub type VkFenceCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -1116,6 +1140,20 @@ pub struct VkCommandBufferInheritanceInfo {
     pub occlusionQueryEnable: VkBool32,
     pub queryFlags: VkQueryControlFlags,
     pub pipelineStatistics: VkQueryPipelineStatisticsFlags,
+}
+
+#[repr(C)]
+pub struct VkSemaphoreCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkSemaphoreCreateFlags,
+}
+
+#[repr(C)]
+pub struct VkFenceCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkFenceCreateFlags,
 }
 
 #[repr(C)]
