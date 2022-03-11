@@ -577,6 +577,33 @@ fn main() {
             ));
         }
 
+        // Main loop
+        let mut running = true;
+        while running {
+            while XPending(display) > 0 {
+                let mut event = XEvent {
+                    pad: [0; 24],
+                };
+                XNextEvent(display, &mut event);
+                match event.ttype {
+                    KeyPress => {
+                        let keysym = XLookupKeysym(&mut event.xkey, 0);
+                        let event = event.xkey;
+                        println!("KeySym: {} / KeyCode: {}", keysym, event.keycode);
+                        match event.keycode {
+                            9 => running = false,
+                            n => println!("Keycode: {}", n),
+                        }
+                    }
+                    Expose => {
+                        // let gc = XDefaultGC(display, screen);
+                        // XFillRectangle(display, window, gc, 20, 20, 10, 10);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         // Cleanup
         for framebuffer in framebuffers {
             vkDestroyFramebuffer(device, framebuffer, ptr::null());
@@ -604,36 +631,9 @@ fn main() {
 
         vkDestroySurfaceKHR(instance, surface, ptr::null());
 
-        vkDestroyInstance(instance, ptr::null());
-        process::exit(1);
-
-        let mut running = true;
-        while running {
-            while XPending(display) > 0 {
-                let mut event = XEvent {
-                    pad: [0; 24],
-                };
-                XNextEvent(display, &mut event);
-                match event.ttype {
-                    KeyPress => {
-                        let keysym = XLookupKeysym(&mut event.xkey, 0);
-                        let event = event.xkey;
-                        println!("KeySym: {} / KeyCode: {}", keysym, event.keycode);
-                        match event.keycode {
-                            9 => running = false,
-                            n => println!("Keycode: {}", n),
-                        }
-                    }
-                    Expose => {
-                        // let gc = XDefaultGC(display, screen);
-                        // XFillRectangle(display, window, gc, 20, 20, 10, 10);
-                    }
-                    _ => {}
-                }
-            }
-        }
-
+        // We need to close the display before destroying the vulkan instance to avoid segfaults!
         XCloseDisplay(display);
+        vkDestroyInstance(instance, ptr::null());
     };
 }
 
