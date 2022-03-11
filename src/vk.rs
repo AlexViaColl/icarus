@@ -142,6 +142,18 @@ extern "C" {
         pFramebuffer: *mut VkFramebuffer,
     ) -> VkResult;
     pub fn vkDestroyFramebuffer(device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateCommandPool(
+        device: VkDevice,
+        pCreateInfo: *const VkCommandPoolCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pCommandPool: *mut VkCommandPool,
+    ) -> VkResult;
+    pub fn vkDestroyCommandPool(device: VkDevice, commandPool: VkCommandPool, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkAllocateCommandBuffers(
+        device: VkDevice,
+        pAllocateInfo: *const VkCommandBufferAllocateInfo,
+        pCommandBuffers: *mut VkCommandBuffer,
+    ) -> VkResult;
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -268,6 +280,7 @@ pub type VkAccessFlags = VkFlags;
 pub type VkDependencyFlags = VkFlags;
 pub type VkPipelineCreateFlags = VkFlags;
 pub type VkFramebufferCreateFlags = VkFlags;
+pub type VkCommandPoolCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -1038,6 +1051,23 @@ pub struct VkFramebufferCreateInfo {
     pub width: u32,
     pub height: u32,
     pub layers: u32,
+}
+
+#[repr(C)]
+pub struct VkCommandPoolCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkCommandPoolCreateFlags,
+    pub queueFamilyIndex: u32,
+}
+
+#[repr(C)]
+pub struct VkCommandBufferAllocateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub commandPool: VkCommandPool,
+    pub level: VkCommandBufferLevel,
+    pub commandBufferCount: u32,
 }
 
 // Enums
@@ -1994,6 +2024,11 @@ pub const VK_COLOR_COMPONENT_B_BIT: VkFlags = 0x00000004;
 pub const VK_COLOR_COMPONENT_A_BIT: VkFlags = 0x00000008;
 pub const VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
 
+pub const VK_COMMAND_POOL_CREATE_TRANSIENT_BIT: VkFlags = 0x00000001;
+pub const VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT: VkFlags = 0x00000002;
+pub const VK_COMMAND_POOL_CREATE_PROTECTED_BIT: VkFlags = 0x00000004;
+pub const VK_COMMAND_POOL_CREATE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum VkFormat {
@@ -2673,3 +2708,11 @@ pub enum VkPipelineBindPoint {
     VK_PIPELINE_BIND_POINT_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkPipelineBindPoint::*;
+
+#[repr(C)]
+pub enum VkCommandBufferLevel {
+    VK_COMMAND_BUFFER_LEVEL_PRIMARY = 0,
+    VK_COMMAND_BUFFER_LEVEL_SECONDARY = 1,
+    VK_COMMAND_BUFFER_LEVEL_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkCommandBufferLevel::*;

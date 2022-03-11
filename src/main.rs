@@ -577,6 +577,32 @@ fn main() {
             ));
         }
 
+        let mut command_pool = ptr::null_mut();
+        check!(vkCreateCommandPool(
+            device,
+            &VkCommandPoolCreateInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+                queueFamilyIndex: graphics_family_index,
+            },
+            ptr::null(),
+            &mut command_pool
+        ));
+
+        let mut command_buffer = ptr::null_mut();
+        check!(vkAllocateCommandBuffers(
+            device,
+            &VkCommandBufferAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                commandPool: command_pool,
+                level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                commandBufferCount: 1,
+            },
+            &mut command_buffer
+        ));
+
         // Main loop
         let mut running = true;
         while running {
@@ -605,6 +631,7 @@ fn main() {
         }
 
         // Cleanup
+        vkDestroyCommandPool(device, command_pool, ptr::null());
         for framebuffer in framebuffers {
             vkDestroyFramebuffer(device, framebuffer, ptr::null());
         }
