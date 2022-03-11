@@ -154,6 +154,31 @@ extern "C" {
         pAllocateInfo: *const VkCommandBufferAllocateInfo,
         pCommandBuffers: *mut VkCommandBuffer,
     ) -> VkResult;
+    pub fn vkBeginCommandBuffer(
+        commandBuffer: VkCommandBuffer,
+        pBeginInfo: *const VkCommandBufferBeginInfo,
+    ) -> VkResult;
+    pub fn vkEndCommandBuffer(commandBuffer: VkCommandBuffer) -> VkResult;
+
+    // Commands
+    pub fn vkCmdBeginRenderPass(
+        commandBuffer: VkCommandBuffer,
+        pRenderPassBegin: *const VkRenderPassBeginInfo,
+        contents: VkSubpassContents,
+    );
+    pub fn vkCmdBindPipeline(
+        commandBuffer: VkCommandBuffer,
+        pipelineBindPoint: VkPipelineBindPoint,
+        pipeline: VkPipeline,
+    );
+    pub fn vkCmdDraw(
+        commandBuffer: VkCommandBuffer,
+        vertexCount: u32,
+        instanceCount: u32,
+        firstVertex: u32,
+        firstInstance: u32,
+    );
+    pub fn vkCmdEndRenderPass(commandBuffer: VkCommandBuffer);
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -281,6 +306,9 @@ pub type VkDependencyFlags = VkFlags;
 pub type VkPipelineCreateFlags = VkFlags;
 pub type VkFramebufferCreateFlags = VkFlags;
 pub type VkCommandPoolCreateFlags = VkFlags;
+pub type VkCommandBufferUsageFlags = VkFlags;
+pub type VkQueryControlFlags = VkFlags;
+pub type VkQueryPipelineStatisticsFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -1068,6 +1096,59 @@ pub struct VkCommandBufferAllocateInfo {
     pub commandPool: VkCommandPool,
     pub level: VkCommandBufferLevel,
     pub commandBufferCount: u32,
+}
+
+#[repr(C)]
+pub struct VkCommandBufferBeginInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkCommandBufferUsageFlags,
+    pub pInheritanceInfo: *const VkCommandBufferInheritanceInfo,
+}
+
+#[repr(C)]
+pub struct VkCommandBufferInheritanceInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub renderPass: VkRenderPass,
+    pub subpass: u32,
+    pub framebuffer: VkFramebuffer,
+    pub occlusionQueryEnable: VkBool32,
+    pub queryFlags: VkQueryControlFlags,
+    pub pipelineStatistics: VkQueryPipelineStatisticsFlags,
+}
+
+#[repr(C)]
+pub struct VkRenderPassBeginInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub renderPass: VkRenderPass,
+    pub framebuffer: VkFramebuffer,
+    pub renderArea: VkRect2D,
+    pub clearValueCount: u32,
+    pub pClearValues: *const VkClearValue,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub struct VkClearDepthStencilValue {
+    pub depth: f32,
+    pub stencil: u32,
+}
+
+// Unions
+#[repr(C)]
+pub union VkClearValue {
+    pub color: VkClearColorValue,
+    pub depthStencil: VkClearDepthStencilValue,
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union VkClearColorValue {
+    pub float32: [f32; 4],
+    pub int32: [i32; 4],
+    pub uint32: [u32; 4],
 }
 
 // Enums
@@ -2716,3 +2797,11 @@ pub enum VkCommandBufferLevel {
     VK_COMMAND_BUFFER_LEVEL_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkCommandBufferLevel::*;
+
+#[repr(C)]
+pub enum VkSubpassContents {
+    VK_SUBPASS_CONTENTS_INLINE = 0,
+    VK_SUBPASS_CONTENTS_SECONDARY_COMMAND_BUFFERS = 1,
+    VK_SUBPASS_CONTENTS_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkSubpassContents::*;

@@ -603,6 +603,50 @@ fn main() {
             &mut command_buffer
         ));
 
+        // Record command buffer
+        let image_index = 0;
+        check!(vkBeginCommandBuffer(
+            command_buffer,
+            &VkCommandBufferBeginInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                pInheritanceInfo: ptr::null(),
+            }
+        ));
+
+        vkCmdBeginRenderPass(
+            command_buffer,
+            &VkRenderPassBeginInfo {
+                sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                pNext: ptr::null(),
+                renderPass: render_pass,
+                framebuffer: framebuffers[image_index],
+                renderArea: VkRect2D {
+                    offset: VkOffset2D {
+                        x: 0,
+                        y: 0,
+                    },
+                    extent: surface_caps.currentExtent,
+                },
+                clearValueCount: 1,
+                pClearValues: &VkClearValue {
+                    color: VkClearColorValue {
+                        float32: [0.0, 0.0, 0.0, 1.0],
+                    },
+                },
+            },
+            VK_SUBPASS_CONTENTS_INLINE,
+        );
+
+        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+
+        vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+        vkCmdEndRenderPass(command_buffer);
+
+        check!(vkEndCommandBuffer(command_buffer));
+
         // Main loop
         let mut running = true;
         while running {
