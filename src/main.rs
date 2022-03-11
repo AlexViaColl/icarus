@@ -485,7 +485,50 @@ fn main() {
             &mut pipeline_layout
         ));
 
+        let mut render_pass = ptr::null_mut();
+        check!(vkCreateRenderPass(
+            device,
+            &VkRenderPassCreateInfo {
+                sType: VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                attachmentCount: 1,
+                pAttachments: &VkAttachmentDescription {
+                    flags: 0,
+                    format: VK_FORMAT_B8G8R8A8_SRGB,
+                    samples: VK_SAMPLE_COUNT_1_BIT,
+                    loadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
+                    storeOp: VK_ATTACHMENT_STORE_OP_STORE,
+                    stencilLoadOp: VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                    stencilStoreOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                    initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+                    finalLayout: VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                },
+                subpassCount: 1,
+                pSubpasses: &VkSubpassDescription {
+                    flags: 0,
+                    pipelineBindPoint: VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    inputAttachmentCount: 0,
+                    pInputAttachments: ptr::null(),
+                    colorAttachmentCount: 1,
+                    pColorAttachments: &VkAttachmentReference {
+                        attachment: 0,
+                        layout: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    },
+                    pResolveAttachments: ptr::null(),
+                    pDepthStencilAttachment: ptr::null(),
+                    preserveAttachmentCount: 0,
+                    pPreserveAttachments: ptr::null(),
+                },
+                dependencyCount: 0,
+                pDependencies: ptr::null(),
+            },
+            ptr::null(),
+            &mut render_pass,
+        ));
+
         // Cleanup
+        vkDestroyRenderPass(device, render_pass, ptr::null());
         vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
 
         vkDestroyShaderModule(device, fs_shader_module, ptr::null());

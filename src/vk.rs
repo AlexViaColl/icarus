@@ -119,6 +119,13 @@ extern "C" {
         pipelineLayout: VkPipelineLayout,
         pAllocator: *const VkAllocationCallbacks,
     );
+    pub fn vkCreateRenderPass(
+        device: VkDevice,
+        pCreateInfo: *const VkRenderPassCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pRenderPass: *mut VkRenderPass,
+    ) -> VkResult;
+    pub fn vkDestroyRenderPass(device: VkDevice, renderPass: VkRenderPass, pAllocator: *const VkAllocationCallbacks);
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -237,6 +244,12 @@ pub type VkColorComponentFlags = VkFlags;
 pub type VkPipelineColorBlendStateCreateFlags = VkFlags;
 pub type VkPipelineDynamicStateCreateFlags = VkFlags;
 pub type VkPipelineLayoutCreateFlags = VkFlags;
+pub type VkRenderPassCreateFlags = VkFlags;
+pub type VkAttachmentDescriptionFlags = VkFlags;
+pub type VkSubpassDescriptionFlags = VkFlags;
+pub type VkPipelineStageFlags = VkFlags;
+pub type VkAccessFlags = VkFlags;
+pub type VkDependencyFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -902,6 +915,63 @@ pub struct VkPushConstantRange {
     pub stageFlags: VkShaderStageFlags,
     pub offset: u32,
     pub size: u32,
+}
+
+#[repr(C)]
+pub struct VkRenderPassCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkRenderPassCreateFlags,
+    pub attachmentCount: u32,
+    pub pAttachments: *const VkAttachmentDescription,
+    pub subpassCount: u32,
+    pub pSubpasses: *const VkSubpassDescription,
+    pub dependencyCount: u32,
+    pub pDependencies: *const VkSubpassDependency,
+}
+
+#[repr(C)]
+pub struct VkAttachmentDescription {
+    pub flags: VkAttachmentDescriptionFlags,
+    pub format: VkFormat,
+    pub samples: VkSampleCountFlags, // VkSampleCountFlagBits,
+    pub loadOp: VkAttachmentLoadOp,
+    pub storeOp: VkAttachmentStoreOp,
+    pub stencilLoadOp: VkAttachmentLoadOp,
+    pub stencilStoreOp: VkAttachmentStoreOp,
+    pub initialLayout: VkImageLayout,
+    pub finalLayout: VkImageLayout,
+}
+
+#[repr(C)]
+pub struct VkSubpassDescription {
+    pub flags: VkSubpassDescriptionFlags,
+    pub pipelineBindPoint: VkPipelineBindPoint,
+    pub inputAttachmentCount: u32,
+    pub pInputAttachments: *const VkAttachmentReference,
+    pub colorAttachmentCount: u32,
+    pub pColorAttachments: *const VkAttachmentReference,
+    pub pResolveAttachments: *const VkAttachmentReference,
+    pub pDepthStencilAttachment: *const VkAttachmentReference,
+    pub preserveAttachmentCount: u32,
+    pub pPreserveAttachments: *const u32,
+}
+
+#[repr(C)]
+pub struct VkAttachmentReference {
+    pub attachment: u32,
+    pub layout: VkImageLayout,
+}
+
+#[repr(C)]
+pub struct VkSubpassDependency {
+    pub srcSubpass: u32,
+    pub dstSubpass: u32,
+    pub srcStageMask: VkPipelineStageFlags,
+    pub dstStageMask: VkPipelineStageFlags,
+    pub srcAccessMask: VkAccessFlags,
+    pub dstAccessMask: VkAccessFlags,
+    pub dependencyFlags: VkDependencyFlags,
 }
 
 // Enums
@@ -2460,3 +2530,80 @@ pub enum VkDynamicState {
     VK_DYNAMIC_STATE_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkDynamicState::*;
+
+#[repr(C)]
+pub enum VkAttachmentLoadOp {
+    VK_ATTACHMENT_LOAD_OP_LOAD = 0,
+    VK_ATTACHMENT_LOAD_OP_CLEAR = 1,
+    VK_ATTACHMENT_LOAD_OP_DONT_CARE = 2,
+    VK_ATTACHMENT_LOAD_OP_NONE_EXT = 1000400000,
+    VK_ATTACHMENT_LOAD_OP_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkAttachmentLoadOp::*;
+
+#[repr(C)]
+pub enum VkAttachmentStoreOp {
+    VK_ATTACHMENT_STORE_OP_STORE = 0,
+    VK_ATTACHMENT_STORE_OP_DONT_CARE = 1,
+    VK_ATTACHMENT_STORE_OP_NONE = 1000301000,
+    //    VK_ATTACHMENT_STORE_OP_NONE_KHR = VK_ATTACHMENT_STORE_OP_NONE,
+    //    VK_ATTACHMENT_STORE_OP_NONE_QCOM = VK_ATTACHMENT_STORE_OP_NONE,
+    //    VK_ATTACHMENT_STORE_OP_NONE_EXT = VK_ATTACHMENT_STORE_OP_NONE,
+    VK_ATTACHMENT_STORE_OP_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkAttachmentStoreOp::*;
+
+#[repr(C)]
+pub enum VkImageLayout {
+    VK_IMAGE_LAYOUT_UNDEFINED = 0,
+    VK_IMAGE_LAYOUT_GENERAL = 1,
+    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL = 2,
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL = 3,
+    VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL = 4,
+    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL = 5,
+    VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL = 6,
+    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL = 7,
+    VK_IMAGE_LAYOUT_PREINITIALIZED = 8,
+    VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL = 1000117000,
+    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL = 1000117001,
+    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL = 1000241000,
+    VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL = 1000241001,
+    VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL = 1000241002,
+    VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL = 1000241003,
+    VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL = 1000314000,
+    VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL = 1000314001,
+    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR = 1000001002,
+    VK_IMAGE_LAYOUT_VIDEO_DECODE_DST_KHR = 1000024000,
+    VK_IMAGE_LAYOUT_VIDEO_DECODE_SRC_KHR = 1000024001,
+    VK_IMAGE_LAYOUT_VIDEO_DECODE_DPB_KHR = 1000024002,
+    VK_IMAGE_LAYOUT_SHARED_PRESENT_KHR = 1000111000,
+    VK_IMAGE_LAYOUT_FRAGMENT_DENSITY_MAP_OPTIMAL_EXT = 1000218000,
+    VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR = 1000164003,
+    VK_IMAGE_LAYOUT_VIDEO_ENCODE_DST_KHR = 1000299000,
+    VK_IMAGE_LAYOUT_VIDEO_ENCODE_SRC_KHR = 1000299001,
+    VK_IMAGE_LAYOUT_VIDEO_ENCODE_DPB_KHR = 1000299002,
+    //    VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL_KHR =
+    //        VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_STENCIL_ATTACHMENT_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL_KHR =
+    //        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_STENCIL_READ_ONLY_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_SHADING_RATE_OPTIMAL_NV = VK_IMAGE_LAYOUT_FRAGMENT_SHADING_RATE_ATTACHMENT_OPTIMAL_KHR,
+    //    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL_KHR = VK_IMAGE_LAYOUT_DEPTH_READ_ONLY_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_STENCIL_ATTACHMENT_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL_KHR = VK_IMAGE_LAYOUT_STENCIL_READ_ONLY_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL_KHR = VK_IMAGE_LAYOUT_READ_ONLY_OPTIMAL,
+    //    VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+    VK_IMAGE_LAYOUT_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkImageLayout::*;
+
+#[repr(C)]
+pub enum VkPipelineBindPoint {
+    VK_PIPELINE_BIND_POINT_GRAPHICS = 0,
+    VK_PIPELINE_BIND_POINT_COMPUTE = 1,
+    VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR = 1000165000,
+    VK_PIPELINE_BIND_POINT_SUBPASS_SHADING_HUAWEI = 1000369003,
+    //    VK_PIPELINE_BIND_POINT_RAY_TRACING_NV = VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
+    VK_PIPELINE_BIND_POINT_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkPipelineBindPoint::*;
