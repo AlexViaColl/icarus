@@ -135,6 +135,13 @@ extern "C" {
         pPipelines: *mut VkPipeline,
     ) -> VkResult;
     pub fn vkDestroyPipeline(device: VkDevice, pipeline: VkPipeline, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateFramebuffer(
+        device: VkDevice,
+        pCreateInfo: *const VkFramebufferCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pFramebuffer: *mut VkFramebuffer,
+    ) -> VkResult;
+    pub fn vkDestroyFramebuffer(device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *const VkAllocationCallbacks);
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -260,6 +267,7 @@ pub type VkPipelineStageFlags = VkFlags;
 pub type VkAccessFlags = VkFlags;
 pub type VkDependencyFlags = VkFlags;
 pub type VkPipelineCreateFlags = VkFlags;
+pub type VkFramebufferCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -1017,6 +1025,19 @@ pub struct VkPipelineTessellationStateCreateInfo {
 pub struct VkPipelineDepthStencilStateCreateInfo {
     // TODO
     _data: [u8; 0],
+}
+
+#[repr(C)]
+pub struct VkFramebufferCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkFramebufferCreateFlags,
+    pub renderPass: VkRenderPass,
+    pub attachmentCount: u32,
+    pub pAttachments: *const VkImageView,
+    pub width: u32,
+    pub height: u32,
+    pub layers: u32,
 }
 
 // Enums

@@ -351,7 +351,7 @@ fn main() {
             &mut fs_shader_module
         ));
 
-        let _shader_stages = [
+        let shader_stages = [
             VkPipelineShaderStageCreateInfo {
                 sType: VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                 pNext: ptr::null(),
@@ -372,7 +372,7 @@ fn main() {
             },
         ];
 
-        let _vertex_input_info = VkPipelineVertexInputStateCreateInfo {
+        let vertex_input_info = VkPipelineVertexInputStateCreateInfo {
             sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
@@ -381,7 +381,7 @@ fn main() {
             vertexAttributeDescriptionCount: 0,
             pVertexAttributeDescriptions: ptr::null(),
         };
-        let _input_assembly = VkPipelineInputAssemblyStateCreateInfo {
+        let input_assembly = VkPipelineInputAssemblyStateCreateInfo {
             sType: VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
@@ -403,7 +403,7 @@ fn main() {
             },
             extent: surface_caps.currentExtent,
         };
-        let _viewport_state = VkPipelineViewportStateCreateInfo {
+        let viewport_state = VkPipelineViewportStateCreateInfo {
             sType: VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
@@ -412,7 +412,7 @@ fn main() {
             scissorCount: 1,
             pScissors: &scissor,
         };
-        let _rasterizer = VkPipelineRasterizationStateCreateInfo {
+        let rasterizer = VkPipelineRasterizationStateCreateInfo {
             sType: VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
@@ -427,7 +427,7 @@ fn main() {
             depthBiasSlopeFactor: 0.0,
             lineWidth: 1.0,
         };
-        let _multisampling = VkPipelineMultisampleStateCreateInfo {
+        let multisampling = VkPipelineMultisampleStateCreateInfo {
             sType: VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
@@ -438,7 +438,7 @@ fn main() {
             alphaToCoverageEnable: VK_FALSE,
             alphaToOneEnable: VK_FALSE,
         };
-        let _color_blending = VkPipelineColorBlendStateCreateInfo {
+        let color_blending = VkPipelineColorBlendStateCreateInfo {
             sType: VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
@@ -537,15 +537,15 @@ fn main() {
                 pNext: ptr::null(),
                 flags: 0,
                 stageCount: 2,
-                pStages: _shader_stages.as_ptr(),
-                pVertexInputState: &_vertex_input_info,
-                pInputAssemblyState: &_input_assembly,
+                pStages: shader_stages.as_ptr(),
+                pVertexInputState: &vertex_input_info,
+                pInputAssemblyState: &input_assembly,
                 pTessellationState: ptr::null(),
-                pViewportState: &_viewport_state,
-                pRasterizationState: &_rasterizer,
-                pMultisampleState: &_multisampling,
+                pViewportState: &viewport_state,
+                pRasterizationState: &rasterizer,
+                pMultisampleState: &multisampling,
                 pDepthStencilState: ptr::null(),
-                pColorBlendState: &_color_blending,
+                pColorBlendState: &color_blending,
                 pDynamicState: ptr::null(),
                 layout: pipeline_layout,
                 renderPass: render_pass,
@@ -557,7 +557,30 @@ fn main() {
             &mut graphics_pipeline
         ));
 
+        let mut framebuffers = vec![ptr::null_mut(); swapchain_images.len()];
+        for i in 0..swapchain_image_views.len() {
+            check!(vkCreateFramebuffer(
+                device,
+                &VkFramebufferCreateInfo {
+                    sType: VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+                    pNext: ptr::null(),
+                    flags: 0,
+                    renderPass: render_pass,
+                    attachmentCount: 1,
+                    pAttachments: &swapchain_image_views[i],
+                    width: surface_caps.currentExtent.width,
+                    height: surface_caps.currentExtent.height,
+                    layers: 1,
+                },
+                ptr::null(),
+                &mut framebuffers[i]
+            ));
+        }
+
         // Cleanup
+        for framebuffer in framebuffers {
+            vkDestroyFramebuffer(device, framebuffer, ptr::null());
+        }
         vkDestroyPipeline(device, graphics_pipeline, ptr::null());
         vkDestroyRenderPass(device, render_pass, ptr::null());
         vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
