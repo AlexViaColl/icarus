@@ -527,7 +527,38 @@ fn main() {
             &mut render_pass,
         ));
 
+        let mut graphics_pipeline = ptr::null_mut();
+        check!(vkCreateGraphicsPipelines(
+            device,
+            ptr::null_mut(),
+            1,
+            &VkGraphicsPipelineCreateInfo {
+                sType: VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                stageCount: 2,
+                pStages: _shader_stages.as_ptr(),
+                pVertexInputState: &_vertex_input_info,
+                pInputAssemblyState: &_input_assembly,
+                pTessellationState: ptr::null(),
+                pViewportState: &_viewport_state,
+                pRasterizationState: &_rasterizer,
+                pMultisampleState: &_multisampling,
+                pDepthStencilState: ptr::null(),
+                pColorBlendState: &_color_blending,
+                pDynamicState: ptr::null(),
+                layout: pipeline_layout,
+                renderPass: render_pass,
+                subpass: 0,
+                basePipelineHandle: ptr::null_mut(),
+                basePipelineIndex: -1,
+            },
+            ptr::null(),
+            &mut graphics_pipeline
+        ));
+
         // Cleanup
+        vkDestroyPipeline(device, graphics_pipeline, ptr::null());
         vkDestroyRenderPass(device, render_pass, ptr::null());
         vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
 

@@ -126,6 +126,15 @@ extern "C" {
         pRenderPass: *mut VkRenderPass,
     ) -> VkResult;
     pub fn vkDestroyRenderPass(device: VkDevice, renderPass: VkRenderPass, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateGraphicsPipelines(
+        device: VkDevice,
+        pipelineCache: VkPipelineCache,
+        createInfoCount: u32,
+        pCreateINfos: *const VkGraphicsPipelineCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pPipelines: *mut VkPipeline,
+    ) -> VkResult;
+    pub fn vkDestroyPipeline(device: VkDevice, pipeline: VkPipeline, pAllocator: *const VkAllocationCallbacks);
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -250,6 +259,7 @@ pub type VkSubpassDescriptionFlags = VkFlags;
 pub type VkPipelineStageFlags = VkFlags;
 pub type VkAccessFlags = VkFlags;
 pub type VkDependencyFlags = VkFlags;
+pub type VkPipelineCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -972,6 +982,41 @@ pub struct VkSubpassDependency {
     pub srcAccessMask: VkAccessFlags,
     pub dstAccessMask: VkAccessFlags,
     pub dependencyFlags: VkDependencyFlags,
+}
+
+#[repr(C)]
+pub struct VkGraphicsPipelineCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineCreateFlags,
+    pub stageCount: u32,
+    pub pStages: *const VkPipelineShaderStageCreateInfo,
+    pub pVertexInputState: *const VkPipelineVertexInputStateCreateInfo,
+    pub pInputAssemblyState: *const VkPipelineInputAssemblyStateCreateInfo,
+    pub pTessellationState: *const VkPipelineTessellationStateCreateInfo,
+    pub pViewportState: *const VkPipelineViewportStateCreateInfo,
+    pub pRasterizationState: *const VkPipelineRasterizationStateCreateInfo,
+    pub pMultisampleState: *const VkPipelineMultisampleStateCreateInfo,
+    pub pDepthStencilState: *const VkPipelineDepthStencilStateCreateInfo,
+    pub pColorBlendState: *const VkPipelineColorBlendStateCreateInfo,
+    pub pDynamicState: *const VkPipelineDynamicStateCreateInfo,
+    pub layout: VkPipelineLayout,
+    pub renderPass: VkRenderPass,
+    pub subpass: u32,
+    pub basePipelineHandle: VkPipeline,
+    pub basePipelineIndex: i32,
+}
+
+#[repr(C)]
+pub struct VkPipelineTessellationStateCreateInfo {
+    // TODO
+    _data: [u8; 0],
+}
+
+#[repr(C)]
+pub struct VkPipelineDepthStencilStateCreateInfo {
+    // TODO
+    _data: [u8; 0],
 }
 
 // Enums
