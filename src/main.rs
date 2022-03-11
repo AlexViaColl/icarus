@@ -520,8 +520,16 @@ fn main() {
                     preserveAttachmentCount: 0,
                     pPreserveAttachments: ptr::null(),
                 },
-                dependencyCount: 0,
-                pDependencies: ptr::null(),
+                dependencyCount: 1,
+                pDependencies: &VkSubpassDependency {
+                    srcSubpass: VK_SUBPASS_EXTERNAL,
+                    dstSubpass: 0,
+                    srcStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    dstStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    srcAccessMask: 0,
+                    dstAccessMask: VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+                    dependencyFlags: 0,
+                },
             },
             ptr::null(),
             &mut render_pass,
@@ -618,55 +626,11 @@ fn main() {
             &VkFenceCreateInfo {
                 sType: VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
                 pNext: ptr::null(),
-                flags: 0,
+                flags: VK_FENCE_CREATE_SIGNALED_BIT,
             },
             ptr::null(),
             &mut in_flight_fence
         ));
-
-        // Record command buffer
-        let image_index = 0;
-        check!(vkBeginCommandBuffer(
-            command_buffer,
-            &VkCommandBufferBeginInfo {
-                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                pNext: ptr::null(),
-                flags: 0,
-                pInheritanceInfo: ptr::null(),
-            }
-        ));
-
-        vkCmdBeginRenderPass(
-            command_buffer,
-            &VkRenderPassBeginInfo {
-                sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-                pNext: ptr::null(),
-                renderPass: render_pass,
-                framebuffer: framebuffers[image_index],
-                renderArea: VkRect2D {
-                    offset: VkOffset2D {
-                        x: 0,
-                        y: 0,
-                    },
-                    extent: surface_caps.currentExtent,
-                },
-                clearValueCount: 1,
-                pClearValues: &VkClearValue {
-                    color: VkClearColorValue {
-                        float32: [0.0, 0.0, 0.0, 1.0],
-                    },
-                },
-            },
-            VK_SUBPASS_CONTENTS_INLINE,
-        );
-
-        vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
-
-        vkCmdDraw(command_buffer, 3, 1, 0, 0);
-
-        vkCmdEndRenderPass(command_buffer);
-
-        check!(vkEndCommandBuffer(command_buffer));
 
         // Main loop
         let mut running = true;
@@ -695,7 +659,98 @@ fn main() {
             }
 
             // draw
+            check!(vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, u64::MAX));
+            check!(vkResetFences(device, 1, &in_flight_fence));
+
+            let mut image_index = 0;
+            check!(vkAcquireNextImageKHR(
+                device,
+                swapchain,
+                u64::MAX,
+                image_available_semaphore,
+                ptr::null_mut(),
+                &mut image_index,
+            ));
+
+            vkResetCommandBuffer(command_buffer, 0);
+
+            // Record command buffer
+            check!(vkBeginCommandBuffer(
+                command_buffer,
+                &VkCommandBufferBeginInfo {
+                    sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                    pNext: ptr::null(),
+                    flags: 0,
+                    pInheritanceInfo: ptr::null(),
+                }
+            ));
+
+            vkCmdBeginRenderPass(
+                command_buffer,
+                &VkRenderPassBeginInfo {
+                    sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+                    pNext: ptr::null(),
+                    renderPass: render_pass,
+                    framebuffer: framebuffers[image_index as usize],
+                    renderArea: VkRect2D {
+                        offset: VkOffset2D {
+                            x: 0,
+                            y: 0,
+                        },
+                        extent: surface_caps.currentExtent,
+                    },
+                    clearValueCount: 1,
+                    pClearValues: &VkClearValue {
+                        color: VkClearColorValue {
+                            float32: [0.0, 0.0, 0.0, 1.0],
+                        },
+                    },
+                },
+                VK_SUBPASS_CONTENTS_INLINE,
+            );
+
+            vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+
+            vkCmdDraw(command_buffer, 3, 1, 0, 0);
+
+            vkCmdEndRenderPass(command_buffer);
+
+            check!(vkEndCommandBuffer(command_buffer));
+
+            // Submit command buffer
+            check!(vkQueueSubmit(
+                graphics_queue,
+                1,
+                &VkSubmitInfo {
+                    sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                    pNext: ptr::null(),
+                    waitSemaphoreCount: 1,
+                    pWaitSemaphores: &image_available_semaphore,
+                    pWaitDstStageMask: &VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    commandBufferCount: 1,
+                    pCommandBuffers: &command_buffer,
+                    signalSemaphoreCount: 1,
+                    pSignalSemaphores: &render_finished_semaphore,
+                },
+                in_flight_fence
+            ));
+
+            check!(vkQueuePresentKHR(
+                graphics_queue,
+                &VkPresentInfoKHR {
+                    sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+                    pNext: ptr::null(),
+                    waitSemaphoreCount: 1,
+                    pWaitSemaphores: &render_finished_semaphore,
+                    swapchainCount: 1,
+                    pSwapchains: &swapchain,
+                    pImageIndices: &image_index,
+                    pResults: ptr::null_mut(),
+                }
+            ));
         }
+
+        check!(vkDeviceWaitIdle(device));
 
         // Cleanup
         vkDestroyFence(device, in_flight_fence, ptr::null());

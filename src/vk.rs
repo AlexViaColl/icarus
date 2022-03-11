@@ -44,6 +44,8 @@ extern "C" {
     ) -> VkResult;
     pub fn vkDestroyDevice(device: VkDevice, pAllocator: *const VkAllocationCallbacks);
     pub fn vkGetDeviceQueue(device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *mut VkQueue);
+    pub fn vkQueueSubmit(queue: VkQueue, submitCount: u32, pSubmits: *const VkSubmitInfo, fence: VkFence) -> VkResult;
+    pub fn vkQueuePresentKHR(queue: VkQueue, pPresentInfo: *const VkPresentInfoKHR) -> VkResult;
 
     // Extensions
     pub fn vkCreateXlibSurfaceKHR(
@@ -89,6 +91,14 @@ extern "C" {
         swapchain: VkSwapchainKHR,
         pSwapchainImageCount: *mut u32,
         pSwapchainImages: *mut VkImage,
+    ) -> VkResult;
+    pub fn vkAcquireNextImageKHR(
+        device: VkDevice,
+        swapchain: VkSwapchainKHR,
+        timeout: u64,
+        semaphore: VkSemaphore,
+        fence: VkFence,
+        pImageIndex: *mut u32,
     ) -> VkResult;
     pub fn vkCreateImageView(
         device: VkDevice,
@@ -175,12 +185,14 @@ extern "C" {
         waitAll: VkBool32,
         timeout: u64,
     ) -> VkResult;
-    pub fn vkResetFences(device: VkDevice, fenceCount: u32, pFences: *const VkFence);
+    pub fn vkResetFences(device: VkDevice, fenceCount: u32, pFences: *const VkFence) -> VkResult;
     pub fn vkBeginCommandBuffer(
         commandBuffer: VkCommandBuffer,
         pBeginInfo: *const VkCommandBufferBeginInfo,
     ) -> VkResult;
     pub fn vkEndCommandBuffer(commandBuffer: VkCommandBuffer) -> VkResult;
+    pub fn vkResetCommandBuffer(commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult;
+    pub fn vkDeviceWaitIdle(device: VkDevice) -> VkResult;
 
     // Commands
     pub fn vkCmdBeginRenderPass(
@@ -209,6 +221,7 @@ pub const VK_UUID_SIZE: usize = 16;
 pub const VK_MAX_PHYSICAL_DEVICE_NAME_SIZE: usize = 256;
 pub const VK_MAX_EXTENSION_NAME_SIZE: usize = 256;
 pub const VK_MAX_DESCRIPTION_SIZE: usize = 256;
+pub const VK_SUBPASS_EXTERNAL: u32 = !0;
 
 pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = b"VK_KHR_swapchain\0".as_ptr() as *const i8;
 pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = b"VK_KHR_surface\0".as_ptr() as *const i8;
@@ -333,6 +346,7 @@ pub type VkQueryControlFlags = VkFlags;
 pub type VkQueryPipelineStatisticsFlags = VkFlags;
 pub type VkSemaphoreCreateFlags = VkFlags;
 pub type VkFenceCreateFlags = VkFlags;
+pub type VkCommandBufferResetFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -1172,6 +1186,31 @@ pub struct VkRenderPassBeginInfo {
 pub struct VkClearDepthStencilValue {
     pub depth: f32,
     pub stencil: u32,
+}
+
+#[repr(C)]
+pub struct VkSubmitInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub waitSemaphoreCount: u32,
+    pub pWaitSemaphores: *const VkSemaphore,
+    pub pWaitDstStageMask: *const VkPipelineStageFlags,
+    pub commandBufferCount: u32,
+    pub pCommandBuffers: *const VkCommandBuffer,
+    pub signalSemaphoreCount: u32,
+    pub pSignalSemaphores: *const VkSemaphore,
+}
+
+#[repr(C)]
+pub struct VkPresentInfoKHR {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub waitSemaphoreCount: u32,
+    pub pWaitSemaphores: *const VkSemaphore,
+    pub swapchainCount: u32,
+    pub pSwapchains: *const VkSwapchainKHR,
+    pub pImageIndices: *const u32,
+    pub pResults: *mut VkResult,
 }
 
 // Unions
@@ -2147,6 +2186,79 @@ pub const VK_COMMAND_POOL_CREATE_TRANSIENT_BIT: VkFlags = 0x00000001;
 pub const VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT: VkFlags = 0x00000002;
 pub const VK_COMMAND_POOL_CREATE_PROTECTED_BIT: VkFlags = 0x00000004;
 pub const VK_COMMAND_POOL_CREATE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_FENCE_CREATE_SIGNALED_BIT: VkFlags = 0x00000001;
+pub const VK_FENCE_CREATE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFFF;
+
+pub const VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT: VkFlags = 0x00000001;
+pub const VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT: VkFlags = 0x00000002;
+pub const VK_PIPELINE_STAGE_VERTEX_INPUT_BIT: VkFlags = 0x00000004;
+pub const VK_PIPELINE_STAGE_VERTEX_SHADER_BIT: VkFlags = 0x00000008;
+pub const VK_PIPELINE_STAGE_TESSELLATION_CONTROL_SHADER_BIT: VkFlags = 0x00000010;
+pub const VK_PIPELINE_STAGE_TESSELLATION_EVALUATION_SHADER_BIT: VkFlags = 0x00000020;
+pub const VK_PIPELINE_STAGE_GEOMETRY_SHADER_BIT: VkFlags = 0x00000040;
+pub const VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT: VkFlags = 0x00000080;
+pub const VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT: VkFlags = 0x00000100;
+pub const VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT: VkFlags = 0x00000200;
+pub const VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT: VkFlags = 0x00000400;
+pub const VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT: VkFlags = 0x00000800;
+pub const VK_PIPELINE_STAGE_TRANSFER_BIT: VkFlags = 0x00001000;
+pub const VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT: VkFlags = 0x00002000;
+pub const VK_PIPELINE_STAGE_HOST_BIT: VkFlags = 0x00004000;
+pub const VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT: VkFlags = 0x00008000;
+pub const VK_PIPELINE_STAGE_ALL_COMMANDS_BIT: VkFlags = 0x00010000;
+pub const VK_PIPELINE_STAGE_NONE: VkFlags = 0;
+pub const VK_PIPELINE_STAGE_TRANSFORM_FEEDBACK_BIT_EXT: VkFlags = 0x01000000;
+pub const VK_PIPELINE_STAGE_CONDITIONAL_RENDERING_BIT_EXT: VkFlags = 0x00040000;
+pub const VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR: VkFlags = 0x02000000;
+pub const VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR: VkFlags = 0x00200000;
+pub const VK_PIPELINE_STAGE_TASK_SHADER_BIT_NV: VkFlags = 0x00080000;
+pub const VK_PIPELINE_STAGE_MESH_SHADER_BIT_NV: VkFlags = 0x00100000;
+pub const VK_PIPELINE_STAGE_FRAGMENT_DENSITY_PROCESS_BIT_EXT: VkFlags = 0x00800000;
+pub const VK_PIPELINE_STAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR: VkFlags = 0x00400000;
+pub const VK_PIPELINE_STAGE_COMMAND_PREPROCESS_BIT_NV: VkFlags = 0x00020000;
+pub const VK_PIPELINE_STAGE_SHADING_RATE_IMAGE_BIT_NV: VkFlags =
+    VK_PIPELINE_STAGE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR;
+pub const VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_NV: VkFlags = VK_PIPELINE_STAGE_RAY_TRACING_SHADER_BIT_KHR;
+pub const VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_NV: VkFlags =
+    VK_PIPELINE_STAGE_ACCELERATION_STRUCTURE_BUILD_BIT_KHR;
+pub const VK_PIPELINE_STAGE_NONE_KHR: VkFlags = VK_PIPELINE_STAGE_NONE;
+pub const VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_ACCESS_INDIRECT_COMMAND_READ_BIT: VkFlags = 0x00000001;
+pub const VK_ACCESS_INDEX_READ_BIT: VkFlags = 0x00000002;
+pub const VK_ACCESS_VERTEX_ATTRIBUTE_READ_BIT: VkFlags = 0x00000004;
+pub const VK_ACCESS_UNIFORM_READ_BIT: VkFlags = 0x00000008;
+pub const VK_ACCESS_INPUT_ATTACHMENT_READ_BIT: VkFlags = 0x00000010;
+pub const VK_ACCESS_SHADER_READ_BIT: VkFlags = 0x00000020;
+pub const VK_ACCESS_SHADER_WRITE_BIT: VkFlags = 0x00000040;
+pub const VK_ACCESS_COLOR_ATTACHMENT_READ_BIT: VkFlags = 0x00000080;
+pub const VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT: VkFlags = 0x00000100;
+pub const VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT: VkFlags = 0x00000200;
+pub const VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT: VkFlags = 0x00000400;
+pub const VK_ACCESS_TRANSFER_READ_BIT: VkFlags = 0x00000800;
+pub const VK_ACCESS_TRANSFER_WRITE_BIT: VkFlags = 0x00001000;
+pub const VK_ACCESS_HOST_READ_BIT: VkFlags = 0x00002000;
+pub const VK_ACCESS_HOST_WRITE_BIT: VkFlags = 0x00004000;
+pub const VK_ACCESS_MEMORY_READ_BIT: VkFlags = 0x00008000;
+pub const VK_ACCESS_MEMORY_WRITE_BIT: VkFlags = 0x00010000;
+pub const VK_ACCESS_NONE: VkFlags = 0;
+pub const VK_ACCESS_TRANSFORM_FEEDBACK_WRITE_BIT_EXT: VkFlags = 0x02000000;
+pub const VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_READ_BIT_EXT: VkFlags = 0x04000000;
+pub const VK_ACCESS_TRANSFORM_FEEDBACK_COUNTER_WRITE_BIT_EXT: VkFlags = 0x08000000;
+pub const VK_ACCESS_CONDITIONAL_RENDERING_READ_BIT_EXT: VkFlags = 0x00100000;
+pub const VK_ACCESS_COLOR_ATTACHMENT_READ_NONCOHERENT_BIT_EXT: VkFlags = 0x00080000;
+pub const VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR: VkFlags = 0x00200000;
+pub const VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR: VkFlags = 0x00400000;
+pub const VK_ACCESS_FRAGMENT_DENSITY_MAP_READ_BIT_EXT: VkFlags = 0x01000000;
+pub const VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR: VkFlags = 0x00800000;
+pub const VK_ACCESS_COMMAND_PREPROCESS_READ_BIT_NV: VkFlags = 0x00020000;
+pub const VK_ACCESS_COMMAND_PREPROCESS_WRITE_BIT_NV: VkFlags = 0x00040000;
+pub const VK_ACCESS_SHADING_RATE_IMAGE_READ_BIT_NV: VkFlags = VK_ACCESS_FRAGMENT_SHADING_RATE_ATTACHMENT_READ_BIT_KHR;
+pub const VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_NV: VkFlags = VK_ACCESS_ACCELERATION_STRUCTURE_READ_BIT_KHR;
+pub const VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV: VkFlags = VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_KHR;
+pub const VK_ACCESS_NONE_KHR: VkFlags = VK_ACCESS_NONE;
+pub const VK_ACCESS_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
