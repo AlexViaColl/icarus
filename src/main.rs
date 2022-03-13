@@ -219,7 +219,6 @@ fn main() {
 
         let mut surface_caps = VkSurfaceCapabilitiesKHR::default();
         check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &mut surface_caps));
-        println!("{:#?}", surface_caps);
 
         let mut surface_formats_count = 0;
         check!(vkGetPhysicalDeviceSurfaceFormatsKHR(
@@ -263,9 +262,17 @@ fn main() {
         let swapchain_image_views = create_image_views(device, swapchain);
 
         let render_pass = create_render_pass(device);
-        let (graphics_pipeline, pipeline_layout, vs_shader_module, fs_shader_module) =
-            create_graphics_pipeline(device, render_pass, surface_caps);
+        let (graphics_pipeline, pipeline_layout) = create_graphics_pipeline(device, render_pass, surface_caps);
         let framebuffers = create_framebuffers(device, render_pass, &swapchain_image_views, surface_caps);
+
+        let mut swapchain_ctx = SwapchainContext {
+            swapchain,
+            image_views: swapchain_image_views,
+            render_pass,
+            pipeline_layout,
+            graphics_pipeline,
+            framebuffers,
+        };
 
         // We can specify a few properties dynamically without having to recreate the pipeline.
         let _dynamic_state = VkPipelineDynamicStateCreateInfo {
@@ -354,12 +361,11 @@ fn main() {
 
             // draw
             check!(vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, u64::MAX));
-            check!(vkResetFences(device, 1, &in_flight_fences[current_frame]));
 
             let mut image_index = 0;
             match vkAcquireNextImageKHR(
                 device,
-                swapchain,
+                swapchain_ctx.swapchain,
                 u64::MAX,
                 image_available_semaphores[current_frame],
                 ptr::null_mut(),
@@ -367,10 +373,14 @@ fn main() {
             ) {
                 VK_SUCCESS | VK_SUBOPTIMAL_KHR => {}
                 VK_ERROR_OUT_OF_DATE_KHR => {
-                    todo!("Recreate the swapchain!")
+                    check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &mut surface_caps));
+                    recreate_swapchain(&mut swapchain_ctx, device, surface, surface_caps);
+                    continue;
                 }
                 res => panic!("{:?}", res),
             }
+
+            check!(vkResetFences(device, 1, &in_flight_fences[current_frame]));
 
             vkResetCommandBuffer(command_buffers[current_frame], 0);
 
@@ -390,8 +400,8 @@ fn main() {
                 &VkRenderPassBeginInfo {
                     sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                     pNext: ptr::null(),
-                    renderPass: render_pass,
-                    framebuffer: framebuffers[image_index as usize],
+                    renderPass: swapchain_ctx.render_pass,
+                    framebuffer: swapchain_ctx.framebuffers[image_index as usize],
                     renderArea: VkRect2D {
                         offset: VkOffset2D {
                             x: 0,
@@ -409,7 +419,11 @@ fn main() {
                 VK_SUBPASS_CONTENTS_INLINE,
             );
 
-            vkCmdBindPipeline(command_buffers[current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+            vkCmdBindPipeline(
+                command_buffers[current_frame],
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                swapchain_ctx.graphics_pipeline,
+            );
 
             vkCmdDraw(command_buffers[current_frame], 3, 1, 0, 0);
 
@@ -443,14 +457,15 @@ fn main() {
                     waitSemaphoreCount: 1,
                     pWaitSemaphores: &render_finished_semaphores[current_frame],
                     swapchainCount: 1,
-                    pSwapchains: &swapchain,
+                    pSwapchains: &swapchain_ctx.swapchain,
                     pImageIndices: &image_index,
                     pResults: ptr::null_mut(),
                 },
             ) {
                 VK_SUCCESS => {}
                 VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => {
-                    todo!("Recreate the swapchain!");
+                    check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &mut surface_caps));
+                    recreate_swapchain(&mut swapchain_ctx, device, surface, surface_caps);
                 }
                 res => panic!("{:?}", res),
             }
@@ -467,21 +482,7 @@ fn main() {
             vkDestroySemaphore(device, image_available_semaphores[i], ptr::null());
         }
         vkDestroyCommandPool(device, command_pool, ptr::null());
-        for framebuffer in framebuffers {
-            vkDestroyFramebuffer(device, framebuffer, ptr::null());
-        }
-        vkDestroyPipeline(device, graphics_pipeline, ptr::null());
-        vkDestroyRenderPass(device, render_pass, ptr::null());
-        vkDestroyPipelineLayout(device, pipeline_layout, ptr::null());
-
-        vkDestroyShaderModule(device, fs_shader_module, ptr::null());
-        vkDestroyShaderModule(device, vs_shader_module, ptr::null());
-
-        for image_view in swapchain_image_views {
-            vkDestroyImageView(device, image_view, ptr::null());
-        }
-
-        vkDestroySwapchainKHR(device, swapchain, ptr::null());
+        cleanup_swapchain(device, &mut swapchain_ctx);
 
         vkDestroyDevice(device, ptr::null());
 
@@ -497,6 +498,38 @@ fn main() {
         XCloseDisplay(display);
         vkDestroyInstance(instance, ptr::null());
     };
+}
+
+struct SwapchainContext {
+    swapchain: VkSwapchainKHR,
+    image_views: Vec<VkImageView>,
+    render_pass: VkRenderPass,
+    pipeline_layout: VkPipelineLayout,
+    graphics_pipeline: VkPipeline,
+    framebuffers: Vec<VkFramebuffer>,
+}
+
+fn recreate_swapchain(
+    swapchain_ctx: &mut SwapchainContext,
+    device: VkDevice,
+    surface: VkSurfaceKHR,
+    surface_caps: VkSurfaceCapabilitiesKHR,
+) {
+    unsafe {
+        vkDeviceWaitIdle(device);
+
+        cleanup_swapchain(device, swapchain_ctx);
+
+        swapchain_ctx.swapchain = create_swapchain(device, surface, surface_caps);
+        swapchain_ctx.image_views = create_image_views(device, swapchain_ctx.swapchain);
+        swapchain_ctx.render_pass = create_render_pass(device);
+        let (graphics_pipeline, pipeline_layout) =
+            create_graphics_pipeline(device, swapchain_ctx.render_pass, surface_caps);
+        swapchain_ctx.pipeline_layout = pipeline_layout;
+        swapchain_ctx.graphics_pipeline = graphics_pipeline;
+        swapchain_ctx.framebuffers =
+            create_framebuffers(device, swapchain_ctx.render_pass, &swapchain_ctx.image_views, surface_caps);
+    }
 }
 
 fn create_swapchain(device: VkDevice, surface: VkSurfaceKHR, surface_caps: VkSurfaceCapabilitiesKHR) -> VkSwapchainKHR {
@@ -631,7 +664,7 @@ fn create_graphics_pipeline(
     device: VkDevice,
     render_pass: VkRenderPass,
     surface_caps: VkSurfaceCapabilitiesKHR,
-) -> (VkPipeline, VkPipelineLayout, VkShaderModule, VkShaderModule) {
+) -> (VkPipeline, VkPipelineLayout) {
     unsafe {
         let vs_code = fs::read("vert.spv").expect("Failed to load vertex shader");
         let fs_code = fs::read("frag.spv").expect("Failed to load fragment shader");
@@ -808,7 +841,11 @@ fn create_graphics_pipeline(
             ptr::null(),
             &mut graphics_pipeline
         ));
-        (graphics_pipeline, pipeline_layout, vs_shader_module, fs_shader_module)
+
+        vkDestroyShaderModule(device, fs_shader_module, ptr::null());
+        vkDestroyShaderModule(device, vs_shader_module, ptr::null());
+
+        (graphics_pipeline, pipeline_layout)
     }
 }
 
@@ -839,6 +876,23 @@ fn create_framebuffers(
             ));
         }
         framebuffers
+    }
+}
+
+fn cleanup_swapchain(device: VkDevice, swapchain_ctx: &mut SwapchainContext) {
+    unsafe {
+        for framebuffer in &swapchain_ctx.framebuffers {
+            vkDestroyFramebuffer(device, *framebuffer, ptr::null());
+        }
+        vkDestroyPipeline(device, swapchain_ctx.graphics_pipeline, ptr::null());
+        vkDestroyRenderPass(device, swapchain_ctx.render_pass, ptr::null());
+        vkDestroyPipelineLayout(device, swapchain_ctx.pipeline_layout, ptr::null());
+
+        for image_view in &swapchain_ctx.image_views {
+            vkDestroyImageView(device, *image_view, ptr::null());
+        }
+
+        vkDestroySwapchainKHR(device, swapchain_ctx.swapchain, ptr::null());
     }
 }
 
