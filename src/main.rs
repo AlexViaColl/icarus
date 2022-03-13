@@ -10,6 +10,7 @@ use std::process;
 use std::ptr;
 
 const BG_COLOR: u64 = 0x00000000;
+const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 extern "C" fn error_handler(_display: *mut Display, _event: *mut XErrorEvent) -> i32 {
     println!("An error ocurred!");
@@ -31,6 +32,7 @@ fn cstr_to_string(ptr: *const i8) -> String {
 
 fn main() {
     unsafe {
+        XInitThreads();
         let display = XOpenDisplay(std::ptr::null());
         if display.is_null() {
             eprintln!("Cannot open display");
@@ -598,7 +600,7 @@ fn main() {
             &mut command_pool
         ));
 
-        let mut command_buffer = ptr::null_mut();
+        let mut command_buffers = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
         check!(vkAllocateCommandBuffers(
             device,
             &VkCommandBufferAllocateInfo {
@@ -606,34 +608,37 @@ fn main() {
                 pNext: ptr::null(),
                 commandPool: command_pool,
                 level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                commandBufferCount: 1,
+                commandBufferCount: command_buffers.len() as u32,
             },
-            &mut command_buffer
+            command_buffers.as_mut_ptr(),
         ));
 
-        let mut image_available_semaphore = ptr::null_mut();
-        let mut render_finished_semaphore = ptr::null_mut();
-        let mut in_flight_fence = ptr::null_mut();
+        let mut image_available_semaphores = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
+        let mut render_finished_semaphores = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
+        let mut in_flight_fences = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
         let semaphore_create_info = VkSemaphoreCreateInfo {
             sType: VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
             pNext: ptr::null(),
             flags: 0,
         };
-        check!(vkCreateSemaphore(device, &semaphore_create_info, ptr::null(), &mut image_available_semaphore));
-        check!(vkCreateSemaphore(device, &semaphore_create_info, ptr::null(), &mut render_finished_semaphore));
-        check!(vkCreateFence(
-            device,
-            &VkFenceCreateInfo {
-                sType: VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-                pNext: ptr::null(),
-                flags: VK_FENCE_CREATE_SIGNALED_BIT,
-            },
-            ptr::null(),
-            &mut in_flight_fence
-        ));
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            check!(vkCreateSemaphore(device, &semaphore_create_info, ptr::null(), &mut image_available_semaphores[i]));
+            check!(vkCreateSemaphore(device, &semaphore_create_info, ptr::null(), &mut render_finished_semaphores[i]));
+            check!(vkCreateFence(
+                device,
+                &VkFenceCreateInfo {
+                    sType: VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+                    pNext: ptr::null(),
+                    flags: VK_FENCE_CREATE_SIGNALED_BIT,
+                },
+                ptr::null(),
+                &mut in_flight_fences[i],
+            ));
+        }
 
         // Main loop
         let mut running = true;
+        let mut current_frame = 0;
         while running {
             while XPending(display) > 0 {
                 let mut event = XEvent {
@@ -659,24 +664,24 @@ fn main() {
             }
 
             // draw
-            check!(vkWaitForFences(device, 1, &in_flight_fence, VK_TRUE, u64::MAX));
-            check!(vkResetFences(device, 1, &in_flight_fence));
+            check!(vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, u64::MAX));
+            check!(vkResetFences(device, 1, &in_flight_fences[current_frame]));
 
             let mut image_index = 0;
             check!(vkAcquireNextImageKHR(
                 device,
                 swapchain,
                 u64::MAX,
-                image_available_semaphore,
+                image_available_semaphores[current_frame],
                 ptr::null_mut(),
                 &mut image_index,
             ));
 
-            vkResetCommandBuffer(command_buffer, 0);
+            vkResetCommandBuffer(command_buffers[current_frame], 0);
 
             // Record command buffer
             check!(vkBeginCommandBuffer(
-                command_buffer,
+                command_buffers[current_frame],
                 &VkCommandBufferBeginInfo {
                     sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
                     pNext: ptr::null(),
@@ -686,7 +691,7 @@ fn main() {
             ));
 
             vkCmdBeginRenderPass(
-                command_buffer,
+                command_buffers[current_frame],
                 &VkRenderPassBeginInfo {
                     sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
                     pNext: ptr::null(),
@@ -709,13 +714,13 @@ fn main() {
                 VK_SUBPASS_CONTENTS_INLINE,
             );
 
-            vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
+            vkCmdBindPipeline(command_buffers[current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline);
 
-            vkCmdDraw(command_buffer, 3, 1, 0, 0);
+            vkCmdDraw(command_buffers[current_frame], 3, 1, 0, 0);
 
-            vkCmdEndRenderPass(command_buffer);
+            vkCmdEndRenderPass(command_buffers[current_frame]);
 
-            check!(vkEndCommandBuffer(command_buffer));
+            check!(vkEndCommandBuffer(command_buffers[current_frame]));
 
             // Submit command buffer
             check!(vkQueueSubmit(
@@ -725,14 +730,14 @@ fn main() {
                     sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
                     pNext: ptr::null(),
                     waitSemaphoreCount: 1,
-                    pWaitSemaphores: &image_available_semaphore,
+                    pWaitSemaphores: &image_available_semaphores[current_frame],
                     pWaitDstStageMask: &VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                     commandBufferCount: 1,
-                    pCommandBuffers: &command_buffer,
+                    pCommandBuffers: &command_buffers[current_frame],
                     signalSemaphoreCount: 1,
-                    pSignalSemaphores: &render_finished_semaphore,
+                    pSignalSemaphores: &render_finished_semaphores[current_frame],
                 },
-                in_flight_fence
+                in_flight_fences[current_frame],
             ));
 
             check!(vkQueuePresentKHR(
@@ -741,21 +746,25 @@ fn main() {
                     sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
                     pNext: ptr::null(),
                     waitSemaphoreCount: 1,
-                    pWaitSemaphores: &render_finished_semaphore,
+                    pWaitSemaphores: &render_finished_semaphores[current_frame],
                     swapchainCount: 1,
                     pSwapchains: &swapchain,
                     pImageIndices: &image_index,
                     pResults: ptr::null_mut(),
                 }
             ));
+
+            current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
 
         check!(vkDeviceWaitIdle(device));
 
         // Cleanup
-        vkDestroyFence(device, in_flight_fence, ptr::null());
-        vkDestroySemaphore(device, render_finished_semaphore, ptr::null());
-        vkDestroySemaphore(device, image_available_semaphore, ptr::null());
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            vkDestroyFence(device, in_flight_fences[i], ptr::null());
+            vkDestroySemaphore(device, render_finished_semaphores[i], ptr::null());
+            vkDestroySemaphore(device, image_available_semaphores[i], ptr::null());
+        }
         vkDestroyCommandPool(device, command_pool, ptr::null());
         for framebuffer in framebuffers {
             vkDestroyFramebuffer(device, framebuffer, ptr::null());

@@ -2,6 +2,7 @@
 
 #[link(name = "X11")]
 extern "C" {
+    pub fn XInitThreads() -> Status;
     pub fn XOpenDisplay(display_name: *const i8) -> *mut Display;
     pub fn XCloseDisplay(display: *mut Display) -> i32;
     pub fn XCreateSimpleWindow(
@@ -27,17 +28,10 @@ extern "C" {
     pub fn XStoreName(display: *mut Display, window: Window, window_name: *const i8) -> i32;
     pub fn XLookupKeysym(key_event: *mut XKeyEvent, index: i32) -> KeySym;
     pub fn XDefaultGC(display: *mut Display, screen_number: i32) -> GC;
-    pub fn XFillRectangle(
-        display: *mut Display,
-        d: Drawable,
-        gc: GC,
-        x: i32,
-        y: i32,
-        width: u32,
-        height: u32,
-    ) -> i32;
+    pub fn XFillRectangle(display: *mut Display, d: Drawable, gc: GC, x: i32, y: i32, width: u32, height: u32) -> i32;
 }
 
+pub type Status = i32;
 pub type Bool = i32;
 pub type XID = u64;
 pub type CARD32 = XID;
