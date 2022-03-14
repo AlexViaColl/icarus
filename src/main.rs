@@ -926,7 +926,24 @@ extern "C" fn debug_callback(
     _p_user_data: *mut c_void,
 ) -> VkBool32 {
     unsafe {
-        println!("{}", CStr::from_ptr((*p_callback_data).pMessage).to_string_lossy());
+        // TODO: Possible false positive validation errors:
+        // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/1340
+
+        //  2094043421 VUID-VkSwapchainCreateInfoKHR-imageExtent-01274
+        // -1615083365 VUID-VkRenderPassBeginInfo-renderArea-02848
+        // -1280461305 VUID-VkRenderPassBeginInfo-renderArea-02849
+        match (*p_callback_data).messageIdNumber {
+            2094043421 => {}
+            -1615083365 => {}
+            -1280461305 => {}
+            _ => {
+                println!(
+                    "{} {}",
+                    (*p_callback_data).messageIdNumber,
+                    CStr::from_ptr((*p_callback_data).pMessage).to_string_lossy()
+                );
+            }
+        }
         0
     }
 }
