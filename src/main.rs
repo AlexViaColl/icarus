@@ -11,6 +11,8 @@ use std::ptr;
 
 const BG_COLOR: u64 = 0x00000000;
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
+const WINDOW_WIDTH: u32 = 800;
+const WINDOW_HEIGHT: u32 = 600;
 
 extern "C" fn error_handler(_display: *mut Display, _event: *mut XErrorEvent) -> i32 {
     println!("An error ocurred!");
@@ -44,10 +46,12 @@ fn main() {
 
         let screen = XDefaultScreen(display);
         let root = XRootWindow(display, screen);
-        let window = XCreateSimpleWindow(display, root, 0, 0, 100, 100, 1, 0, BG_COLOR);
+        let mut window_width = WINDOW_WIDTH;
+        let mut window_height = WINDOW_HEIGHT;
+        let window = XCreateSimpleWindow(display, root, 0, 0, window_width, window_height, 1, 0, BG_COLOR);
 
         assert_ne!(XStoreName(display, window, b"Icarus\0".as_ptr() as *const i8), 0);
-        assert_ne!(XSelectInput(display, window, KeyPressMask | ExposureMask), 0);
+        assert_ne!(XSelectInput(display, window, KeyPressMask | ExposureMask | StructureNotifyMask), 0);
         assert_ne!(XMapWindow(display, window), 0);
 
         // Vulkan initialization
@@ -57,20 +61,20 @@ fn main() {
         let mut extensions = vec![VkExtensionProperties::default(); extension_count as usize];
         check!(vkEnumerateInstanceExtensionProperties(ptr::null(), &mut extension_count, extensions.as_mut_ptr(),));
         println!("Extensions ({}):", extension_count);
-        for extension in &extensions {
-            println!("{}", cstr_to_string(extension.extensionName.as_ptr()));
-        }
-        println!();
+        // for extension in &extensions {
+        //     println!("{}", cstr_to_string(extension.extensionName.as_ptr()));
+        // }
+        // println!();
 
         let mut layer_count = 0;
         check!(vkEnumerateInstanceLayerProperties(&mut layer_count, ptr::null_mut()));
         let mut layers = vec![VkLayerProperties::default(); layer_count as usize];
         check!(vkEnumerateInstanceLayerProperties(&mut layer_count, layers.as_mut_ptr()));
         println!("Layers ({}):", layer_count);
-        for layer in &layers {
-            println!("{}: {}", cstr_to_string(layer.layerName.as_ptr()), cstr_to_string(layer.description.as_ptr()));
-        }
-        println!();
+        // for layer in &layers {
+        //     println!("{}: {}", cstr_to_string(layer.layerName.as_ptr()), cstr_to_string(layer.description.as_ptr()));
+        // }
+        // println!();
 
         let mut instance = ptr::null_mut();
         check!(vkCreateInstance(
@@ -139,7 +143,7 @@ fn main() {
             ptr::null(),
             &mut surface,
         ));
-        println!("Surface: {:?}", surface);
+        // println!("Surface: {:?}", surface);
 
         // pick physical device
         let mut device_count = 0;
@@ -181,7 +185,9 @@ fn main() {
         let mut present_support = 0;
         vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, graphics_family_index, surface, &mut present_support);
         if present_support != 0 {
-            println!("Queue supports presentation and graphics operations.");
+            // println!("Queue supports presentation and graphics operations.");
+        } else {
+            panic!("Queue doesn't support presentation!");
         }
 
         // create logical device
@@ -234,7 +240,7 @@ fn main() {
             &mut surface_formats_count,
             surface_formats.as_mut_ptr()
         ));
-        println!("{:#?}", surface_formats);
+        // println!("{:#?}", surface_formats);
 
         let mut surface_present_modes_count = 0;
         check!(vkGetPhysicalDeviceSurfacePresentModesKHR(
@@ -250,7 +256,7 @@ fn main() {
             &mut surface_present_modes_count,
             surface_present_modes.as_mut_ptr()
         ));
-        println!("{:#?}", surface_present_modes);
+        // println!("{:#?}", surface_present_modes);
 
         assert!(surface_formats.contains(&VkSurfaceFormatKHR {
             format: VK_FORMAT_B8G8R8A8_SRGB,
@@ -266,6 +272,7 @@ fn main() {
         let framebuffers = create_framebuffers(device, render_pass, &swapchain_image_views, surface_caps);
 
         let mut swapchain_ctx = SwapchainContext {
+            physical_device,
             swapchain,
             image_views: swapchain_image_views,
             render_pass,
@@ -335,6 +342,7 @@ fn main() {
         // Main loop
         let mut running = true;
         let mut current_frame = 0;
+        let mut framebuffer_resized = false;
         while running {
             while XPending(display) > 0 {
                 let mut event = XEvent {
@@ -343,17 +351,33 @@ fn main() {
                 XNextEvent(display, &mut event);
                 match event.ttype {
                     KeyPress => {
+                        #[allow(unused_variables)]
                         let keysym = XLookupKeysym(&mut event.xkey, 0);
                         let event = event.xkey;
-                        println!("KeySym: {} / KeyCode: {}", keysym, event.keycode);
+                        // println!("KeySym: {} / KeyCode: {}", keysym, event.keycode);
                         match event.keycode {
                             9 => running = false,
-                            n => println!("Keycode: {}", n),
+                            //n => println!("Keycode: {}", n),
+                            _ => {}
                         }
                     }
                     Expose => {
                         // let gc = XDefaultGC(display, screen);
                         // XFillRectangle(display, window, gc, 20, 20, 10, 10);
+                    }
+                    ConfigureNotify => {
+                        let event = event.xconfigure;
+                        if event.width as u32 != window_width || event.height as u32 != window_height {
+                            window_width = event.width as u32;
+                            window_height = event.height as u32;
+                            // println!("ConfigureNotify ({}, {})", window_width, window_height);
+                            framebuffer_resized = true;
+                            check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+                                physical_device,
+                                surface,
+                                &mut surface_caps
+                            ));
+                        }
                     }
                     _ => {}
                 }
@@ -363,7 +387,7 @@ fn main() {
             check!(vkWaitForFences(device, 1, &in_flight_fences[current_frame], VK_TRUE, u64::MAX));
 
             let mut image_index = 0;
-            match vkAcquireNextImageKHR(
+            let recreate = match vkAcquireNextImageKHR(
                 device,
                 swapchain_ctx.swapchain,
                 u64::MAX,
@@ -371,15 +395,14 @@ fn main() {
                 ptr::null_mut(),
                 &mut image_index,
             ) {
-                VK_SUCCESS | VK_SUBOPTIMAL_KHR => {}
-                VK_ERROR_OUT_OF_DATE_KHR => {
-                    check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &mut surface_caps));
-                    recreate_swapchain(&mut swapchain_ctx, device, surface, surface_caps);
-                    continue;
-                }
+                VK_SUCCESS | VK_SUBOPTIMAL_KHR => false,
+                VK_ERROR_OUT_OF_DATE_KHR => true,
                 res => panic!("{:?}", res),
+            };
+            if recreate {
+                recreate_swapchain(&mut swapchain_ctx, device, surface);
+                continue;
             }
-
             check!(vkResetFences(device, 1, &in_flight_fences[current_frame]));
 
             vkResetCommandBuffer(command_buffers[current_frame], 0);
@@ -449,7 +472,7 @@ fn main() {
                 in_flight_fences[current_frame],
             ));
 
-            match vkQueuePresentKHR(
+            let recreate = match vkQueuePresentKHR(
                 graphics_queue,
                 &VkPresentInfoKHR {
                     sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -462,12 +485,13 @@ fn main() {
                     pResults: ptr::null_mut(),
                 },
             ) {
-                VK_SUCCESS => {}
-                VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => {
-                    check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device, surface, &mut surface_caps));
-                    recreate_swapchain(&mut swapchain_ctx, device, surface, surface_caps);
-                }
+                VK_SUCCESS => false,
+                VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => true,
                 res => panic!("{:?}", res),
+            };
+            if recreate || framebuffer_resized {
+                recreate_swapchain(&mut swapchain_ctx, device, surface);
+                framebuffer_resized = false;
             }
 
             current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
@@ -501,6 +525,7 @@ fn main() {
 }
 
 struct SwapchainContext {
+    physical_device: VkPhysicalDevice,
     swapchain: VkSwapchainKHR,
     image_views: Vec<VkImageView>,
     render_pass: VkRenderPass,
@@ -509,16 +534,14 @@ struct SwapchainContext {
     framebuffers: Vec<VkFramebuffer>,
 }
 
-fn recreate_swapchain(
-    swapchain_ctx: &mut SwapchainContext,
-    device: VkDevice,
-    surface: VkSurfaceKHR,
-    surface_caps: VkSurfaceCapabilitiesKHR,
-) {
+fn recreate_swapchain(swapchain_ctx: &mut SwapchainContext, device: VkDevice, surface: VkSurfaceKHR) {
     unsafe {
         vkDeviceWaitIdle(device);
 
         cleanup_swapchain(device, swapchain_ctx);
+
+        let mut surface_caps = VkSurfaceCapabilitiesKHR::default();
+        check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(swapchain_ctx.physical_device, surface, &mut surface_caps));
 
         swapchain_ctx.swapchain = create_swapchain(device, surface, surface_caps);
         swapchain_ctx.image_views = create_image_views(device, swapchain_ctx.swapchain);
@@ -570,7 +593,7 @@ fn create_image_views(device: VkDevice, swapchain: VkSwapchainKHR) -> Vec<VkImag
         check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, ptr::null_mut()));
         let mut swapchain_images = vec![ptr::null_mut(); swapchain_image_count as usize];
         check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, swapchain_images.as_mut_ptr()));
-        println!("Swapchain created with {} images", swapchain_image_count);
+        // println!("Swapchain created with {} images", swapchain_image_count);
 
         let mut swapchain_image_views = vec![ptr::null_mut(); swapchain_images.len()];
         for i in 0..swapchain_image_views.len() {

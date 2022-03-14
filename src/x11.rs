@@ -63,21 +63,11 @@ pub union XEvent {
     // pub xany: XAnyEvent,
     pub xkey: XKeyEvent,
     // ...
+    pub xconfigure: XConfigureEvent,
+    // ...
     pub xerror: XErrorEvent,
     // ...
     pub pad: [i64; 24],
-}
-
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct XErrorEvent {
-    pub ttype: i32,
-    pub display: *mut Display,
-    pub resourceid: XID,
-    pub serial: u64,
-    pub error_code: u8,
-    pub request_code: u8,
-    pub minor_code: u8,
 }
 
 #[repr(C)]
@@ -100,12 +90,44 @@ pub struct XKeyEvent {
     pub same_screen: Bool,
 }
 
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct XConfigureEvent {
+    pub ttype: i32,
+    pub serial: u64,
+    pub send_event: Bool,
+    pub display: *mut Display,
+    pub event: Window,
+    pub window: Window,
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub height: i32,
+    pub border_width: i32,
+    pub above: Window,
+    pub override_redirect: Bool,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct XErrorEvent {
+    pub ttype: i32,
+    pub display: *mut Display,
+    pub resourceid: XID,
+    pub serial: u64,
+    pub error_code: u8,
+    pub request_code: u8,
+    pub minor_code: u8,
+}
+
 pub const NoEventMask: i64 = 0;
 pub const KeyPressMask: i64 = 1 << 0;
 // ...
 pub const ExposureMask: i64 = 1 << 15;
+pub const StructureNotifyMask: i64 = 1 << 17;
 
 pub const KeyPress: i32 = 2;
 pub const KeyRelease: i32 = 3;
 // ...
 pub const Expose: i32 = 12;
+pub const ConfigureNotify: i32 = 22;
