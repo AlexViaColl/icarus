@@ -164,6 +164,44 @@ extern "C" {
         pAllocateInfo: *const VkCommandBufferAllocateInfo,
         pCommandBuffers: *mut VkCommandBuffer,
     ) -> VkResult;
+    pub fn vkCreateBuffer(
+        device: VkDevice,
+        pCreateInfo: *const VkBufferCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pBuffer: *mut VkBuffer,
+    ) -> VkResult;
+    pub fn vkDestroyBuffer(device: VkDevice, buffer: VkBuffer, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkGetBufferMemoryRequirements(
+        device: VkDevice,
+        buffer: VkBuffer,
+        pMemoryRequirements: *mut VkMemoryRequirements,
+    );
+    pub fn vkGetPhysicalDeviceMemoryProperties(
+        physicalDevice: VkPhysicalDevice,
+        pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
+    );
+    pub fn vkAllocateMemory(
+        device: VkDevice,
+        pAllocateInfo: *const VkMemoryAllocateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pMemory: *mut VkDeviceMemory,
+    ) -> VkResult;
+    pub fn vkFreeMemory(device: VkDevice, memory: VkDeviceMemory, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkBindBufferMemory(
+        device: VkDevice,
+        buffer: VkBuffer,
+        memory: VkDeviceMemory,
+        memoryOffset: VkDeviceSize,
+    ) -> VkResult;
+    pub fn vkMapMemory(
+        device: VkDevice,
+        memory: VkDeviceMemory,
+        offset: VkDeviceSize,
+        size: VkDeviceSize,
+        flags: VkMemoryMapFlags,
+        ppData: *mut *mut c_void,
+    ) -> VkResult;
+    pub fn vkUnmapMemory(device: VkDevice, memory: VkDeviceMemory);
     pub fn vkCreateSemaphore(
         device: VkDevice,
         pCreateInfo: *const VkSemaphoreCreateInfo,
@@ -205,6 +243,13 @@ extern "C" {
         pipelineBindPoint: VkPipelineBindPoint,
         pipeline: VkPipeline,
     );
+    pub fn vkCmdBindVertexBuffers(
+        commandBuffer: VkCommandBuffer,
+        firstBinding: u32,
+        bindingCount: u32,
+        pBuffers: *const VkBuffer,
+        pOffsets: *const VkDeviceSize,
+    );
     pub fn vkCmdDraw(
         commandBuffer: VkCommandBuffer,
         vertexCount: u32,
@@ -218,10 +263,12 @@ extern "C" {
 pub const VK_FALSE: VkBool32 = 0;
 pub const VK_TRUE: VkBool32 = 1;
 pub const VK_UUID_SIZE: usize = 16;
+pub const VK_SUBPASS_EXTERNAL: u32 = !0;
+pub const VK_MAX_MEMORY_TYPES: usize = 32;
+pub const VK_MAX_MEMORY_HEAPS: usize = 16;
 pub const VK_MAX_PHYSICAL_DEVICE_NAME_SIZE: usize = 256;
 pub const VK_MAX_EXTENSION_NAME_SIZE: usize = 256;
 pub const VK_MAX_DESCRIPTION_SIZE: usize = 256;
-pub const VK_SUBPASS_EXTERNAL: u32 = !0;
 
 pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = b"VK_KHR_swapchain\0".as_ptr() as *const i8;
 pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = b"VK_KHR_surface\0".as_ptr() as *const i8;
@@ -347,6 +394,11 @@ pub type VkQueryPipelineStatisticsFlags = VkFlags;
 pub type VkSemaphoreCreateFlags = VkFlags;
 pub type VkFenceCreateFlags = VkFlags;
 pub type VkCommandBufferResetFlags = VkFlags;
+pub type VkBufferCreateFlags = VkFlags;
+pub type VkBufferUsageFlags = VkFlags;
+pub type VkMemoryPropertyFlags = VkFlags;
+pub type VkMemoryHeapFlags = VkFlags;
+pub type VkMemoryMapFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -870,6 +922,7 @@ pub struct VkPipelineVertexInputStateCreateInfo {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct VkVertexInputBindingDescription {
     pub binding: u32,
     pub stride: u32,
@@ -877,6 +930,7 @@ pub struct VkVertexInputBindingDescription {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct VkVertexInputAttributeDescription {
     pub location: u32,
     pub binding: u32,
@@ -1154,6 +1208,57 @@ pub struct VkCommandBufferInheritanceInfo {
     pub occlusionQueryEnable: VkBool32,
     pub queryFlags: VkQueryControlFlags,
     pub pipelineStatistics: VkQueryPipelineStatisticsFlags,
+}
+
+#[repr(C)]
+pub struct VkBufferCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkBufferCreateFlags,
+    pub size: VkDeviceSize,
+    pub usage: VkBufferUsageFlags,
+    pub sharingMode: VkSharingMode,
+    pub queueFamilyIndexCount: u32,
+    pub pQueueFamilyIndices: *const u32,
+}
+
+#[repr(C)]
+#[derive(Default, Debug)]
+pub struct VkMemoryRequirements {
+    pub size: VkDeviceSize,
+    pub alignment: VkDeviceSize,
+    pub memoryTypeBits: u32,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct VkPhysicalDeviceMemoryProperties {
+    pub memoryTypeCount: u32,
+    pub memoryTypes: [VkMemoryType; VK_MAX_MEMORY_TYPES],
+    pub memoryHeapCount: u32,
+    pub memoryHeaps: [VkMemoryHeap; VK_MAX_MEMORY_HEAPS],
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct VkMemoryType {
+    pub propertyFlags: VkMemoryPropertyFlags,
+    pub heapIndex: u32,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct VkMemoryHeap {
+    pub size: VkDeviceSize,
+    pub flags: VkMemoryHeapFlags,
+}
+
+#[repr(C)]
+pub struct VkMemoryAllocateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub allocationSize: VkDeviceSize,
+    pub memoryTypeIndex: u32,
 }
 
 #[repr(C)]
@@ -2304,6 +2409,42 @@ pub const VK_ACCESS_ACCELERATION_STRUCTURE_WRITE_BIT_NV: VkFlags = VK_ACCESS_ACC
 pub const VK_ACCESS_NONE_KHR: VkFlags = VK_ACCESS_NONE;
 pub const VK_ACCESS_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
 
+pub const VK_BUFFER_USAGE_TRANSFER_SRC_BIT: VkFlags = 0x00000001;
+pub const VK_BUFFER_USAGE_TRANSFER_DST_BIT: VkFlags = 0x00000002;
+pub const VK_BUFFER_USAGE_UNIFORM_TEXEL_BUFFER_BIT: VkFlags = 0x00000004;
+pub const VK_BUFFER_USAGE_STORAGE_TEXEL_BUFFER_BIT: VkFlags = 0x00000008;
+pub const VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT: VkFlags = 0x00000010;
+pub const VK_BUFFER_USAGE_STORAGE_BUFFER_BIT: VkFlags = 0x00000020;
+pub const VK_BUFFER_USAGE_INDEX_BUFFER_BIT: VkFlags = 0x00000040;
+pub const VK_BUFFER_USAGE_VERTEX_BUFFER_BIT: VkFlags = 0x00000080;
+pub const VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT: VkFlags = 0x00000100;
+pub const VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT: VkFlags = 0x00020000;
+pub const VK_BUFFER_USAGE_VIDEO_DECODE_SRC_BIT_KHR: VkFlags = 0x00002000;
+pub const VK_BUFFER_USAGE_VIDEO_DECODE_DST_BIT_KHR: VkFlags = 0x00004000;
+pub const VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_BUFFER_BIT_EXT: VkFlags = 0x00000800;
+pub const VK_BUFFER_USAGE_TRANSFORM_FEEDBACK_COUNTER_BUFFER_BIT_EXT: VkFlags = 0x00001000;
+pub const VK_BUFFER_USAGE_CONDITIONAL_RENDERING_BIT_EXT: VkFlags = 0x00000200;
+pub const VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT_KHR: VkFlags = 0x00080000;
+pub const VK_BUFFER_USAGE_ACCELERATION_STRUCTURE_STORAGE_BIT_KHR: VkFlags = 0x00100000;
+pub const VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR: VkFlags = 0x00000400;
+pub const VK_BUFFER_USAGE_VIDEO_ENCODE_DST_BIT_KHR: VkFlags = 0x00008000;
+pub const VK_BUFFER_USAGE_VIDEO_ENCODE_SRC_BIT_KHR: VkFlags = 0x00010000;
+pub const VK_BUFFER_USAGE_RAY_TRACING_BIT_NV: VkFlags = VK_BUFFER_USAGE_SHADER_BINDING_TABLE_BIT_KHR;
+pub const VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_EXT: VkFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+pub const VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT_KHR: VkFlags = VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+pub const VK_BUFFER_USAGE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT: VkFlags = 0x00000001;
+pub const VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT: VkFlags = 0x00000002;
+pub const VK_MEMORY_PROPERTY_HOST_COHERENT_BIT: VkFlags = 0x00000004;
+pub const VK_MEMORY_PROPERTY_HOST_CACHED_BIT: VkFlags = 0x00000008;
+pub const VK_MEMORY_PROPERTY_LAZILY_ALLOCATED_BIT: VkFlags = 0x00000010;
+pub const VK_MEMORY_PROPERTY_PROTECTED_BIT: VkFlags = 0x00000020;
+pub const VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD: VkFlags = 0x00000040;
+pub const VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD: VkFlags = 0x00000080;
+pub const VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV: VkFlags = 0x00000100;
+pub const VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]
 pub enum VkFormat {
@@ -2703,6 +2844,7 @@ pub enum VkComponentSwizzle {
 pub use VkComponentSwizzle::*;
 
 #[repr(C)]
+#[derive(Debug)]
 pub enum VkVertexInputRate {
     VK_VERTEX_INPUT_RATE_VERTEX = 0,
     VK_VERTEX_INPUT_RATE_INSTANCE = 1,

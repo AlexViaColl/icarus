@@ -6,6 +6,7 @@ use icarus::*;
 use core::ffi::c_void;
 use std::ffi::CStr;
 use std::fs;
+use std::mem;
 use std::process;
 use std::ptr;
 
@@ -32,7 +33,54 @@ fn cstr_to_string(ptr: *const i8) -> String {
     unsafe { CStr::from_ptr(ptr).to_string_lossy().into_owned() }
 }
 
+#[repr(C)]
+struct Vertex {
+    pos: (f32, f32),        // 8
+    color: (f32, f32, f32), // 12
+}
+
+impl Vertex {
+    fn get_binding_description() -> VkVertexInputBindingDescription {
+        VkVertexInputBindingDescription {
+            binding: 0,
+            stride: mem::size_of::<Self>() as u32,
+            inputRate: VK_VERTEX_INPUT_RATE_VERTEX,
+        }
+    }
+
+    fn get_attribute_descriptions() -> [VkVertexInputAttributeDescription; 2] {
+        [
+            VkVertexInputAttributeDescription {
+                binding: 0,
+                location: 0,
+                format: VK_FORMAT_R32G32_SFLOAT,
+                offset: 0,
+            },
+            VkVertexInputAttributeDescription {
+                binding: 0,
+                location: 1,
+                format: VK_FORMAT_R32G32B32_SFLOAT,
+                offset: mem::size_of::<(f32, f32)>() as u32,
+            },
+        ]
+    }
+}
+
 fn main() {
+    let vertices: Vec<Vertex> = vec![
+        Vertex {
+            pos: (0.0, -0.5),
+            color: (1.0, 1.0, 1.0),
+        },
+        Vertex {
+            pos: (0.5, 0.5),
+            color: (0.0, 1.0, 0.0),
+        },
+        Vertex {
+            pos: (-0.5, 0.5),
+            color: (0.0, 0.0, 1.0),
+        },
+    ];
     unsafe {
         XInitThreads();
         let display = XOpenDisplay(std::ptr::null());
@@ -303,6 +351,58 @@ fn main() {
             &mut command_pool
         ));
 
+        let mut vertex_buffer = ptr::null_mut();
+        println!("Creating vertex buffer of size: {}", mem::size_of::<Vertex>() * vertices.len());
+        check!(vkCreateBuffer(
+            device,
+            &VkBufferCreateInfo {
+                sType: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                size: (mem::size_of::<Vertex>() * vertices.len()) as VkDeviceSize,
+                usage: VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                queueFamilyIndexCount: 0,
+                pQueueFamilyIndices: ptr::null(),
+            },
+            ptr::null(),
+            &mut vertex_buffer
+        ));
+        let mut mem_requirements = VkMemoryRequirements::default();
+        vkGetBufferMemoryRequirements(device, vertex_buffer, &mut mem_requirements);
+        println!("VkMemoryRequirements for vertex buffer: {:#?}", mem_requirements);
+
+        let mut vertex_buffer_memory = ptr::null_mut();
+        check!(vkAllocateMemory(
+            device,
+            &VkMemoryAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                allocationSize: mem_requirements.size,
+                memoryTypeIndex: find_memory_type(
+                    physical_device,
+                    mem_requirements.memoryTypeBits,
+                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+                ),
+            },
+            ptr::null(),
+            &mut vertex_buffer_memory
+        ));
+
+        check!(vkBindBufferMemory(device, vertex_buffer, vertex_buffer_memory, 0));
+
+        let mut data = ptr::null_mut();
+        vkMapMemory(
+            device,
+            vertex_buffer_memory,
+            0,
+            (mem::size_of::<Vertex>() * vertices.len()) as VkDeviceSize,
+            0,
+            &mut data,
+        );
+        std::ptr::copy(vertices.as_ptr(), data as *mut Vertex, vertices.len());
+        vkUnmapMemory(device, vertex_buffer_memory);
+
         let mut command_buffers = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
         check!(vkAllocateCommandBuffers(
             device,
@@ -448,7 +548,9 @@ fn main() {
                 swapchain_ctx.graphics_pipeline,
             );
 
-            vkCmdDraw(command_buffers[current_frame], 3, 1, 0, 0);
+            vkCmdBindVertexBuffers(command_buffers[current_frame], 0, 1, &vertex_buffer, &0);
+
+            vkCmdDraw(command_buffers[current_frame], vertices.len() as u32, 1, 0, 0);
 
             vkCmdEndRenderPass(command_buffers[current_frame]);
 
@@ -505,6 +607,8 @@ fn main() {
             vkDestroySemaphore(device, render_finished_semaphores[i], ptr::null());
             vkDestroySemaphore(device, image_available_semaphores[i], ptr::null());
         }
+        vkFreeMemory(device, vertex_buffer_memory, ptr::null());
+        vkDestroyBuffer(device, vertex_buffer, ptr::null());
         vkDestroyCommandPool(device, command_pool, ptr::null());
         cleanup_swapchain(device, &mut swapchain_ctx);
 
@@ -770,10 +874,10 @@ fn create_graphics_pipeline(
                     sType: VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
                     pNext: ptr::null(),
                     flags: 0,
-                    vertexBindingDescriptionCount: 0,
-                    pVertexBindingDescriptions: ptr::null(),
-                    vertexAttributeDescriptionCount: 0,
-                    pVertexAttributeDescriptions: ptr::null(),
+                    vertexBindingDescriptionCount: 1,
+                    pVertexBindingDescriptions: &Vertex::get_binding_description(),
+                    vertexAttributeDescriptionCount: Vertex::get_attribute_descriptions().len() as u32,
+                    pVertexAttributeDescriptions: Vertex::get_attribute_descriptions().as_ptr(),
                 },
                 pInputAssemblyState: &VkPipelineInputAssemblyStateCreateInfo {
                     sType: VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -917,6 +1021,21 @@ fn cleanup_swapchain(device: VkDevice, swapchain_ctx: &mut SwapchainContext) {
 
         vkDestroySwapchainKHR(device, swapchain_ctx.swapchain, ptr::null());
     }
+}
+
+fn find_memory_type(physical_device: VkPhysicalDevice, type_filter: u32, properties: VkMemoryPropertyFlags) -> u32 {
+    let mut mem_properties = VkPhysicalDeviceMemoryProperties::default();
+    unsafe { vkGetPhysicalDeviceMemoryProperties(physical_device, &mut mem_properties) };
+
+    for i in 0..mem_properties.memoryTypeCount {
+        if type_filter & (1 << i) != 0
+            && mem_properties.memoryTypes[i as usize].propertyFlags & properties == properties
+        {
+            return i;
+        }
+    }
+
+    panic!("Failed to find suitable memory type!");
 }
 
 extern "C" fn debug_callback(
