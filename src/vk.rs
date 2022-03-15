@@ -164,6 +164,12 @@ extern "C" {
         pAllocateInfo: *const VkCommandBufferAllocateInfo,
         pCommandBuffers: *mut VkCommandBuffer,
     ) -> VkResult;
+    pub fn vkFreeCommandBuffers(
+        device: VkDevice,
+        commandPool: VkCommandPool,
+        commandBufferCount: u32,
+        pCommandBuffers: *const VkCommandBuffer,
+    );
     pub fn vkCreateBuffer(
         device: VkDevice,
         pCreateInfo: *const VkBufferCreateInfo,
@@ -231,6 +237,7 @@ extern "C" {
     pub fn vkEndCommandBuffer(commandBuffer: VkCommandBuffer) -> VkResult;
     pub fn vkResetCommandBuffer(commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult;
     pub fn vkDeviceWaitIdle(device: VkDevice) -> VkResult;
+    pub fn vkQueueWaitIdle(queue: VkQueue) -> VkResult;
 
     // Commands
     pub fn vkCmdBeginRenderPass(
@@ -258,6 +265,13 @@ extern "C" {
         firstInstance: u32,
     );
     pub fn vkCmdEndRenderPass(commandBuffer: VkCommandBuffer);
+    pub fn vkCmdCopyBuffer(
+        commandBuffer: VkCommandBuffer,
+        srcBuffer: VkBuffer,
+        dstBuffer: VkBuffer,
+        regionCount: u32,
+        pRegions: *const VkBufferCopy,
+    );
 }
 
 pub const VK_FALSE: VkBool32 = 0;
@@ -1316,6 +1330,13 @@ pub struct VkPresentInfoKHR {
     pub pSwapchains: *const VkSwapchainKHR,
     pub pImageIndices: *const u32,
     pub pResults: *mut VkResult,
+}
+
+#[repr(C)]
+pub struct VkBufferCopy {
+    pub srcOffset: VkDeviceSize,
+    pub dstOffset: VkDeviceSize,
+    pub size: VkDeviceSize,
 }
 
 // Unions
@@ -2444,6 +2465,11 @@ pub const VK_MEMORY_PROPERTY_DEVICE_COHERENT_BIT_AMD: VkFlags = 0x00000040;
 pub const VK_MEMORY_PROPERTY_DEVICE_UNCACHED_BIT_AMD: VkFlags = 0x00000080;
 pub const VK_MEMORY_PROPERTY_RDMA_CAPABLE_BIT_NV: VkFlags = 0x00000100;
 pub const VK_MEMORY_PROPERTY_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
+
+pub const VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT: VkFlags = 0x00000001;
+pub const VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT: VkFlags = 0x00000002;
+pub const VK_COMMAND_BUFFER_USAGE_SIMULTANEOUS_USE_BIT: VkFlags = 0x00000004;
+pub const VK_COMMAND_BUFFER_USAGE_FLAG_BITS_MAX_ENUM: VkFlags = 0x7FFFFFF;
 
 #[repr(C)]
 #[derive(Debug, Clone, PartialEq)]

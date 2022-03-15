@@ -70,7 +70,7 @@ fn main() {
     let vertices: Vec<Vertex> = vec![
         Vertex {
             pos: (0.0, -0.5),
-            color: (1.0, 1.0, 1.0),
+            color: (1.0, 1.0, 0.0),
         },
         Vertex {
             pos: (0.5, 0.5),
@@ -352,45 +352,8 @@ fn main() {
             &mut command_pool
         ));
 
-        let mut vertex_buffer = ptr::null_mut();
-        println!("Creating vertex buffer of size: {}", mem::size_of::<Vertex>() * vertices.len());
-        check!(vkCreateBuffer(
-            device,
-            &VkBufferCreateInfo {
-                sType: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-                pNext: ptr::null(),
-                flags: 0,
-                size: (mem::size_of::<Vertex>() * vertices.len()) as VkDeviceSize,
-                usage: VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
-                queueFamilyIndexCount: 0,
-                pQueueFamilyIndices: ptr::null(),
-            },
-            ptr::null(),
-            &mut vertex_buffer
-        ));
-        let mut mem_requirements = VkMemoryRequirements::default();
-        vkGetBufferMemoryRequirements(device, vertex_buffer, &mut mem_requirements);
-        println!("VkMemoryRequirements for vertex buffer: {:#?}", mem_requirements);
-
-        let mut vertex_buffer_memory = ptr::null_mut();
-        check!(vkAllocateMemory(
-            device,
-            &VkMemoryAllocateInfo {
-                sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
-                pNext: ptr::null(),
-                allocationSize: mem_requirements.size,
-                memoryTypeIndex: find_memory_type(
-                    physical_device,
-                    mem_requirements.memoryTypeBits,
-                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
-                ),
-            },
-            ptr::null(),
-            &mut vertex_buffer_memory
-        ));
-
-        check!(vkBindBufferMemory(device, vertex_buffer, vertex_buffer_memory, 0));
+        let (vertex_buffer, vertex_buffer_memory) =
+            create_vertex_buffer(device, physical_device, graphics_queue, command_pool, &vertices);
 
         let mut data = ptr::null_mut();
         vkMapMemory(
@@ -1037,6 +1000,159 @@ fn find_memory_type(physical_device: VkPhysicalDevice, type_filter: u32, propert
     }
 
     panic!("Failed to find suitable memory type!");
+}
+
+fn copy_buffer(
+    device: VkDevice,
+    command_pool: VkCommandPool,
+    graphics_queue: VkQueue,
+    src_buffer: VkBuffer,
+    dst_buffer: VkBuffer,
+    size: VkDeviceSize,
+) {
+    unsafe {
+        let mut command_buffer = ptr::null_mut();
+        check!(vkAllocateCommandBuffers(
+            device,
+            &VkCommandBufferAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                commandPool: command_pool,
+                level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                commandBufferCount: 1,
+            },
+            &mut command_buffer,
+        ));
+
+        check!(vkBeginCommandBuffer(
+            command_buffer,
+            &VkCommandBufferBeginInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                pNext: ptr::null(),
+                flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                pInheritanceInfo: ptr::null(),
+            },
+        ));
+
+        vkCmdCopyBuffer(
+            command_buffer,
+            src_buffer,
+            dst_buffer,
+            1,
+            &VkBufferCopy {
+                srcOffset: 0,
+                dstOffset: 0,
+                size,
+            },
+        );
+
+        check!(vkEndCommandBuffer(command_buffer));
+
+        check!(vkQueueSubmit(
+            graphics_queue,
+            1,
+            &VkSubmitInfo {
+                sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                pNext: ptr::null(),
+                waitSemaphoreCount: 0,
+                pWaitSemaphores: ptr::null(),
+                pWaitDstStageMask: ptr::null(),
+                commandBufferCount: 1,
+                pCommandBuffers: &command_buffer,
+                signalSemaphoreCount: 0,
+                pSignalSemaphores: ptr::null(),
+            },
+            ptr::null_mut()
+        ));
+        check!(vkQueueWaitIdle(graphics_queue));
+
+        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+    }
+}
+
+fn create_vertex_buffer(
+    device: VkDevice,
+    physical_device: VkPhysicalDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    vertices: &[Vertex],
+) -> (VkBuffer, VkDeviceMemory) {
+    unsafe {
+        let buffer_size = (mem::size_of::<Vertex>() * vertices.len()) as VkDeviceSize;
+        let (staging_buffer, staging_buffer_memory) = create_buffer(
+            device,
+            physical_device,
+            buffer_size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        );
+
+        let mut data = ptr::null_mut();
+        vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &mut data);
+        std::ptr::copy(vertices.as_ptr(), data as *mut Vertex, vertices.len());
+        vkUnmapMemory(device, staging_buffer_memory);
+
+        let (vertex_buffer, vertex_buffer_memory) = create_buffer(
+            device,
+            physical_device,
+            buffer_size,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        );
+
+        copy_buffer(device, command_pool, graphics_queue, staging_buffer, vertex_buffer, buffer_size);
+
+        vkFreeMemory(device, staging_buffer_memory, ptr::null());
+        vkDestroyBuffer(device, staging_buffer, ptr::null());
+
+        (vertex_buffer, vertex_buffer_memory)
+    }
+}
+
+fn create_buffer(
+    device: VkDevice,
+    physical_device: VkPhysicalDevice,
+    size: VkDeviceSize,
+    usage: VkBufferUsageFlags,
+    properties: VkMemoryPropertyFlags,
+) -> (VkBuffer, VkDeviceMemory) {
+    unsafe {
+        let mut buffer = ptr::null_mut();
+        check!(vkCreateBuffer(
+            device,
+            &VkBufferCreateInfo {
+                sType: VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                size,
+                usage,
+                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                queueFamilyIndexCount: 0,
+                pQueueFamilyIndices: ptr::null(),
+            },
+            ptr::null(),
+            &mut buffer
+        ));
+        let mut mem_requirements = VkMemoryRequirements::default();
+        vkGetBufferMemoryRequirements(device, buffer, &mut mem_requirements);
+
+        let mut buffer_memory = ptr::null_mut();
+        check!(vkAllocateMemory(
+            device,
+            &VkMemoryAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                allocationSize: mem_requirements.size,
+                memoryTypeIndex: find_memory_type(physical_device, mem_requirements.memoryTypeBits, properties),
+            },
+            ptr::null(),
+            &mut buffer_memory
+        ));
+
+        check!(vkBindBufferMemory(device, buffer, buffer_memory, 0));
+
+        (buffer, buffer_memory)
+    }
 }
 
 extern "C" fn debug_callback(
