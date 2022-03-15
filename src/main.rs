@@ -69,18 +69,24 @@ impl Vertex {
 fn main() {
     let vertices: Vec<Vertex> = vec![
         Vertex {
-            pos: (0.0, -0.5),
-            color: (1.0, 1.0, 0.0),
+            pos: (-0.5, -0.5),
+            color: (1.0, 0.0, 0.0),
         },
         Vertex {
-            pos: (0.5, 0.5),
+            pos: (0.5, -0.5),
             color: (0.0, 1.0, 0.0),
         },
         Vertex {
-            pos: (-0.5, 0.5),
+            pos: (0.5, 0.5),
             color: (0.0, 0.0, 1.0),
         },
+        Vertex {
+            pos: (-0.5, 0.5),
+            color: (1.0, 1.0, 1.0),
+        },
     ];
+    let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
+
     unsafe {
         XInitThreads();
         let display = XOpenDisplay(std::ptr::null());
@@ -354,6 +360,8 @@ fn main() {
 
         let (vertex_buffer, vertex_buffer_memory) =
             create_vertex_buffer(device, physical_device, graphics_queue, command_pool, &vertices);
+        let (index_buffer, index_buffer_memory) =
+            create_index_buffer(device, physical_device, graphics_queue, command_pool, &indices);
 
         let mut data = ptr::null_mut();
         vkMapMemory(
@@ -513,8 +521,10 @@ fn main() {
             );
 
             vkCmdBindVertexBuffers(command_buffers[current_frame], 0, 1, &vertex_buffer, &0);
+            vkCmdBindIndexBuffer(command_buffers[current_frame], index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
-            vkCmdDraw(command_buffers[current_frame], vertices.len() as u32, 1, 0, 0);
+            // vkCmdDraw(command_buffers[current_frame], vertices.len() as u32, 1, 0, 0);
+            vkCmdDrawIndexed(command_buffers[current_frame], indices.len() as u32, 1, 0, 0, 0);
 
             vkCmdEndRenderPass(command_buffers[current_frame]);
 
@@ -571,6 +581,8 @@ fn main() {
             vkDestroySemaphore(device, render_finished_semaphores[i], ptr::null());
             vkDestroySemaphore(device, image_available_semaphores[i], ptr::null());
         }
+        vkFreeMemory(device, index_buffer_memory, ptr::null());
+        vkDestroyBuffer(device, index_buffer, ptr::null());
         vkFreeMemory(device, vertex_buffer_memory, ptr::null());
         vkDestroyBuffer(device, vertex_buffer, ptr::null());
         vkDestroyCommandPool(device, command_pool, ptr::null());
@@ -1078,7 +1090,7 @@ fn create_vertex_buffer(
     vertices: &[Vertex],
 ) -> (VkBuffer, VkDeviceMemory) {
     unsafe {
-        let buffer_size = (mem::size_of::<Vertex>() * vertices.len()) as VkDeviceSize;
+        let buffer_size = (mem::size_of_val(&vertices[0]) * vertices.len()) as VkDeviceSize;
         let (staging_buffer, staging_buffer_memory) = create_buffer(
             device,
             physical_device,
@@ -1106,6 +1118,45 @@ fn create_vertex_buffer(
         vkDestroyBuffer(device, staging_buffer, ptr::null());
 
         (vertex_buffer, vertex_buffer_memory)
+    }
+}
+
+fn create_index_buffer(
+    device: VkDevice,
+    physical_device: VkPhysicalDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    indices: &[u16],
+) -> (VkBuffer, VkDeviceMemory) {
+    unsafe {
+        let buffer_size = (mem::size_of_val(&indices[0]) * indices.len()) as VkDeviceSize;
+        let (staging_buffer, staging_buffer_memory) = create_buffer(
+            device,
+            physical_device,
+            buffer_size,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        );
+
+        let mut data = ptr::null_mut();
+        vkMapMemory(device, staging_buffer_memory, 0, buffer_size, 0, &mut data);
+        std::ptr::copy(indices.as_ptr(), data as *mut u16, indices.len());
+        vkUnmapMemory(device, staging_buffer_memory);
+
+        let (index_buffer, index_buffer_memory) = create_buffer(
+            device,
+            physical_device,
+            buffer_size,
+            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+        );
+
+        copy_buffer(device, command_pool, graphics_queue, staging_buffer, index_buffer, buffer_size);
+
+        vkFreeMemory(device, staging_buffer_memory, ptr::null());
+        vkDestroyBuffer(device, staging_buffer, ptr::null());
+
+        (index_buffer, index_buffer_memory)
     }
 }
 

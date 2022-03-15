@@ -257,11 +257,25 @@ extern "C" {
         pBuffers: *const VkBuffer,
         pOffsets: *const VkDeviceSize,
     );
+    pub fn vkCmdBindIndexBuffer(
+        commandBuffer: VkCommandBuffer,
+        buffer: VkBuffer,
+        offset: VkDeviceSize,
+        indexType: VkIndexType,
+    );
     pub fn vkCmdDraw(
         commandBuffer: VkCommandBuffer,
         vertexCount: u32,
         instanceCount: u32,
         firstVertex: u32,
+        firstInstance: u32,
+    );
+    pub fn vkCmdDrawIndexed(
+        commandBuffer: VkCommandBuffer,
+        indexCount: u32,
+        instanceCount: u32,
+        firstIndex: u32,
+        vertexOffset: i32,
         firstInstance: u32,
     );
     pub fn vkCmdEndRenderPass(commandBuffer: VkCommandBuffer);
@@ -3167,3 +3181,14 @@ pub enum VkSubpassContents {
     VK_SUBPASS_CONTENTS_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkSubpassContents::*;
+
+#[repr(C)]
+pub enum VkIndexType {
+    VK_INDEX_TYPE_UINT16 = 0,
+    VK_INDEX_TYPE_UINT32 = 1,
+    VK_INDEX_TYPE_NONE_KHR = 1000165000,
+    VK_INDEX_TYPE_UINT8_EXT = 1000265000,
+    //  VK_INDEX_TYPE_NONE_NV = VK_INDEX_TYPE_NONE_KHR,
+    VK_INDEX_TYPE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkIndexType::*;
