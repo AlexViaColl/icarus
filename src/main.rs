@@ -215,6 +215,7 @@ fn main() {
             let mut queue_families = vec![VkQueueFamilyProperties::default(); queue_family_count as usize];
             vkGetPhysicalDeviceQueueFamilyProperties(*device, &mut queue_family_count, queue_families.as_mut_ptr());
             // println!("{:#?}", queue_families);
+            #[allow(unused_variables, unused_mut)]
             for (index, queue_family) in queue_families.iter().enumerate() {
                 if (*queue_family).queueFlags & VK_QUEUE_GRAPHICS_BIT != 0 {
                     // println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", index);
