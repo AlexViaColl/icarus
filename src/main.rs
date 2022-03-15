@@ -172,7 +172,7 @@ fn main() {
                     // println!("Found a queue {} with VK_QUEUE_GRAPHICS_BIT", index);
                 }
                 let mut present_support = 0;
-                vkGetPhysicalDeviceSurfaceSupportKHR(*device, index as u32, surface, &mut present_support);
+                //vkGetPhysicalDeviceSurfaceSupportKHR(*device, index as u32, surface, &mut present_support);
             }
         }
         // TODO: Score physical devices and pick the "best" one.
