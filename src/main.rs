@@ -365,11 +365,28 @@ fn main() {
         let (graphics_pipeline, pipeline_layout) =
             create_graphics_pipeline(device, render_pass, surface_caps, descriptor_set_layout);
         let framebuffers = create_framebuffers(device, render_pass, &swapchain_image_views, surface_caps);
+        let descriptor_pool = create_descriptor_pool(device);
+
+        let mut descriptor_sets = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
+        check!(vkAllocateDescriptorSets(
+            device,
+            &VkDescriptorSetAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                descriptorPool: descriptor_pool,
+                descriptorSetCount: MAX_FRAMES_IN_FLIGHT as u32,
+                pSetLayouts: vec![descriptor_set_layout; MAX_FRAMES_IN_FLIGHT].as_ptr(),
+            },
+            descriptor_sets.as_mut_ptr()
+        ));
 
         let mut swapchain_ctx = SwapchainContext {
             physical_device,
             swapchain,
             image_views: swapchain_image_views,
+            descriptor_pool,
+            descriptor_sets,
+            descriptor_set_layout,
             render_pass,
             pipeline_layout,
             graphics_pipeline,
@@ -418,37 +435,6 @@ fn main() {
             uniform_buffers_memory.push(uniform_buffer_memory);
         }
 
-        let mut descriptor_pool = ptr::null_mut();
-        check!(vkCreateDescriptorPool(
-            device,
-            &VkDescriptorPoolCreateInfo {
-                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-                pNext: ptr::null(),
-                flags: 0,
-                maxSets: MAX_FRAMES_IN_FLIGHT as u32,
-                poolSizeCount: 1,
-                pPoolSizes: &VkDescriptorPoolSize {
-                    ttype: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                    descriptorCount: MAX_FRAMES_IN_FLIGHT as u32,
-                }
-            },
-            ptr::null(),
-            &mut descriptor_pool
-        ));
-
-        let mut descriptor_sets = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
-        check!(vkAllocateDescriptorSets(
-            device,
-            &VkDescriptorSetAllocateInfo {
-                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                pNext: ptr::null(),
-                descriptorPool: descriptor_pool,
-                descriptorSetCount: MAX_FRAMES_IN_FLIGHT as u32,
-                pSetLayouts: vec![descriptor_set_layout; MAX_FRAMES_IN_FLIGHT].as_ptr(),
-            },
-            descriptor_sets.as_mut_ptr()
-        ));
-
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             vkUpdateDescriptorSets(
                 device,
@@ -456,7 +442,7 @@ fn main() {
                 &VkWriteDescriptorSet {
                     sType: VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                     pNext: ptr::null(),
-                    dstSet: descriptor_sets[i],
+                    dstSet: swapchain_ctx.descriptor_sets[i],
                     dstBinding: 0,
                     dstArrayElement: 0,
                     descriptorCount: 1,
@@ -571,7 +557,7 @@ fn main() {
                 res => panic!("{:?}", res),
             };
             if recreate {
-                dbg!(recreate_swapchain(&mut swapchain_ctx, device, surface));
+                recreate_swapchain(&mut swapchain_ctx, device, surface, &uniform_buffers);
                 continue;
             }
 
@@ -644,10 +630,10 @@ fn main() {
             vkCmdBindDescriptorSets(
                 command_buffers[current_frame],
                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipeline_layout,
+                swapchain_ctx.pipeline_layout,
                 0,
                 1,
-                &descriptor_sets[current_frame],
+                &swapchain_ctx.descriptor_sets[current_frame],
                 0,
                 ptr::null(),
             );
@@ -694,7 +680,7 @@ fn main() {
                 res => panic!("{:?}", res),
             };
             if recreate || framebuffer_resized {
-                dbg!(recreate_swapchain(&mut swapchain_ctx, device, surface));
+                recreate_swapchain(&mut swapchain_ctx, device, surface, &uniform_buffers);
                 framebuffer_resized = false;
             }
 
@@ -710,7 +696,7 @@ fn main() {
             vkDestroySemaphore(device, image_available_semaphores[i], ptr::null());
         }
 
-        vkDestroyDescriptorPool(device, descriptor_pool, ptr::null());
+        vkDestroyDescriptorPool(device, swapchain_ctx.descriptor_pool, ptr::null());
         for i in 0..MAX_FRAMES_IN_FLIGHT {
             vkFreeMemory(device, uniform_buffers_memory[i], ptr::null());
             vkDestroyBuffer(device, uniform_buffers[i], ptr::null());
@@ -744,15 +730,22 @@ struct SwapchainContext {
     physical_device: VkPhysicalDevice,
     swapchain: VkSwapchainKHR,
     image_views: Vec<VkImageView>,
+    descriptor_pool: VkDescriptorPool,
+    descriptor_sets: Vec<VkDescriptorSet>,
+    descriptor_set_layout: VkDescriptorSetLayout,
     render_pass: VkRenderPass,
     pipeline_layout: VkPipelineLayout,
     graphics_pipeline: VkPipeline,
     framebuffers: Vec<VkFramebuffer>,
 }
 
-fn recreate_swapchain(swapchain_ctx: &mut SwapchainContext, device: VkDevice, surface: VkSurfaceKHR) {
+fn recreate_swapchain(
+    swapchain_ctx: &mut SwapchainContext,
+    device: VkDevice,
+    surface: VkSurfaceKHR,
+    uniform_buffers: &[VkBuffer],
+) {
     unsafe {
-        println!("recreate_swapchain");
         vkDeviceWaitIdle(device);
 
         cleanup_swapchain(device, swapchain_ctx);
@@ -763,14 +756,55 @@ fn recreate_swapchain(swapchain_ctx: &mut SwapchainContext, device: VkDevice, su
         swapchain_ctx.swapchain = create_swapchain(device, surface, surface_caps);
         swapchain_ctx.image_views = create_image_views(device, swapchain_ctx.swapchain);
         swapchain_ctx.render_pass = create_render_pass(device);
-        //        let (graphics_pipeline, pipeline_layout) =
-        //            create_graphics_pipeline(device, swapchain_ctx.render_pass, surface_caps);
-        //        swapchain_ctx.pipeline_layout = pipeline_layout;
-        //        swapchain_ctx.graphics_pipeline = graphics_pipeline;
-        //        swapchain_ctx.framebuffers =
-        //            create_framebuffers(device, swapchain_ctx.render_pass, &swapchain_ctx.image_views, surface_caps);
+        let (graphics_pipeline, pipeline_layout) = create_graphics_pipeline(
+            device,
+            swapchain_ctx.render_pass,
+            surface_caps,
+            swapchain_ctx.descriptor_set_layout,
+        );
+        swapchain_ctx.pipeline_layout = pipeline_layout;
+        swapchain_ctx.graphics_pipeline = graphics_pipeline;
+        swapchain_ctx.framebuffers =
+            create_framebuffers(device, swapchain_ctx.render_pass, &swapchain_ctx.image_views, surface_caps);
 
-        // TODO: Recreate descriptor sets and descriptor pool!
+        vkDestroyDescriptorPool(device, swapchain_ctx.descriptor_pool, ptr::null());
+        swapchain_ctx.descriptor_pool = create_descriptor_pool(device);
+        check!(vkAllocateDescriptorSets(
+            device,
+            &VkDescriptorSetAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                descriptorPool: swapchain_ctx.descriptor_pool,
+                descriptorSetCount: MAX_FRAMES_IN_FLIGHT as u32,
+                pSetLayouts: vec![swapchain_ctx.descriptor_set_layout; MAX_FRAMES_IN_FLIGHT].as_ptr(),
+            },
+            swapchain_ctx.descriptor_sets.as_mut_ptr()
+        ));
+
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            vkUpdateDescriptorSets(
+                device,
+                1,
+                &VkWriteDescriptorSet {
+                    sType: VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    pNext: ptr::null(),
+                    dstSet: swapchain_ctx.descriptor_sets[i],
+                    dstBinding: 0,
+                    dstArrayElement: 0,
+                    descriptorCount: 1,
+                    descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    pImageInfo: ptr::null(),
+                    pBufferInfo: &VkDescriptorBufferInfo {
+                        buffer: uniform_buffers[i],
+                        offset: 0,
+                        range: mem::size_of::<UniformBufferObject>() as VkDeviceSize,
+                    },
+                    pTexelBufferView: ptr::null(),
+                },
+                0,
+                ptr::null(),
+            );
+        }
     }
 }
 
@@ -1119,6 +1153,29 @@ fn create_framebuffers(
             ));
         }
         framebuffers
+    }
+}
+
+fn create_descriptor_pool(device: VkDevice) -> VkDescriptorPool {
+    unsafe {
+        let mut descriptor_pool = ptr::null_mut();
+        check!(vkCreateDescriptorPool(
+            device,
+            &VkDescriptorPoolCreateInfo {
+                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                maxSets: MAX_FRAMES_IN_FLIGHT as u32,
+                poolSizeCount: 1,
+                pPoolSizes: &VkDescriptorPoolSize {
+                    ttype: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    descriptorCount: MAX_FRAMES_IN_FLIGHT as u32,
+                }
+            },
+            ptr::null(),
+            &mut descriptor_pool
+        ));
+        descriptor_pool
     }
 }
 
