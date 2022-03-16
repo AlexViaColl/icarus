@@ -118,6 +118,46 @@ extern "C" {
         shaderModule: VkShaderModule,
         pAllocator: *const VkAllocationCallbacks,
     );
+    pub fn vkCreateDescriptorSetLayout(
+        device: VkDevice,
+        pCreateInfo: *const VkDescriptorSetLayoutCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pSetLayout: *mut VkDescriptorSetLayout,
+    ) -> VkResult;
+    pub fn vkDestroyDescriptorSetLayout(
+        device: VkDevice,
+        descriptorSetLayout: VkDescriptorSetLayout,
+        pAllocator: *const VkAllocationCallbacks,
+    );
+    pub fn vkCreateDescriptorPool(
+        device: VkDevice,
+        pCreateInfo: *const VkDescriptorPoolCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pDescriptorPool: *mut VkDescriptorPool,
+    ) -> VkResult;
+    pub fn vkDestroyDescriptorPool(
+        device: VkDevice,
+        descriptorPool: VkDescriptorPool,
+        pAllocator: *const VkAllocationCallbacks,
+    );
+    pub fn vkAllocateDescriptorSets(
+        device: VkDevice,
+        pAllocateInfo: *const VkDescriptorSetAllocateInfo,
+        pDescriptorSets: *mut VkDescriptorSet,
+    ) -> VkResult;
+    pub fn vkFreeDescriptorSets(
+        device: VkDevice,
+        descriptorPool: VkDescriptorPool,
+        descriptorSetCount: u32,
+        pDescriptorSets: *const VkDescriptorSet,
+    ) -> VkResult;
+    pub fn vkUpdateDescriptorSets(
+        device: VkDevice,
+        descriptorWriteCOunt: u32,
+        pDescriptorWrites: *const VkWriteDescriptorSet,
+        descriptorCopyCount: u32,
+        pDescriptorCopies: *const VkCopyDescriptorSet,
+    );
     pub fn vkCreatePipelineLayout(
         device: VkDevice,
         pCreateInfo: *const VkPipelineLayoutCreateInfo,
@@ -262,6 +302,16 @@ extern "C" {
         buffer: VkBuffer,
         offset: VkDeviceSize,
         indexType: VkIndexType,
+    );
+    pub fn vkCmdBindDescriptorSets(
+        commandBuffer: VkCommandBuffer,
+        pipelineBindPoint: VkPipelineBindPoint,
+        layout: VkPipelineLayout,
+        firstSet: u32,
+        descriptorSetCount: u32,
+        pDescriptorSets: *const VkDescriptorSet,
+        dynamicOffsetCount: u32,
+        pDynamicOffsets: *const u32,
     );
     pub fn vkCmdDraw(
         commandBuffer: VkCommandBuffer,
@@ -427,6 +477,8 @@ pub type VkBufferUsageFlags = VkFlags;
 pub type VkMemoryPropertyFlags = VkFlags;
 pub type VkMemoryHeapFlags = VkFlags;
 pub type VkMemoryMapFlags = VkFlags;
+pub type VkDescriptorSetLayoutCreateFlags = VkFlags;
+pub type VkDescriptorPoolCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -910,6 +962,90 @@ pub struct VkShaderModuleCreateInfo {
     pub flags: VkShaderModuleCreateFlags,
     pub codeSize: usize,
     pub pCode: *const u32,
+}
+
+#[repr(C)]
+pub struct VkDescriptorSetLayoutCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkDescriptorSetLayoutCreateFlags,
+    pub bindingCount: u32,
+    pub pBindings: *const VkDescriptorSetLayoutBinding,
+}
+
+#[repr(C)]
+pub struct VkDescriptorSetLayoutBinding {
+    pub binding: u32,
+    pub descriptorType: VkDescriptorType,
+    pub descriptorCount: u32,
+    pub stageFlags: VkShaderStageFlags,
+    pub pImmutableSamplers: *const VkSampler,
+}
+
+#[repr(C)]
+pub struct VkDescriptorPoolCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkDescriptorPoolCreateFlags,
+    pub maxSets: u32,
+    pub poolSizeCount: u32,
+    pub pPoolSizes: *const VkDescriptorPoolSize,
+}
+
+#[repr(C)]
+pub struct VkDescriptorPoolSize {
+    pub ttype: VkDescriptorType,
+    pub descriptorCount: u32,
+}
+
+#[repr(C)]
+pub struct VkDescriptorSetAllocateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub descriptorPool: VkDescriptorPool,
+    pub descriptorSetCount: u32,
+    pub pSetLayouts: *const VkDescriptorSetLayout,
+}
+
+#[repr(C)]
+pub struct VkWriteDescriptorSet {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub dstSet: VkDescriptorSet,
+    pub dstBinding: u32,
+    pub dstArrayElement: u32,
+    pub descriptorCount: u32,
+    pub descriptorType: VkDescriptorType,
+    pub pImageInfo: *const VkDescriptorImageInfo,
+    pub pBufferInfo: *const VkDescriptorBufferInfo,
+    pub pTexelBufferView: *const VkBufferView,
+}
+
+#[repr(C)]
+pub struct VkCopyDescriptorSet {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub srcSet: VkDescriptorSet,
+    pub srcBinding: u32,
+    pub srcArrayElement: u32,
+    pub dstSet: VkDescriptorSet,
+    pub dstBinding: u32,
+    pub dstArrayElement: u32,
+    pub descriptorCount: u32,
+}
+
+#[repr(C)]
+pub struct VkDescriptorBufferInfo {
+    pub buffer: VkBuffer,
+    pub offset: VkDeviceSize,
+    pub range: VkDeviceSize,
+}
+
+#[repr(C)]
+pub struct VkDescriptorImageInfo {
+    pub sampler: VkSampler,
+    pub imageView: VkImageView,
+    pub imageLayout: VkImageLayout,
 }
 
 #[repr(C)]
@@ -3192,3 +3328,25 @@ pub enum VkIndexType {
     VK_INDEX_TYPE_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkIndexType::*;
+
+#[repr(C)]
+pub enum VkDescriptorType {
+    VK_DESCRIPTOR_TYPE_SAMPLER = 0,
+    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER = 1,
+    VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE = 2,
+    VK_DESCRIPTOR_TYPE_STORAGE_IMAGE = 3,
+    VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER = 4,
+    VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER = 5,
+    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER = 6,
+    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER = 7,
+    VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC = 8,
+    VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC = 9,
+    VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT = 10,
+    VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK = 1000138000,
+    VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_KHR = 1000150000,
+    VK_DESCRIPTOR_TYPE_ACCELERATION_STRUCTURE_NV = 1000165000,
+    VK_DESCRIPTOR_TYPE_MUTABLE_VALVE = 1000351000,
+    //  VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK_EXT = VK_DESCRIPTOR_TYPE_INLINE_UNIFORM_BLOCK,
+    VK_DESCRIPTOR_TYPE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkDescriptorType::*;

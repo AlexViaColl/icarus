@@ -39,6 +39,25 @@ struct Vertex {
     color: (f32, f32, f32), // 12
 }
 
+#[repr(C)]
+struct UniformBufferObject {
+    model: Mat4,
+    view: Mat4,
+    proj: Mat4,
+}
+
+#[repr(C)]
+struct Mat4 {
+    e: [f32; 16],
+}
+impl Mat4 {
+    fn identity() -> Self {
+        Self {
+            e: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
+        }
+    }
+}
+
 impl Vertex {
     fn get_binding_description() -> VkVertexInputBindingDescription {
         VkVertexInputBindingDescription {
@@ -322,8 +341,29 @@ fn main() {
         let swapchain = create_swapchain(device, surface, surface_caps);
         let swapchain_image_views = create_image_views(device, swapchain);
 
+        let mut descriptor_set_layout = ptr::null_mut();
+        check!(vkCreateDescriptorSetLayout(
+            device,
+            &VkDescriptorSetLayoutCreateInfo {
+                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                bindingCount: 1,
+                pBindings: &VkDescriptorSetLayoutBinding {
+                    binding: 0,
+                    descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    descriptorCount: 1,
+                    stageFlags: VK_SHADER_STAGE_VERTEX_BIT,
+                    pImmutableSamplers: ptr::null(),
+                },
+            },
+            ptr::null(),
+            &mut descriptor_set_layout
+        ));
+
         let render_pass = create_render_pass(device);
-        let (graphics_pipeline, pipeline_layout) = create_graphics_pipeline(device, render_pass, surface_caps);
+        let (graphics_pipeline, pipeline_layout) =
+            create_graphics_pipeline(device, render_pass, surface_caps, descriptor_set_layout);
         let framebuffers = create_framebuffers(device, render_pass, &swapchain_image_views, surface_caps);
 
         let mut swapchain_ctx = SwapchainContext {
@@ -363,17 +403,76 @@ fn main() {
         let (index_buffer, index_buffer_memory) =
             create_index_buffer(device, physical_device, graphics_queue, command_pool, &indices);
 
-        let mut data = ptr::null_mut();
-        vkMapMemory(
+        // Create Uniform Buffers
+        let mut uniform_buffers = vec![];
+        let mut uniform_buffers_memory = vec![];
+        for _ in 0..MAX_FRAMES_IN_FLIGHT {
+            let (uniform_buffer, uniform_buffer_memory) = create_buffer(
+                device,
+                physical_device,
+                mem::size_of::<UniformBufferObject>() as VkDeviceSize,
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+            );
+            uniform_buffers.push(uniform_buffer);
+            uniform_buffers_memory.push(uniform_buffer_memory);
+        }
+
+        let mut descriptor_pool = ptr::null_mut();
+        check!(vkCreateDescriptorPool(
             device,
-            vertex_buffer_memory,
-            0,
-            (mem::size_of::<Vertex>() * vertices.len()) as VkDeviceSize,
-            0,
-            &mut data,
-        );
-        std::ptr::copy(vertices.as_ptr(), data as *mut Vertex, vertices.len());
-        vkUnmapMemory(device, vertex_buffer_memory);
+            &VkDescriptorPoolCreateInfo {
+                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                maxSets: MAX_FRAMES_IN_FLIGHT as u32,
+                poolSizeCount: 1,
+                pPoolSizes: &VkDescriptorPoolSize {
+                    ttype: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    descriptorCount: MAX_FRAMES_IN_FLIGHT as u32,
+                }
+            },
+            ptr::null(),
+            &mut descriptor_pool
+        ));
+
+        let mut descriptor_sets = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
+        check!(vkAllocateDescriptorSets(
+            device,
+            &VkDescriptorSetAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                descriptorPool: descriptor_pool,
+                descriptorSetCount: MAX_FRAMES_IN_FLIGHT as u32,
+                pSetLayouts: vec![descriptor_set_layout; MAX_FRAMES_IN_FLIGHT].as_ptr(),
+            },
+            descriptor_sets.as_mut_ptr()
+        ));
+
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            vkUpdateDescriptorSets(
+                device,
+                1,
+                &VkWriteDescriptorSet {
+                    sType: VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                    pNext: ptr::null(),
+                    dstSet: descriptor_sets[i],
+                    dstBinding: 0,
+                    dstArrayElement: 0,
+                    descriptorCount: 1,
+                    descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                    pImageInfo: ptr::null(),
+                    pBufferInfo: &VkDescriptorBufferInfo {
+                        buffer: uniform_buffers[i],
+                        offset: 0,
+                        range: mem::size_of::<UniformBufferObject>() as VkDeviceSize,
+                    },
+                    pTexelBufferView: ptr::null(),
+                },
+                0,
+                ptr::null(),
+            );
+        }
 
         let mut command_buffers = vec![ptr::null_mut(); MAX_FRAMES_IN_FLIGHT];
         check!(vkAllocateCommandBuffers(
@@ -443,7 +542,7 @@ fn main() {
                             window_width = event.width as u32;
                             window_height = event.height as u32;
                             // println!("ConfigureNotify ({}, {})", window_width, window_height);
-                            framebuffer_resized = true;
+                            //framebuffer_resized = true;
                             check!(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
                                 physical_device,
                                 surface,
@@ -472,9 +571,28 @@ fn main() {
                 res => panic!("{:?}", res),
             };
             if recreate {
-                recreate_swapchain(&mut swapchain_ctx, device, surface);
+                dbg!(recreate_swapchain(&mut swapchain_ctx, device, surface));
                 continue;
             }
+
+            // Update the uniforms
+            let ubo = UniformBufferObject {
+                proj: Mat4::identity(),
+                view: Mat4::identity(),
+                model: Mat4::identity(),
+            };
+            let mut data = ptr::null_mut();
+            vkMapMemory(
+                device,
+                uniform_buffers_memory[current_frame],
+                0,
+                mem::size_of::<UniformBufferObject>() as VkDeviceSize,
+                0,
+                &mut data,
+            );
+            std::ptr::copy(&ubo, data as *mut UniformBufferObject, 1);
+            vkUnmapMemory(device, uniform_buffers_memory[current_frame]);
+
             check!(vkResetFences(device, 1, &in_flight_fences[current_frame]));
 
             vkResetCommandBuffer(command_buffers[current_frame], 0);
@@ -523,6 +641,16 @@ fn main() {
             vkCmdBindVertexBuffers(command_buffers[current_frame], 0, 1, &vertex_buffer, &0);
             vkCmdBindIndexBuffer(command_buffers[current_frame], index_buffer, 0, VK_INDEX_TYPE_UINT16);
 
+            vkCmdBindDescriptorSets(
+                command_buffers[current_frame],
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipeline_layout,
+                0,
+                1,
+                &descriptor_sets[current_frame],
+                0,
+                ptr::null(),
+            );
             // vkCmdDraw(command_buffers[current_frame], vertices.len() as u32, 1, 0, 0);
             vkCmdDrawIndexed(command_buffers[current_frame], indices.len() as u32, 1, 0, 0, 0);
 
@@ -566,7 +694,7 @@ fn main() {
                 res => panic!("{:?}", res),
             };
             if recreate || framebuffer_resized {
-                recreate_swapchain(&mut swapchain_ctx, device, surface);
+                dbg!(recreate_swapchain(&mut swapchain_ctx, device, surface));
                 framebuffer_resized = false;
             }
 
@@ -581,12 +709,20 @@ fn main() {
             vkDestroySemaphore(device, render_finished_semaphores[i], ptr::null());
             vkDestroySemaphore(device, image_available_semaphores[i], ptr::null());
         }
+
+        vkDestroyDescriptorPool(device, descriptor_pool, ptr::null());
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            vkFreeMemory(device, uniform_buffers_memory[i], ptr::null());
+            vkDestroyBuffer(device, uniform_buffers[i], ptr::null());
+        }
+
         vkFreeMemory(device, index_buffer_memory, ptr::null());
         vkDestroyBuffer(device, index_buffer, ptr::null());
         vkFreeMemory(device, vertex_buffer_memory, ptr::null());
         vkDestroyBuffer(device, vertex_buffer, ptr::null());
         vkDestroyCommandPool(device, command_pool, ptr::null());
         cleanup_swapchain(device, &mut swapchain_ctx);
+        vkDestroyDescriptorSetLayout(device, descriptor_set_layout, ptr::null());
 
         vkDestroyDevice(device, ptr::null());
 
@@ -616,6 +752,7 @@ struct SwapchainContext {
 
 fn recreate_swapchain(swapchain_ctx: &mut SwapchainContext, device: VkDevice, surface: VkSurfaceKHR) {
     unsafe {
+        println!("recreate_swapchain");
         vkDeviceWaitIdle(device);
 
         cleanup_swapchain(device, swapchain_ctx);
@@ -626,12 +763,14 @@ fn recreate_swapchain(swapchain_ctx: &mut SwapchainContext, device: VkDevice, su
         swapchain_ctx.swapchain = create_swapchain(device, surface, surface_caps);
         swapchain_ctx.image_views = create_image_views(device, swapchain_ctx.swapchain);
         swapchain_ctx.render_pass = create_render_pass(device);
-        let (graphics_pipeline, pipeline_layout) =
-            create_graphics_pipeline(device, swapchain_ctx.render_pass, surface_caps);
-        swapchain_ctx.pipeline_layout = pipeline_layout;
-        swapchain_ctx.graphics_pipeline = graphics_pipeline;
-        swapchain_ctx.framebuffers =
-            create_framebuffers(device, swapchain_ctx.render_pass, &swapchain_ctx.image_views, surface_caps);
+        //        let (graphics_pipeline, pipeline_layout) =
+        //            create_graphics_pipeline(device, swapchain_ctx.render_pass, surface_caps);
+        //        swapchain_ctx.pipeline_layout = pipeline_layout;
+        //        swapchain_ctx.graphics_pipeline = graphics_pipeline;
+        //        swapchain_ctx.framebuffers =
+        //            create_framebuffers(device, swapchain_ctx.render_pass, &swapchain_ctx.image_views, surface_caps);
+
+        // TODO: Recreate descriptor sets and descriptor pool!
     }
 }
 
@@ -767,6 +906,7 @@ fn create_graphics_pipeline(
     device: VkDevice,
     render_pass: VkRenderPass,
     surface_caps: VkSurfaceCapabilitiesKHR,
+    descriptor_set_layout: VkDescriptorSetLayout,
 ) -> (VkPipeline, VkPipelineLayout) {
     unsafe {
         let vs_code = fs::read("vert.spv").expect("Failed to load vertex shader");
@@ -806,8 +946,8 @@ fn create_graphics_pipeline(
                 sType: VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
                 pNext: ptr::null(),
                 flags: 0,
-                setLayoutCount: 0,
-                pSetLayouts: ptr::null(),
+                setLayoutCount: 1,
+                pSetLayouts: &descriptor_set_layout,
                 pushConstantRangeCount: 0,
                 pPushConstantRanges: ptr::null(),
             },
