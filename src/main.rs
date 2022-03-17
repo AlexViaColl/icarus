@@ -46,18 +46,6 @@ struct UniformBufferObject {
     proj: Mat4,
 }
 
-#[repr(C)]
-struct Mat4 {
-    e: [f32; 16],
-}
-impl Mat4 {
-    fn identity() -> Self {
-        Self {
-            e: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0],
-        }
-    }
-}
-
 impl Vertex {
     fn get_binding_description() -> VkVertexInputBindingDescription {
         VkVertexInputBindingDescription {
@@ -562,6 +550,7 @@ fn main() {
             }
 
             // Update the uniforms
+            // TODO: Animate with time
             let ubo = UniformBufferObject {
                 proj: Mat4::identity(),
                 view: Mat4::identity(),
