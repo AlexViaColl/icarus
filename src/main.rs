@@ -553,9 +553,10 @@ fn main() {
             // TODO: Animate with time
             let ubo = UniformBufferObject {
                 proj: Mat4::identity(),
-                view: Mat4::identity(),
-                model: Mat4::rotate(std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0)),
-                //model: Mat4::identity(),
+                view: Mat4::translate(0.0, 0.0, 0.9).transpose(),
+                //view: Mat4::identity(),
+                //model: Mat4::rotate(std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0)),
+                model: Mat4::identity(),
             };
             let mut data = ptr::null_mut();
             vkMapMemory(
