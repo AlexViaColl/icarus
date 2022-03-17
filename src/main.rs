@@ -9,6 +9,7 @@ use std::fs;
 use std::mem;
 use std::process;
 use std::ptr;
+use std::time::Instant;
 
 const BG_COLOR: u64 = 0x00000000;
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
@@ -488,6 +489,7 @@ fn main() {
         let mut running = true;
         let mut current_frame = 0;
         let mut framebuffer_resized = false;
+        let start_time = Instant::now();
         while running {
             while XPending(display) > 0 {
                 let mut event = XEvent {
@@ -550,13 +552,11 @@ fn main() {
             }
 
             // Update the uniforms
-            // TODO: Animate with time
+            let seconds_elapsed = start_time.elapsed().as_secs_f32();
             let ubo = UniformBufferObject {
                 proj: Mat4::identity(),
-                view: Mat4::translate(0.0, 0.0, 0.9).transpose(),
-                //view: Mat4::identity(),
-                //model: Mat4::rotate(std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0)),
-                model: Mat4::identity(),
+                view: Mat4::identity(),
+                model: Mat4::rotate(seconds_elapsed * std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0)),
             };
             let mut data = ptr::null_mut();
             vkMapMemory(
