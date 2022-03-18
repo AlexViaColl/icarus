@@ -404,6 +404,9 @@ fn main() {
             &mut command_pool
         ));
 
+        let (texture_image, texture_image_memory) =
+            create_texture_image(device, physical_device, graphics_queue, command_pool);
+
         let (vertex_buffer, vertex_buffer_memory) =
             create_vertex_buffer(device, physical_device, graphics_queue, command_pool, &vertices);
         let (index_buffer, index_buffer_memory) =
@@ -692,6 +695,9 @@ fn main() {
             vkFreeMemory(device, uniform_buffers_memory[i], ptr::null());
             vkDestroyBuffer(device, uniform_buffers[i], ptr::null());
         }
+
+        vkFreeMemory(device, texture_image_memory, ptr::null());
+        vkDestroyImage(device, texture_image, ptr::null());
 
         vkFreeMemory(device, index_buffer_memory, ptr::null());
         vkDestroyBuffer(device, index_buffer, ptr::null());
@@ -1211,28 +1217,7 @@ fn copy_buffer(
     size: VkDeviceSize,
 ) {
     unsafe {
-        let mut command_buffer = ptr::null_mut();
-        check!(vkAllocateCommandBuffers(
-            device,
-            &VkCommandBufferAllocateInfo {
-                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
-                pNext: ptr::null(),
-                commandPool: command_pool,
-                level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                commandBufferCount: 1,
-            },
-            &mut command_buffer,
-        ));
-
-        check!(vkBeginCommandBuffer(
-            command_buffer,
-            &VkCommandBufferBeginInfo {
-                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-                pNext: ptr::null(),
-                flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
-                pInheritanceInfo: ptr::null(),
-            },
-        ));
+        let command_buffer = begin_single_time_commands(device, command_pool);
 
         vkCmdCopyBuffer(
             command_buffer,
@@ -1246,27 +1231,7 @@ fn copy_buffer(
             },
         );
 
-        check!(vkEndCommandBuffer(command_buffer));
-
-        check!(vkQueueSubmit(
-            graphics_queue,
-            1,
-            &VkSubmitInfo {
-                sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
-                pNext: ptr::null(),
-                waitSemaphoreCount: 0,
-                pWaitSemaphores: ptr::null(),
-                pWaitDstStageMask: ptr::null(),
-                commandBufferCount: 1,
-                pCommandBuffers: &command_buffer,
-                signalSemaphoreCount: 0,
-                pSignalSemaphores: ptr::null(),
-            },
-            ptr::null_mut()
-        ));
-        check!(vkQueueWaitIdle(graphics_queue));
-
-        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+        end_single_time_commands(device, graphics_queue, command_pool, command_buffer);
     }
 }
 
@@ -1391,6 +1356,291 @@ fn create_buffer(
         check!(vkBindBufferMemory(device, buffer, buffer_memory, 0));
 
         (buffer, buffer_memory)
+    }
+}
+
+fn create_texture_image(
+    device: VkDevice,
+    physical_device: VkPhysicalDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+) -> (VkImage, VkDeviceMemory) {
+    unsafe {
+        let mut width = 0;
+        let mut height = 0;
+        let mut channels = 0;
+        let pixels =
+            stbi_load(b"textures/texture.jpg\0".as_ptr() as *const i8, &mut width, &mut height, &mut channels, 4);
+        assert!(!pixels.is_null());
+        let image_size = width * height * 4;
+
+        let (staging_buffer, staging_buffer_memory) = create_buffer(
+            device,
+            physical_device,
+            image_size as VkDeviceSize,
+            VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+            VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+        );
+        let mut data = ptr::null_mut();
+        vkMapMemory(device, staging_buffer_memory, 0, image_size as VkDeviceSize, 0, &mut data);
+        std::ptr::copy(pixels, data as *mut u8, image_size as usize);
+        vkUnmapMemory(device, staging_buffer_memory);
+
+        stbi_image_free(pixels as *mut c_void);
+
+        let mut texture_image = ptr::null_mut();
+        check!(vkCreateImage(
+            device,
+            &VkImageCreateInfo {
+                sType: VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+                pNext: ptr::null(),
+                flags: 0,
+                imageType: VK_IMAGE_TYPE_2D,
+                format: VK_FORMAT_R8G8B8A8_SRGB,
+                extent: VkExtent3D {
+                    width: width as u32,
+                    height: height as u32,
+                    depth: 1,
+                },
+                mipLevels: 1,
+                arrayLayers: 1,
+                samples: VK_SAMPLE_COUNT_1_BIT, // VkSampleCountFlagBits
+                tiling: VK_IMAGE_TILING_OPTIMAL,
+                usage: VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                queueFamilyIndexCount: 0,
+                pQueueFamilyIndices: ptr::null(),
+                initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+            },
+            ptr::null(),
+            &mut texture_image
+        ));
+
+        let mut memory_requirements = VkMemoryRequirements::default();
+        vkGetImageMemoryRequirements(device, texture_image, &mut memory_requirements);
+
+        let mut texture_image_memory = ptr::null_mut();
+        check!(vkAllocateMemory(
+            device,
+            &VkMemoryAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                allocationSize: memory_requirements.size,
+                memoryTypeIndex: find_memory_type(
+                    physical_device,
+                    memory_requirements.memoryTypeBits,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+                ),
+            },
+            ptr::null(),
+            &mut texture_image_memory
+        ));
+
+        check!(vkBindImageMemory(device, texture_image, texture_image_memory, 0));
+
+        transition_image_layout(
+            device,
+            graphics_queue,
+            command_pool,
+            texture_image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        );
+
+        copy_buffer_to_image(
+            device,
+            graphics_queue,
+            command_pool,
+            staging_buffer,
+            texture_image,
+            width as u32,
+            height as u32,
+        );
+
+        transition_image_layout(
+            device,
+            graphics_queue,
+            command_pool,
+            texture_image,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        );
+
+        vkFreeMemory(device, staging_buffer_memory, ptr::null());
+        vkDestroyBuffer(device, staging_buffer, ptr::null());
+
+        (texture_image, texture_image_memory)
+    }
+}
+
+fn copy_buffer_to_image(
+    device: VkDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    buffer: VkBuffer,
+    image: VkImage,
+    width: u32,
+    height: u32,
+) {
+    unsafe {
+        let command_buffer = begin_single_time_commands(device, command_pool);
+        vkCmdCopyBufferToImage(
+            command_buffer,
+            buffer,
+            image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &VkBufferImageCopy {
+                bufferOffset: 0,
+                bufferRowLength: 0,
+                bufferImageHeight: 0,
+                imageSubresource: VkImageSubresourceLayers {
+                    aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
+                    mipLevel: 0,
+                    baseArrayLayer: 0,
+                    layerCount: 1,
+                },
+                imageOffset: VkOffset3D {
+                    x: 0,
+                    y: 0,
+                    z: 0,
+                },
+                imageExtent: VkExtent3D {
+                    width,
+                    height,
+                    depth: 1,
+                },
+            },
+        );
+        end_single_time_commands(device, graphics_queue, command_pool, command_buffer);
+    }
+}
+
+fn transition_image_layout(
+    device: VkDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    image: VkImage,
+    _format: VkFormat,
+    old_layout: VkImageLayout,
+    new_layout: VkImageLayout,
+) {
+    unsafe {
+        let command_buffer = begin_single_time_commands(device, command_pool);
+        let (src_access_mask, dst_access_mask, src_stage, dst_stage) =
+            if old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL {
+                (
+                    VK_ACCESS_NONE,
+                    VK_ACCESS_TRANSFER_WRITE_BIT,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                )
+            } else if old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            {
+                (
+                    VK_ACCESS_TRANSFER_WRITE_BIT,
+                    VK_ACCESS_SHADER_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                )
+            } else {
+                panic!("Invalid combination of old_layout: {:?} / new_layout: {:?}", old_layout, new_layout);
+            };
+
+        vkCmdPipelineBarrier(
+            command_buffer,
+            src_stage,
+            dst_stage,
+            0,
+            0,
+            ptr::null(),
+            0,
+            ptr::null(),
+            1,
+            &VkImageMemoryBarrier {
+                sType: VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+                pNext: ptr::null(),
+                srcAccessMask: src_access_mask,
+                dstAccessMask: dst_access_mask,
+                oldLayout: old_layout,
+                newLayout: new_layout,
+                srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+                image: image,
+                subresourceRange: VkImageSubresourceRange {
+                    aspectMask: VK_IMAGE_ASPECT_COLOR_BIT,
+                    baseMipLevel: 0,
+                    levelCount: 1,
+                    baseArrayLayer: 0,
+                    layerCount: 1,
+                },
+            },
+        );
+        end_single_time_commands(device, graphics_queue, command_pool, command_buffer);
+    }
+}
+
+fn begin_single_time_commands(device: VkDevice, command_pool: VkCommandPool) -> VkCommandBuffer {
+    unsafe {
+        let mut command_buffer = ptr::null_mut();
+        check!(vkAllocateCommandBuffers(
+            device,
+            &VkCommandBufferAllocateInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+                pNext: ptr::null(),
+                commandPool: command_pool,
+                level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                commandBufferCount: 1,
+            },
+            &mut command_buffer
+        ));
+
+        check!(vkBeginCommandBuffer(
+            command_buffer,
+            &VkCommandBufferBeginInfo {
+                sType: VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+                pNext: ptr::null(),
+                flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+                pInheritanceInfo: ptr::null(),
+            }
+        ));
+
+        command_buffer
+    }
+}
+
+fn end_single_time_commands(
+    device: VkDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    command_buffer: VkCommandBuffer,
+) {
+    unsafe {
+        check!(vkEndCommandBuffer(command_buffer));
+
+        check!(vkQueueSubmit(
+            graphics_queue,
+            1,
+            &VkSubmitInfo {
+                sType: VK_STRUCTURE_TYPE_SUBMIT_INFO,
+                pNext: ptr::null(),
+                waitSemaphoreCount: 0,
+                pWaitSemaphores: ptr::null(),
+                pWaitDstStageMask: ptr::null(),
+                commandBufferCount: 1,
+                pCommandBuffers: &command_buffer,
+                signalSemaphoreCount: 0,
+                pSignalSemaphores: ptr::null(),
+            },
+            ptr::null_mut()
+        ));
+
+        check!(vkQueueWaitIdle(graphics_queue));
+
+        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
     }
 }
 

@@ -100,6 +100,24 @@ extern "C" {
         fence: VkFence,
         pImageIndex: *mut u32,
     ) -> VkResult;
+    pub fn vkCreateImage(
+        device: VkDevice,
+        pCreateInfo: *const VkImageCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pImage: *mut VkImage,
+    ) -> VkResult;
+    pub fn vkDestroyImage(device: VkDevice, image: VkImage, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkGetImageMemoryRequirements(
+        device: VkDevice,
+        image: VkImage,
+        pMemoryRequirements: *mut VkMemoryRequirements,
+    );
+    pub fn vkBindImageMemory(
+        device: VkDevice,
+        image: VkImage,
+        memory: VkDeviceMemory,
+        memoryOffset: VkDeviceSize,
+    ) -> VkResult;
     pub fn vkCreateImageView(
         device: VkDevice,
         pCreateInfo: *const VkImageViewCreateInfo,
@@ -336,11 +354,32 @@ extern "C" {
         regionCount: u32,
         pRegions: *const VkBufferCopy,
     );
+    pub fn vkCmdPipelineBarrier(
+        commandBuffer: VkCommandBuffer,
+        srcStageMask: VkPipelineStageFlags,
+        dstStageMask: VkPipelineStageFlags,
+        dependencyFlags: VkDependencyFlags,
+        memoryBarrierCount: u32,
+        pMemoryBarriers: *const VkMemoryBarrier,
+        bufferMemoryBarrierCount: u32,
+        pBufferMemoryBarriers: *const VkBufferMemoryBarrier,
+        imageMemoryBarrierCounts: u32,
+        pImageMemoryBarriers: *const VkImageMemoryBarrier,
+    );
+    pub fn vkCmdCopyBufferToImage(
+        commandBuffer: VkCommandBuffer,
+        srcBuffer: VkBuffer,
+        dstImage: VkImage,
+        dstImageLayout: VkImageLayout,
+        regionCount: u32,
+        pRegions: *const VkBufferImageCopy,
+    );
 }
 
 pub const VK_FALSE: VkBool32 = 0;
 pub const VK_TRUE: VkBool32 = 1;
 pub const VK_UUID_SIZE: usize = 16;
+pub const VK_QUEUE_FAMILY_IGNORED: u32 = !0;
 pub const VK_SUBPASS_EXTERNAL: u32 = !0;
 pub const VK_MAX_MEMORY_TYPES: usize = 32;
 pub const VK_MAX_MEMORY_HEAPS: usize = 16;
@@ -479,6 +518,7 @@ pub type VkMemoryHeapFlags = VkFlags;
 pub type VkMemoryMapFlags = VkFlags;
 pub type VkDescriptorSetLayoutCreateFlags = VkFlags;
 pub type VkDescriptorPoolCreateFlags = VkFlags;
+pub type VkImageCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -924,6 +964,25 @@ pub struct VkSwapchainCreateInfoKHR {
 pub struct VkExtent2D {
     pub width: u32,
     pub height: u32,
+}
+
+#[repr(C)]
+pub struct VkImageCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkImageCreateFlags,
+    pub imageType: VkImageType,
+    pub format: VkFormat,
+    pub extent: VkExtent3D,
+    pub mipLevels: u32,
+    pub arrayLayers: u32,
+    pub samples: VkSampleCountFlags, // VkSampleCountFlagBits
+    pub tiling: VkImageTiling,
+    pub usage: VkImageUsageFlags,
+    pub sharingMode: VkSharingMode,
+    pub queueFamilyIndexCount: u32,
+    pub pQueueFamilyIndices: *const u32,
+    pub initialLayout: VkImageLayout,
 }
 
 #[repr(C)]
@@ -1487,6 +1546,59 @@ pub struct VkBufferCopy {
     pub srcOffset: VkDeviceSize,
     pub dstOffset: VkDeviceSize,
     pub size: VkDeviceSize,
+}
+
+#[repr(C)]
+pub struct VkMemoryBarrier {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub srcAccessMask: VkAccessFlags,
+    pub dstAccessMask: VkAccessFlags,
+}
+
+#[repr(C)]
+pub struct VkBufferMemoryBarrier {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub srcAccessMask: VkAccessFlags,
+    pub dstAccessMask: VkAccessFlags,
+    pub srcQueueFamilyIndex: u32,
+    pub dstQueueFamilyIndex: u32,
+    pub buffer: VkBuffer,
+    pub offset: VkDeviceSize,
+    pub size: VkDeviceSize,
+}
+
+#[repr(C)]
+pub struct VkImageMemoryBarrier {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub srcAccessMask: VkAccessFlags,
+    pub dstAccessMask: VkAccessFlags,
+    pub oldLayout: VkImageLayout,
+    pub newLayout: VkImageLayout,
+    pub srcQueueFamilyIndex: u32,
+    pub dstQueueFamilyIndex: u32,
+    pub image: VkImage,
+    pub subresourceRange: VkImageSubresourceRange,
+}
+
+#[repr(C)]
+pub struct VkBufferImageCopy {
+    pub bufferOffset: VkDeviceSize,
+    pub bufferRowLength: u32,
+    pub bufferImageHeight: u32,
+    pub imageSubresource: VkImageSubresourceLayers,
+    pub imageOffset: VkOffset3D,
+    pub imageExtent: VkExtent3D,
+}
+
+#[repr(C)]
+pub struct VkImageSubresourceLayers {
+    pub aspectMask: VkImageAspectFlags,
+    pub mipLevel: u32,
+    pub baseArrayLayer: u32,
+    pub layerCount: u32,
 }
 
 // Unions
@@ -3248,6 +3360,7 @@ pub enum VkAttachmentStoreOp {
 pub use VkAttachmentStoreOp::*;
 
 #[repr(C)]
+#[derive(Debug, PartialEq)]
 pub enum VkImageLayout {
     VK_IMAGE_LAYOUT_UNDEFINED = 0,
     VK_IMAGE_LAYOUT_GENERAL = 1,
@@ -3350,3 +3463,21 @@ pub enum VkDescriptorType {
     VK_DESCRIPTOR_TYPE_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkDescriptorType::*;
+
+#[repr(C)]
+pub enum VkImageType {
+    VK_IMAGE_TYPE_1D = 0,
+    VK_IMAGE_TYPE_2D = 1,
+    VK_IMAGE_TYPE_3D = 2,
+    VK_IMAGE_TYPE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkImageType::*;
+
+#[repr(C)]
+pub enum VkImageTiling {
+    VK_IMAGE_TILING_OPTIMAL = 0,
+    VK_IMAGE_TILING_LINEAR = 1,
+    VK_IMAGE_TILING_DRM_FORMAT_MODIFIER_EXT = 1000158000,
+    VK_IMAGE_TILING_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkImageTiling::*;
