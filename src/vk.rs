@@ -125,6 +125,13 @@ extern "C" {
         pView: *mut VkImageView,
     ) -> VkResult;
     pub fn vkDestroyImageView(device: VkDevice, imageView: VkImageView, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateSampler(
+        device: VkDevice,
+        pCreateInfo: *const VkSamplerCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pSampler: *mut VkSampler,
+    ) -> VkResult;
+    pub fn vkDestroySampler(device: VkDevice, sampler: VkSampler, pAllocator: *const VkAllocationCallbacks);
     pub fn vkCreateShaderModule(
         device: VkDevice,
         pCreateInfo: *const VkShaderModuleCreateInfo,
@@ -519,6 +526,7 @@ pub type VkMemoryMapFlags = VkFlags;
 pub type VkDescriptorSetLayoutCreateFlags = VkFlags;
 pub type VkDescriptorPoolCreateFlags = VkFlags;
 pub type VkImageCreateFlags = VkFlags;
+pub type VkSamplerCreateFlags = VkFlags;
 
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
@@ -1012,6 +1020,28 @@ pub struct VkImageSubresourceRange {
     pub levelCount: u32,
     pub baseArrayLayer: u32,
     pub layerCount: u32,
+}
+
+#[repr(C)]
+pub struct VkSamplerCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkSamplerCreateFlags,
+    pub magFilter: VkFilter,
+    pub minFilter: VkFilter,
+    pub mipmapMode: VkSamplerMipmapMode,
+    pub addressModeU: VkSamplerAddressMode,
+    pub addressModeV: VkSamplerAddressMode,
+    pub addressModeW: VkSamplerAddressMode,
+    pub mipLodBias: f32,
+    pub anisotropyEnable: VkBool32,
+    pub maxAnisotropy: f32,
+    pub compareEnable: VkBool32,
+    pub compareOp: VkCompareOp,
+    pub minLod: f32,
+    pub maxLod: f32,
+    pub borderColor: VkBorderColor,
+    pub unnormalizedCoordinates: VkBool32,
 }
 
 #[repr(C)]
@@ -3481,3 +3511,61 @@ pub enum VkImageTiling {
     VK_IMAGE_TILING_MAX_ENUM = 0x7FFFFFFF,
 }
 pub use VkImageTiling::*;
+
+#[repr(C)]
+pub enum VkBorderColor {
+    VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK = 0,
+    VK_BORDER_COLOR_INT_TRANSPARENT_BLACK = 1,
+    VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK = 2,
+    VK_BORDER_COLOR_INT_OPAQUE_BLACK = 3,
+    VK_BORDER_COLOR_FLOAT_OPAQUE_WHITE = 4,
+    VK_BORDER_COLOR_INT_OPAQUE_WHITE = 5,
+    VK_BORDER_COLOR_FLOAT_CUSTOM_EXT = 1000287003,
+    VK_BORDER_COLOR_INT_CUSTOM_EXT = 1000287004,
+    VK_BORDER_COLOR_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkBorderColor::*;
+
+#[repr(C)]
+pub enum VkFilter {
+    VK_FILTER_NEAREST = 0,
+    VK_FILTER_LINEAR = 1,
+    VK_FILTER_CUBIC_IMG = 1000015000,
+    //    VK_FILTER_CUBIC_EXT = VK_FILTER_CUBIC_IMG,
+    VK_FILTER_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkFilter::*;
+
+#[repr(C)]
+pub enum VkSamplerAddressMode {
+    VK_SAMPLER_ADDRESS_MODE_REPEAT = 0,
+    VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT = 1,
+    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE = 2,
+    VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER = 3,
+    VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE = 4,
+    //    VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE_KHR = VK_SAMPLER_ADDRESS_MODE_MIRROR_CLAMP_TO_EDGE,
+    VK_SAMPLER_ADDRESS_MODE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkSamplerAddressMode::*;
+
+#[repr(C)]
+pub enum VkSamplerMipmapMode {
+    VK_SAMPLER_MIPMAP_MODE_NEAREST = 0,
+    VK_SAMPLER_MIPMAP_MODE_LINEAR = 1,
+    VK_SAMPLER_MIPMAP_MODE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkSamplerMipmapMode::*;
+
+#[repr(C)]
+pub enum VkCompareOp {
+    VK_COMPARE_OP_NEVER = 0,
+    VK_COMPARE_OP_LESS = 1,
+    VK_COMPARE_OP_EQUAL = 2,
+    VK_COMPARE_OP_LESS_OR_EQUAL = 3,
+    VK_COMPARE_OP_GREATER = 4,
+    VK_COMPARE_OP_NOT_EQUAL = 5,
+    VK_COMPARE_OP_GREATER_OR_EQUAL = 6,
+    VK_COMPARE_OP_ALWAYS = 7,
+    VK_COMPARE_OP_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkCompareOp::*;
