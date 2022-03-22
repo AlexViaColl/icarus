@@ -36,7 +36,7 @@ fn cstr_to_string(ptr: *const i8) -> String {
 
 #[repr(C)]
 struct Vertex {
-    pos: (f32, f32),        // 8
+    pos: (f32, f32, f32),   // 12
     color: (f32, f32, f32), // 12
     uv: (f32, f32),         // 8
 }
@@ -47,6 +47,37 @@ struct UniformBufferObject {
     view: Mat4,
     proj: Mat4,
 }
+
+// Clip coordinates -> perspective division -> NDC coordinates -> Viewport transformation -> Framebuffer coordinates
+// (Xc, Yc, Zc, Wc) -> (Xc/Wc, Yc/Wc, Zc/Wc, Wc/Wc) = (Xd, Yd, Zd, Wd)
+//
+// We want:
+// - world origin at (0,0,0)
+// - camera is at (0,0,-5)
+// - near clip plane: 0.5
+// - far clip plane: 10.0
+// - clip region: z: [-4.9, 5.0]
+//
+// Framebuffer coordinates
+// x: [0, width]
+// y: [0, height]
+// 0,     0 ----------------- width,0
+//         |                |
+//         |                |
+//         |                |
+// 0,height ----------------- width, height
+//
+// NDC coordinates
+// x: [-1, 1]
+// y: [-1, 1]
+// z: [ 0, 1]
+// -1,-1   ----------------- 1,-1
+//         |                |
+//         |     (0,0) x -> |
+//         |       y        |
+// -1,1    ----------------- 1,1
+//
+//
 
 impl Vertex {
     fn get_binding_description() -> VkVertexInputBindingDescription {
@@ -62,49 +93,78 @@ impl Vertex {
             VkVertexInputAttributeDescription {
                 binding: 0,
                 location: 0,
-                format: VK_FORMAT_R32G32_SFLOAT,
+                format: VK_FORMAT_R32G32B32_SFLOAT,
                 offset: 0,
             },
             VkVertexInputAttributeDescription {
                 binding: 0,
                 location: 1,
                 format: VK_FORMAT_R32G32B32_SFLOAT,
-                offset: mem::size_of::<(f32, f32)>() as u32,
+                offset: 3 * mem::size_of::<f32>() as u32,
             },
             VkVertexInputAttributeDescription {
                 binding: 0,
                 location: 2,
                 format: VK_FORMAT_R32G32_SFLOAT,
-                offset: 5 * mem::size_of::<f32>() as u32,
+                offset: (3 + 3) * mem::size_of::<f32>() as u32,
             },
         ]
     }
 }
 
 fn main() {
+    //println!("sizeof(Vertex) = {}", mem::size_of::<Vertex>());
     let vertices: Vec<Vertex> = vec![
         Vertex {
-            pos: (-0.5, -0.5),
+            pos: (-0.5, -0.5, 0.0),
             color: (1.0, 0.0, 0.0),
             uv: (1.0, 0.0),
         },
         Vertex {
-            pos: (0.5, -0.5),
+            pos: (0.5, -0.5, 0.0),
             color: (0.0, 1.0, 0.0),
             uv: (0.0, 0.0),
         },
         Vertex {
-            pos: (0.5, 0.5),
+            pos: (0.5, 0.5, 0.0),
             color: (0.0, 0.0, 1.0),
             uv: (0.0, 1.0),
         },
         Vertex {
-            pos: (-0.5, 0.5),
+            pos: (-0.5, 0.5, 0.0),
+            color: (1.0, 1.0, 1.0),
+            uv: (1.0, 1.0),
+        },
+        Vertex {
+            pos: (-0.5, -0.5, -0.5),
+            color: (1.0, 0.0, 0.0),
+            uv: (1.0, 0.0),
+        },
+        Vertex {
+            pos: (0.5, -0.5, -0.5),
+            color: (0.0, 1.0, 0.0),
+            uv: (0.0, 0.0),
+        },
+        Vertex {
+            pos: (0.5, 0.5, -0.5),
+            color: (0.0, 0.0, 1.0),
+            uv: (0.0, 1.0),
+        },
+        Vertex {
+            pos: (-0.5, 0.5, -0.5),
             color: (1.0, 1.0, 1.0),
             uv: (1.0, 1.0),
         },
     ];
-    let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0];
+    let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
+
+    #[rustfmt::skip]
+    let vertices = vec![
+        Vertex {pos: (-1.0, -1.0, 5.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
+        Vertex {pos: ( 1.0, -1.0, 5.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
+        Vertex {pos: ( 1.0,  1.0, 5.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
+    ];
+    let indives: Vec<u16> = vec![0, 1, 2];
 
     unsafe {
         XInitThreads();
@@ -630,12 +690,22 @@ fn main() {
 
             // Update the uniforms
             let seconds_elapsed = start_time.elapsed().as_secs_f32();
+            let model = Mat4::rotate(seconds_elapsed * std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0));
+            let model = Mat4::identity();
+            let view = Mat4::look_at((2.0, 2.0, 2.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0));
+            let view = Mat4::identity();
+            let fovy = std::f32::consts::PI / 4.0; // 45 degrees
+            let aspect = window_width as f32 / window_height as f32;
+            let proj = Mat4::perspective(fovy, aspect, 0.1, 10.0).transpose();
+            let proj = Mat4::identity();
             let ubo = UniformBufferObject {
-                proj: Mat4::identity(),
-                view: Mat4::identity(),
-                //model: Mat4::rotate(seconds_elapsed * std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0)),
-                model: Mat4::identity(),
+                proj,
+                view,
+                model,
             };
+            // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+            // ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+
             let mut data = ptr::null_mut();
             vkMapMemory(
                 device,

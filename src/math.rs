@@ -161,7 +161,7 @@ impl Mat4 {
 
     #[rustfmt::skip]
     pub fn look_at(eye: (f32, f32, f32), at: (f32, f32, f32), up: (f32, f32, f32)) -> Self {
-        todo!();
+        //todo!();
         Self([
             1.0, 0.0, 0.0, 0.0,
             0.0, 1.0, 0.0, 0.0,
@@ -171,14 +171,13 @@ impl Mat4 {
     }
 
     #[rustfmt::skip]
-    pub fn perspective(fovy_radians: f32, aspect: f32, near_z: f32, far_z: f32) -> Self {
-        todo!();
-        let tan_half_fovy = (fovy_radians / 2.0).tan();
+    pub fn perspective(fovy_radians: f32, aspect: f32, near: f32, far: f32) -> Self {
+        let focal_length = 1.0 / (fovy_radians / 2.0).tan();
         Self([
-            1.0 / (aspect * tan_half_fovy), 0.0, 0.0, 0.0,
-            0.0, 1.0 / tan_half_fovy, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            focal_length / aspect,           0.0,                       0.0,                       0.0,
+                              0.0, -focal_length,                       0.0,                       0.0,
+                              0.0,           0.0,        far / (near - far),                      -1.0,
+                              0.0,           0.0, near * far / (near - far),                       1.0,
         ])
     }
 }
@@ -261,4 +260,7 @@ mod tests {
         let expected = Vec4::new(-1.0, 0.0, 0.0, 1.0);
         assert!((actual - expected).abs() < epsilon);
     }
+
+    #[test]
+    fn perspective() {}
 }
