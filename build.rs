@@ -6,6 +6,8 @@ fn main() {
 
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=compile.sh");
+    println!("cargo:rerun-if-changed=assets/shaders/shader.vert");
+    println!("cargo:rerun-if-changed=assets/shaders/shader.frag");
 
     if !Path::new("stb_image.h").exists() {
         Command::new("/usr/bin/wget")

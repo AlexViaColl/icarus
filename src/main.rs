@@ -978,8 +978,8 @@ fn create_graphics_pipeline(
     descriptor_set_layout: VkDescriptorSetLayout,
 ) -> (VkPipeline, VkPipelineLayout) {
     unsafe {
-        let vs_code = fs::read("vert.spv").expect("Failed to load vertex shader");
-        let fs_code = fs::read("frag.spv").expect("Failed to load fragment shader");
+        let vs_code = fs::read("assets/shaders/shader.vert.spv").expect("Failed to load vertex shader");
+        let fs_code = fs::read("assets/shaders/shader.frag.spv").expect("Failed to load fragment shader");
 
         let mut vs_shader_module = VkShaderModule::default();
         check!(vkCreateShaderModule(
@@ -1351,7 +1351,7 @@ fn create_texture_image(vk_ctx: &VkContext) -> (VkImage, VkDeviceMemory) {
         let mut width = 0;
         let mut height = 0;
         let mut channels = 0;
-        let pixels = stbi_load(cstr!("textures/texture.jpg"), &mut width, &mut height, &mut channels, 4);
+        let pixels = stbi_load(cstr!("assets/textures/texture.jpg"), &mut width, &mut height, &mut channels, 4);
         assert!(!pixels.is_null());
         let image_size = width * height * 4;
 
