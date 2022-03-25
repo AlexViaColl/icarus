@@ -1,4 +1,12 @@
-use std::ops::{Mul, Sub};
+use std::ops::{Add, Mul, Sub};
+
+pub fn lerp<T>(a: T, b: T, t: f32) -> T
+where
+    T: Mul<f32, Output = T> + Add<Output = T>,
+{
+    assert!((0.0..=1.0).contains(&t));
+    a * (1.0 - t) + b * t
+}
 
 #[repr(C)]
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
@@ -30,6 +38,22 @@ impl Vec3 {
 
     pub fn zero() -> Self {
         Self::new(0.0, 0.0, 0.0)
+    }
+}
+
+impl Mul<f32> for Vec3 {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Vec3::new(self.x * rhs, self.y * rhs, self.z * rhs)
+    }
+}
+
+impl Mul<f32> for Vec4 {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Vec4::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
     }
 }
 
@@ -106,11 +130,11 @@ impl Mat4 {
     }
 
     pub fn row(&self, idx: usize) -> Vec4 {
-        Vec4::new(self.0[idx * 4 + 0], self.0[idx * 4 + 1], self.0[idx * 4 + 2], self.0[idx * 4 + 3])
+        Vec4::new(self.0[idx * 4], self.0[idx * 4 + 1], self.0[idx * 4 + 2], self.0[idx * 4 + 3])
     }
 
     pub fn col(&self, idx: usize) -> Vec4 {
-        Vec4::new(self.0[0 * 4 + idx], self.0[1 * 4 + idx], self.0[2 * 4 + idx], self.0[3 * 4 + idx])
+        Vec4::new(self.0[idx], self.0[4 + idx], self.0[2 * 4 + idx], self.0[3 * 4 + idx])
     }
 
     pub fn rows(&self) -> [Vec4; 4] {
@@ -160,6 +184,7 @@ impl Mat4 {
     }
 
     #[rustfmt::skip]
+    #[allow(unused_variables)]
     pub fn look_at(eye: (f32, f32, f32), at: (f32, f32, f32), up: (f32, f32, f32)) -> Self {
         //todo!();
         Self([
@@ -167,6 +192,16 @@ impl Mat4 {
             0.0, 1.0, 0.0, 0.0,
             0.0, 0.0, 1.0, 0.0,
             0.0, 0.0, 0.0, 1.0,
+        ])
+    }
+
+    #[rustfmt::skip]
+    pub fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> Self {
+        Self([
+            2.0 / (right - left),                  0.0,                0.0, 0.0,
+                             0.0, 2.0 / (top - bottom),                0.0, 0.0,
+                             0.0,                  0.0, 2.0 / (far - near), 0.0,
+                            0.0,                   0.0,                0.0, 1.0,
         ])
     }
 
@@ -188,11 +223,11 @@ impl Mul<Vec4> for Mat4 {
     #[rustfmt::skip]
     fn mul(self, rhs: Vec4) -> Vec4 {
         let mut v = [0.0; 4];
-        for row in 0..4 {
-            v[row] = self.0[row * 4 + 0] * rhs.x +
-                     self.0[row * 4 + 1] * rhs.y +
-                     self.0[row * 4 + 2] * rhs.z +
-                     self.0[row * 4 + 3] * rhs.w;
+        for (row, item) in v.iter_mut().enumerate() {
+            *item = self.0[row * 4]     * rhs.x +
+                    self.0[row * 4 + 1] * rhs.y +
+                    self.0[row * 4 + 2] * rhs.z +
+                    self.0[row * 4 + 3] * rhs.w;
         }
         Vec4::new(v[0], v[1], v[2], v[3])
     }
@@ -203,8 +238,8 @@ impl Mul for Mat4 {
 
     fn mul(self, rhs: Self) -> Mat4 {
         let mut cols = [Vec4::zero(); 4];
-        for idx in 0..4 {
-            cols[idx] = self * rhs.col(idx);
+        for (idx, item) in cols.iter_mut().enumerate() {
+            *item = self * rhs.col(idx);
         }
 
         Mat4::from_cols(cols)

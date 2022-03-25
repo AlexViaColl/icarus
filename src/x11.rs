@@ -70,6 +70,14 @@ pub union XEvent {
     pub pad: [i64; 24],
 }
 
+impl Default for XEvent {
+    fn default() -> Self {
+        Self {
+            pad: [0; 24],
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct XKeyEvent {
