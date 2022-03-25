@@ -2,3 +2,4 @@
 *.spv
 *.o
 *.a
+stb_image.h
