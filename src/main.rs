@@ -24,6 +24,9 @@ const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const WINDOW_WIDTH: u32 = 1200;
 const WINDOW_HEIGHT: u32 = 675;
 
+const MODEL_PATH: &str = "assets/models/viking_room.obj";
+const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
+
 #[repr(C)]
 struct Vertex {
     pos: (f32, f32, f32),   // 12
@@ -165,9 +168,13 @@ struct VkContext {
 }
 
 fn main() {
+    let (vertices, indices) = parse_obj(&fs::read_to_string(MODEL_PATH).unwrap()).unwrap();
+    #[rustfmt::skip]
+    let vertices = vertices .iter() .map(|v| Vertex { pos: v.0, color: (1.0, 1.0, 1.0), uv: (v.1.0, 1.0 - v.1.1) }) .collect::<Vec<_>>();
+
     //println!("sizeof(Vertex) = {}", mem::size_of::<Vertex>());
     #[allow(unused_variables)]
-    let vertices: Vec<Vertex> = vec![
+    let vertices2: Vec<Vertex> = vec![
         Vertex {
             pos: (-0.5, -0.5, 0.0),
             color: (1.0, 0.0, 0.0),
@@ -210,7 +217,7 @@ fn main() {
         },
     ];
     #[allow(unused_variables)]
-    let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
+    let indices2: Vec<u32> = vec![0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
 
     // #[rustfmt::skip]
     // let vertices = vec![
@@ -540,7 +547,7 @@ fn main() {
         );
 
         // Create Texture Image
-        let (texture_image, texture_image_memory) = create_texture_image(&vk_ctx);
+        let (texture_image, texture_image_memory) = create_texture_image(&vk_ctx, TEXTURE_PATH);
         let texture_image_view =
             create_image_view(vk_ctx.device, texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT.into());
         let mut texture_sampler = VkSampler::default();
@@ -854,7 +861,7 @@ fn main() {
             );
 
             vkCmdBindVertexBuffers(command_buffers[current_frame], 0, 1, &vertex_buffer, &0);
-            vkCmdBindIndexBuffer(command_buffers[current_frame], index_buffer, 0, VK_INDEX_TYPE_UINT16);
+            vkCmdBindIndexBuffer(command_buffers[current_frame], index_buffer, 0, VK_INDEX_TYPE_UINT32);
 
             vkCmdBindDescriptorSets(
                 command_buffers[current_frame],
@@ -1425,7 +1432,7 @@ fn create_vertex_buffer(vk_ctx: &VkContext, vertices: &[Vertex]) -> (VkBuffer, V
     }
 }
 
-fn create_index_buffer(vk_ctx: &VkContext, indices: &[u16]) -> (VkBuffer, VkDeviceMemory) {
+fn create_index_buffer(vk_ctx: &VkContext, indices: &[u32]) -> (VkBuffer, VkDeviceMemory) {
     unsafe {
         let buffer_size = (mem::size_of_val(&indices[0]) * indices.len()) as VkDeviceSize;
         let (staging_buffer, staging_buffer_memory) = create_buffer(
@@ -1437,7 +1444,7 @@ fn create_index_buffer(vk_ctx: &VkContext, indices: &[u16]) -> (VkBuffer, VkDevi
 
         let mut data = ptr::null_mut();
         vkMapMemory(vk_ctx.device, staging_buffer_memory, 0, buffer_size, 0, &mut data);
-        std::ptr::copy(indices.as_ptr(), data as *mut u16, indices.len());
+        std::ptr::copy(indices.as_ptr(), data as *mut u32, indices.len());
         vkUnmapMemory(vk_ctx.device, staging_buffer_memory);
 
         let (index_buffer, index_buffer_memory) = create_buffer(
@@ -1557,12 +1564,14 @@ fn create_image(
     }
 }
 
-fn create_texture_image(vk_ctx: &VkContext) -> (VkImage, VkDeviceMemory) {
+fn create_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> (VkImage, VkDeviceMemory) {
     unsafe {
         let mut width = 0;
         let mut height = 0;
         let mut channels = 0;
-        let pixels = stbi_load(cstr!("assets/textures/texture.jpg"), &mut width, &mut height, &mut channels, 4);
+        let mut path = path.as_ref().to_string();
+        path.push(0 as char);
+        let pixels = stbi_load(path.as_ptr() as *const i8, &mut width, &mut height, &mut channels, 4);
         assert!(!pixels.is_null());
         let image_size = width * height * 4;
 
