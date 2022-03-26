@@ -29,6 +29,8 @@ extern "C" {
     pub fn XLookupKeysym(key_event: *mut XKeyEvent, index: i32) -> KeySym;
     pub fn XDefaultGC(display: *mut Display, screen_number: i32) -> GC;
     pub fn XFillRectangle(display: *mut Display, d: Drawable, gc: GC, x: i32, y: i32, width: u32, height: u32) -> i32;
+    pub fn XGetClassHint(display: *mut Display, w: Window, class_hints_return: *mut XClassHint) -> Status;
+    pub fn XSetClassHint(display: *mut Display, w: Window, class_hints: *mut XClassHint) -> i32;
 }
 
 pub type Status = i32;
@@ -53,6 +55,12 @@ pub struct _GC {
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
 }
 pub type GC = *mut _GC;
+
+#[repr(C)]
+pub struct XClassHint {
+    pub res_name: *mut i8,
+    pub res_class: *mut i8,
+}
 
 pub type XErrorHandler = extern "C" fn(display: *mut Display, event: *mut XErrorEvent) -> i32;
 pub type XIOErrorHandler = extern "C" fn(display: *mut Display) -> i32;

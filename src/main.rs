@@ -229,6 +229,17 @@ fn main() {
 
         assert_ne!(XStoreName(dpy, window, APP_NAME), 0);
         assert_ne!(XSelectInput(dpy, window, KeyPressMask | ExposureMask | StructureNotifyMask), 0);
+        assert_ne!(
+            XSetClassHint(
+                dpy,
+                window,
+                &mut XClassHint {
+                    res_name: APP_NAME as *mut i8,
+                    res_class: APP_NAME as *mut i8,
+                }
+            ),
+            0
+        );
         assert_ne!(XMapWindow(dpy, window), 0);
 
         // Vulkan initialization
