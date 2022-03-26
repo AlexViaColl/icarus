@@ -143,6 +143,10 @@ struct VkContext {
     swapchain: VkSwapchainKHR,
     swapchain_image_views: Vec<VkImageView>,
 
+    depth_image: VkImage,
+    depth_image_memory: VkDeviceMemory,
+    depth_image_view: VkImageView,
+
     descriptor_set_layout: VkDescriptorSetLayout,
     descriptor_pool: VkDescriptorPool,
     descriptor_sets: Vec<VkDescriptorSet>,
@@ -208,13 +212,13 @@ fn main() {
     #[allow(unused_variables)]
     let indices: Vec<u16> = vec![0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4];
 
-    #[rustfmt::skip]
-    let vertices = vec![
-        Vertex {pos: (-1.0, -1.0, 5.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
-        Vertex {pos: ( 1.0, -1.0, 5.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
-        Vertex {pos: ( 1.0,  1.0, 5.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
-    ];
-    let indices: Vec<u16> = vec![0, 1, 2];
+    // #[rustfmt::skip]
+    // let vertices = vec![
+    //     Vertex {pos: (  0.0,   0.0, 0.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
+    //     Vertex {pos: (WINDOW_WIDTH as f32 / 2.0,   0.0, 0.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
+    //     Vertex {pos: (WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0, 0.0), color: (1.0, 1.0, 1.0), uv: (0.0, 0.0)},
+    // ];
+    // let indices: Vec<u16> = vec![0, 1, 2];
 
     unsafe {
         XInitThreads();
@@ -475,8 +479,6 @@ fn main() {
             vk_ctx.surface_caps,
             vk_ctx.descriptor_set_layout,
         );
-        vk_ctx.framebuffers =
-            create_framebuffers(vk_ctx.device, vk_ctx.render_pass, &vk_ctx.swapchain_image_views, vk_ctx.surface_caps);
         vk_ctx.descriptor_pool = create_descriptor_pool(vk_ctx.device);
 
         vk_ctx.descriptor_sets = vec![VkDescriptorSet::default(); MAX_FRAMES_IN_FLIGHT];
@@ -509,8 +511,38 @@ fn main() {
             &mut vk_ctx.command_pool
         ));
 
+        // Create Depth Resources
+        (vk_ctx.depth_image, vk_ctx.depth_image_memory) = create_image(
+            &vk_ctx,
+            vk_ctx.surface_caps.currentExtent.width,
+            vk_ctx.surface_caps.currentExtent.height,
+            VK_FORMAT_D32_SFLOAT,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.into(),
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
+        );
+        vk_ctx.depth_image_view = create_image_view(
+            vk_ctx.device,
+            vk_ctx.depth_image,
+            VK_FORMAT_D32_SFLOAT,
+            VK_IMAGE_ASPECT_DEPTH_BIT.into(),
+        );
+
+        // Transition Depth Image Layout (not needed, done in Render Pass)
+        // from VK_IMAGE_LAYOUT_UNDEFINED to VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+
+        vk_ctx.framebuffers = create_framebuffers(
+            vk_ctx.device,
+            vk_ctx.render_pass,
+            &vk_ctx.swapchain_image_views,
+            vk_ctx.depth_image_view,
+            vk_ctx.surface_caps,
+        );
+
+        // Create Texture Image
         let (texture_image, texture_image_memory) = create_texture_image(&vk_ctx);
-        let texture_image_view = create_image_view(vk_ctx.device, texture_image, VK_FORMAT_R8G8B8A8_SRGB);
+        let texture_image_view =
+            create_image_view(vk_ctx.device, texture_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT.into());
         let mut texture_sampler = VkSampler::default();
         check!(vkCreateSampler(
             vk_ctx.device,
@@ -637,6 +669,7 @@ fn main() {
         let mut current_frame = 0;
         let mut framebuffer_resized = false;
         let start_time = Instant::now();
+        let mut run_once = false;
         while running {
             while XPending(dpy) > 0 {
                 let mut event = XEvent::default();
@@ -663,7 +696,7 @@ fn main() {
                             window_height = event.height as u32;
                             // println!("ConfigureNotify ({}, {})", window_width, window_height);
                             //framebuffer_resized = true;
-                            recreate_swapchain(&mut vk_ctx);
+                            //recreate_swapchain(&mut vk_ctx);
                         }
                     }
                     _ => {}
@@ -697,15 +730,56 @@ fn main() {
                 let model = Mat4::rotate(seconds_elapsed * std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0));
                 let model = Mat4::identity();
                 let view = Mat4::look_at((2.0, 2.0, 2.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0));
-                let view = Mat4::identity();
+                //let view = Mat4::identity();
+                //let view = Mat4::translate((0.5, 0.0, 0.0));
                 let fovy = std::f32::consts::PI / 4.0; // 45 degrees
                 let aspect = window_width as f32 / window_height as f32;
                 let proj = Mat4::perspective(fovy, aspect, 0.1, 10.0).transpose();
                 let proj = Mat4::identity();
+
+                #[rustfmt::skip]
+                let view = Mat4::new([
+                    -0.707107, -0.408248, 0.577350, 0.0,
+                     0.707107, -0.408248,  0.577350, 0.0,
+                     0.000000,  0.816497,  0.577350, 0.0,
+                     0.000000,  0.000000, -3.464102, 1.0,
+                ]);
+                #[rustfmt::skip]
+                let proj = Mat4::new([
+                    1.357995,  0.000000,  0.000000, 0.0,
+                    0.000000, -2.414213,  0.000000, 0.0,
+                    0.000000,  0.000000, -1.010101, -1.0,
+                    0.000000,  0.000000, -0.101010, 0.0,
+                ]);
+                //let proj = Mat4::ortho(0.0, window_width as f32, 0.0, window_height as f32, -1.0, 1.0);
+                //
+                //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+                //ubo.view = glm::lookAt(
+                //    glm::vec3(2.0f, 2.0f, 2.0f),
+                //    glm::vec3(0.0f, 0.0f, 0.0f),
+                //    glm::vec3(0.0f, 0.0f, 1.0f)
+                //);
+                //ubo.proj = glm::perspective(
+                //    glm::radians(45.0f),
+                //    swapChainExtent.width / (float) swapChainExtent.height,
+                //    0.1f, 10.0f
+                //);
+                //ubo.proj[1][1] *= -1;
+                if !run_once {
+                    println!("View: {:?}", view);
+                    println!("Proj: {:?}", proj);
+                    for i in 0..3 {
+                        //println!("vertex: {:?}", vertices[i].pos);
+                        //let v_clip = proj * view.transpose() * Vec4::from(vertices[i].pos);
+                        //let v_ndc = v_clip * (1.0 / v_clip.w);
+                        //println!("Proj * View * vertices[{}]:\n    Clip: {:?}\n    NDC:  {:?}", i, v_clip, v_ndc);
+                    }
+                    run_once = true;
+                }
                 UniformBufferObject {
-                    proj,
-                    view,
-                    model,
+                    model: model.transpose(),
+                    view: view, //.transpose(),
+                    proj: proj, //.transpose(),
                 }
             };
             // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -752,14 +826,23 @@ fn main() {
                         },
                         extent: vk_ctx.surface_caps.currentExtent,
                     },
-                    clearValueCount: 1,
-                    pClearValues: &VkClearValue {
-                        color: VkClearColorValue {
-                            // float32: color_to_f32(BG_COLOR), // [0.0, 0.0, 0.0, 1.0],
-                            float32: srgb_to_linear(BG_COLOR),
-                            // float32: srgb_to_linear(0x1D1F21),
+                    clearValueCount: 2,
+                    pClearValues: [
+                        VkClearValue {
+                            color: VkClearColorValue {
+                                // float32: color_to_f32(BG_COLOR), // [0.0, 0.0, 0.0, 1.0],
+                                float32: srgb_to_linear(BG_COLOR),
+                                // float32: srgb_to_linear(0x1D1F21),
+                            },
                         },
-                    },
+                        VkClearValue {
+                            depthStencil: VkClearDepthStencilValue {
+                                depth: 1.0,
+                                stencil: 0,
+                            },
+                        },
+                    ]
+                    .as_ptr(),
                 },
                 VK_SUBPASS_CONTENTS_INLINE,
             );
@@ -894,8 +977,30 @@ fn recreate_swapchain(vk_ctx: &mut VkContext) {
             vk_ctx.surface_caps,
             vk_ctx.descriptor_set_layout,
         );
-        vk_ctx.framebuffers =
-            create_framebuffers(vk_ctx.device, vk_ctx.render_pass, &vk_ctx.swapchain_image_views, vk_ctx.surface_caps);
+        // Create Depth Resources
+        (vk_ctx.depth_image, vk_ctx.depth_image_memory) = create_image(
+            &vk_ctx,
+            vk_ctx.surface_caps.currentExtent.width,
+            vk_ctx.surface_caps.currentExtent.height,
+            VK_FORMAT_D32_SFLOAT,
+            VK_IMAGE_TILING_OPTIMAL,
+            VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.into(),
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
+        );
+        vk_ctx.depth_image_view = create_image_view(
+            vk_ctx.device,
+            vk_ctx.depth_image,
+            VK_FORMAT_D32_SFLOAT,
+            VK_IMAGE_ASPECT_DEPTH_BIT.into(),
+        );
+
+        vk_ctx.framebuffers = create_framebuffers(
+            vk_ctx.device,
+            vk_ctx.render_pass,
+            &vk_ctx.swapchain_image_views,
+            vk_ctx.depth_image_view,
+            vk_ctx.surface_caps,
+        );
     }
 }
 
@@ -932,7 +1037,7 @@ fn create_swapchain(
 
 fn create_image_views(device: VkDevice, swapchain: VkSwapchainKHR, format: VkFormat) -> Vec<VkImageView> {
     let images = vk_get_swapchain_images_khr(device, swapchain);
-    images.iter().map(|image| create_image_view(device, *image, format)).collect()
+    images.iter().map(|image| create_image_view(device, *image, format, VK_IMAGE_ASPECT_COLOR_BIT.into())).collect()
 }
 
 fn create_render_pass(device: VkDevice, format: VkFormat) -> VkRenderPass {
@@ -941,18 +1046,32 @@ fn create_render_pass(device: VkDevice, format: VkFormat) -> VkRenderPass {
         check!(vkCreateRenderPass(
             device,
             &VkRenderPassCreateInfo {
-                attachmentCount: 1,
-                pAttachments: &VkAttachmentDescription {
-                    flags: 0.into(),
-                    format,
-                    samples: VK_SAMPLE_COUNT_1_BIT.into(),
-                    loadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
-                    storeOp: VK_ATTACHMENT_STORE_OP_STORE,
-                    stencilLoadOp: VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-                    stencilStoreOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
-                    initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
-                    finalLayout: VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
-                },
+                attachmentCount: 2,
+                pAttachments: [
+                    VkAttachmentDescription {
+                        flags: 0.into(),
+                        format,
+                        samples: VK_SAMPLE_COUNT_1_BIT.into(),
+                        loadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        storeOp: VK_ATTACHMENT_STORE_OP_STORE,
+                        stencilLoadOp: VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                        stencilStoreOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+                        finalLayout: VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+                    },
+                    VkAttachmentDescription {
+                        flags: 0.into(),
+                        format: VK_FORMAT_D32_SFLOAT, // TODO: find_depth_format()
+                        samples: VK_SAMPLE_COUNT_1_BIT.into(),
+                        loadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        storeOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        stencilLoadOp: VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                        stencilStoreOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+                        finalLayout: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    }
+                ]
+                .as_ptr(),
                 subpassCount: 1,
                 pSubpasses: &VkSubpassDescription {
                     pipelineBindPoint: VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -961,16 +1080,26 @@ fn create_render_pass(device: VkDevice, format: VkFormat) -> VkRenderPass {
                         attachment: 0,
                         layout: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                     },
+                    pDepthStencilAttachment: &VkAttachmentReference {
+                        attachment: 1,
+                        layout: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    },
                     ..VkSubpassDescription::default()
                 },
                 dependencyCount: 1,
                 pDependencies: &VkSubpassDependency {
                     srcSubpass: VK_SUBPASS_EXTERNAL,
                     dstSubpass: 0,
-                    srcStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
-                    dstStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
+                    srcStageMask: (VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+                        .into(),
+                    dstStageMask: (VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+                        | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT)
+                        .into(),
                     srcAccessMask: 0.into(),
-                    dstAccessMask: VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT.into(),
+                    dstAccessMask: (VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+                        | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT)
+                        .into(),
                     dependencyFlags: 0.into(),
                 },
                 ..VkRenderPassCreateInfo::default()
@@ -1081,7 +1210,7 @@ fn create_graphics_pipeline(
                 pRasterizationState: &VkPipelineRasterizationStateCreateInfo {
                     polygonMode: VK_POLYGON_MODE_FILL,
                     cullMode: VK_CULL_MODE_BACK_BIT.into(),
-                    frontFace: VK_FRONT_FACE_CLOCKWISE,
+                    frontFace: VK_FRONT_FACE_COUNTER_CLOCKWISE,
                     lineWidth: 1.0,
                     ..VkPipelineRasterizationStateCreateInfo::default()
                 },
@@ -1090,7 +1219,18 @@ fn create_graphics_pipeline(
                     minSampleShading: 1.0,
                     ..VkPipelineMultisampleStateCreateInfo::default()
                 },
-                pDepthStencilState: ptr::null(),
+                pDepthStencilState: &VkPipelineDepthStencilStateCreateInfo {
+                    depthTestEnable: VK_TRUE,
+                    depthWriteEnable: VK_TRUE,
+                    depthCompareOp: VK_COMPARE_OP_LESS,
+                    depthBoundsTestEnable: VK_FALSE,
+                    stencilTestEnable: VK_FALSE,
+                    front: VkStencilOpState::default(),
+                    back: VkStencilOpState::default(),
+                    minDepthBounds: 0.0,
+                    maxDepthBounds: 1.0,
+                    ..VkPipelineDepthStencilStateCreateInfo::default()
+                },
                 pColorBlendState: &VkPipelineColorBlendStateCreateInfo {
                     logicOp: VK_LOGIC_OP_COPY,
                     attachmentCount: 1,
@@ -1132,6 +1272,7 @@ fn create_framebuffers(
     device: VkDevice,
     render_pass: VkRenderPass,
     swapchain_image_views: &[VkImageView],
+    depth_image_view: VkImageView,
     surface_caps: VkSurfaceCapabilitiesKHR,
 ) -> Vec<VkFramebuffer> {
     unsafe {
@@ -1141,8 +1282,8 @@ fn create_framebuffers(
                 device,
                 &VkFramebufferCreateInfo {
                     renderPass: render_pass,
-                    attachmentCount: 1,
-                    pAttachments: &swapchain_image_views[i],
+                    attachmentCount: 2,
+                    pAttachments: [swapchain_image_views[i], depth_image_view].as_ptr(),
                     width: surface_caps.currentExtent.width,
                     height: surface_caps.currentExtent.height,
                     layers: 1,
@@ -1186,6 +1327,10 @@ fn create_descriptor_pool(device: VkDevice) -> VkDescriptorPool {
 
 fn cleanup_swapchain(vk_ctx: &mut VkContext) {
     unsafe {
+        vkDestroyImageView(vk_ctx.device, vk_ctx.depth_image_view, ptr::null());
+        vkFreeMemory(vk_ctx.device, vk_ctx.depth_image_memory, ptr::null());
+        vkDestroyImage(vk_ctx.device, vk_ctx.depth_image, ptr::null());
+
         for framebuffer in &vk_ctx.framebuffers {
             vkDestroyFramebuffer(vk_ctx.device, *framebuffer, ptr::null());
         }
@@ -1357,6 +1502,61 @@ fn create_buffer(
     }
 }
 
+fn create_image(
+    vk_ctx: &VkContext,
+    width: u32,
+    height: u32,
+    format: VkFormat,
+    tiling: VkImageTiling,
+    usage: VkImageUsageFlags,
+    mem_props: VkMemoryPropertyFlags,
+) -> (VkImage, VkDeviceMemory) {
+    unsafe {
+        let mut image = VkImage::default();
+        check!(vkCreateImage(
+            vk_ctx.device,
+            &VkImageCreateInfo {
+                imageType: VK_IMAGE_TYPE_2D,
+                format,
+                extent: VkExtent3D {
+                    width: width,
+                    height: height,
+                    depth: 1,
+                },
+                mipLevels: 1,
+                arrayLayers: 1,
+                samples: VK_SAMPLE_COUNT_1_BIT.into(), // TODO: VkSampleCountFlagBits
+                tiling,
+                usage,
+                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+                ..VkImageCreateInfo::default()
+            },
+            ptr::null(),
+            &mut image
+        ));
+
+        let mut memory_requirements = VkMemoryRequirements::default();
+        vkGetImageMemoryRequirements(vk_ctx.device, image, &mut memory_requirements);
+
+        let mut image_memory = VkDeviceMemory::default();
+        check!(vkAllocateMemory(
+            vk_ctx.device,
+            &VkMemoryAllocateInfo {
+                allocationSize: memory_requirements.size,
+                memoryTypeIndex: find_memory_type(&vk_ctx, memory_requirements.memoryTypeBits, mem_props),
+                ..VkMemoryAllocateInfo::default()
+            },
+            ptr::null(),
+            &mut image_memory
+        ));
+
+        check!(vkBindImageMemory(vk_ctx.device, image, image_memory, 0));
+
+        (image, image_memory)
+    }
+}
+
 fn create_texture_image(vk_ctx: &VkContext) -> (VkImage, VkDeviceMemory) {
     unsafe {
         let mut width = 0;
@@ -1379,50 +1579,15 @@ fn create_texture_image(vk_ctx: &VkContext) -> (VkImage, VkDeviceMemory) {
 
         stbi_image_free(pixels as *mut c_void);
 
-        let mut texture_image = VkImage::default();
-        check!(vkCreateImage(
-            vk_ctx.device,
-            &VkImageCreateInfo {
-                imageType: VK_IMAGE_TYPE_2D,
-                format: VK_FORMAT_R8G8B8A8_SRGB,
-                extent: VkExtent3D {
-                    width: width as u32,
-                    height: height as u32,
-                    depth: 1,
-                },
-                mipLevels: 1,
-                arrayLayers: 1,
-                samples: VK_SAMPLE_COUNT_1_BIT.into(), // TODO: VkSampleCountFlagBits
-                tiling: VK_IMAGE_TILING_OPTIMAL,
-                usage: (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).into(),
-                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
-                initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
-                ..VkImageCreateInfo::default()
-            },
-            ptr::null(),
-            &mut texture_image
-        ));
-
-        let mut memory_requirements = VkMemoryRequirements::default();
-        vkGetImageMemoryRequirements(vk_ctx.device, texture_image, &mut memory_requirements);
-
-        let mut texture_image_memory = VkDeviceMemory::default();
-        check!(vkAllocateMemory(
-            vk_ctx.device,
-            &VkMemoryAllocateInfo {
-                allocationSize: memory_requirements.size,
-                memoryTypeIndex: find_memory_type(
-                    &vk_ctx,
-                    memory_requirements.memoryTypeBits,
-                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
-                ),
-                ..VkMemoryAllocateInfo::default()
-            },
-            ptr::null(),
-            &mut texture_image_memory
-        ));
-
-        check!(vkBindImageMemory(vk_ctx.device, texture_image, texture_image_memory, 0));
+        let (texture_image, texture_image_memory) = create_image(
+            vk_ctx,
+            width as u32,
+            height as u32,
+            VK_FORMAT_R8G8B8A8_SRGB,
+            VK_IMAGE_TILING_OPTIMAL,
+            (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).into(),
+            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
+        );
 
         transition_image_layout(
             vk_ctx.device,
@@ -1461,7 +1626,7 @@ fn create_texture_image(vk_ctx: &VkContext) -> (VkImage, VkDeviceMemory) {
     }
 }
 
-fn create_image_view(device: VkDevice, image: VkImage, format: VkFormat) -> VkImageView {
+fn create_image_view(device: VkDevice, image: VkImage, format: VkFormat, aspect: VkImageAspectFlags) -> VkImageView {
     unsafe {
         let mut image_view = VkImageView::default();
         check!(vkCreateImageView(
@@ -1471,7 +1636,7 @@ fn create_image_view(device: VkDevice, image: VkImage, format: VkFormat) -> VkIm
                 viewType: VK_IMAGE_VIEW_TYPE_2D,
                 format,
                 subresourceRange: VkImageSubresourceRange {
-                    aspectMask: VK_IMAGE_ASPECT_COLOR_BIT.into(),
+                    aspectMask: aspect,
                     levelCount: 1,
                     layerCount: 1,
                     ..VkImageSubresourceRange::default()

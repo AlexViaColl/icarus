@@ -108,6 +108,17 @@ pub fn vk_get_physical_device_memory_properties(physical_device: VkPhysicalDevic
     }
 }
 
+pub fn vk_get_physical_device_format_properties(
+    physical_device: VkPhysicalDevice,
+    format: VkFormat,
+) -> VkFormatProperties {
+    unsafe {
+        let mut format_props = VkFormatProperties::default();
+        vkGetPhysicalDeviceFormatProperties(physical_device, format, &mut format_props);
+        format_props
+    }
+}
+
 pub fn vk_create_xlib_surface_khr(
     instance: VkInstance,
     dpy: *mut crate::x11::Display,
@@ -591,6 +602,25 @@ impl Default for VkPipelineMultisampleStateCreateInfo {
             pSampleMask: ptr::null(),
             alphaToCoverageEnable: VK_FALSE,
             alphaToOneEnable: VK_FALSE,
+        }
+    }
+}
+
+impl Default for VkPipelineDepthStencilStateCreateInfo {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0.into(),
+            depthTestEnable: VK_FALSE,
+            depthWriteEnable: VK_FALSE,
+            depthCompareOp: VkCompareOp::default(),
+            depthBoundsTestEnable: VK_FALSE,
+            stencilTestEnable: VK_FALSE,
+            front: VkStencilOpState::default(),
+            back: VkStencilOpState::default(),
+            minDepthBounds: 0.0,
+            maxDepthBounds: 0.0,
         }
     }
 }

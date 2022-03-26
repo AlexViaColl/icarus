@@ -36,6 +36,38 @@ extern "C" {
         pQueueFamilyPropertyCount: *mut u32,
         pQueueFamilyProperties: *mut VkQueueFamilyProperties,
     );
+    pub fn vkGetPhysicalDeviceSurfaceSupportKHR(
+        physicalDevice: VkPhysicalDevice,
+        queueFamilyIndex: u32,
+        surface: VkSurfaceKHR,
+        pSupported: *mut VkBool32,
+    ) -> VkResult;
+    pub fn vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        physicalDevice: VkPhysicalDevice,
+        surface: VkSurfaceKHR,
+        pSurfaceCapabilities: *mut VkSurfaceCapabilitiesKHR,
+    ) -> VkResult;
+    pub fn vkGetPhysicalDeviceSurfaceFormatsKHR(
+        physicalDevice: VkPhysicalDevice,
+        surface: VkSurfaceKHR,
+        pSurfaceFormatCount: *mut u32,
+        pSurfaceFormats: *mut VkSurfaceFormatKHR,
+    ) -> VkResult;
+    pub fn vkGetPhysicalDeviceSurfacePresentModesKHR(
+        physicalDevice: VkPhysicalDevice,
+        surface: VkSurfaceKHR,
+        pPresentModeCount: *mut u32,
+        pPresentModes: *mut VkPresentModeKHR,
+    ) -> VkResult;
+    pub fn vkGetPhysicalDeviceMemoryProperties(
+        physicalDevice: VkPhysicalDevice,
+        pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
+    );
+    pub fn vkGetPhysicalDeviceFormatProperties(
+        physicalDevice: VkPhysicalDevice,
+        format: VkFormat,
+        pFormatProperties: *mut VkFormatProperties,
+    );
     pub fn vkCreateDevice(
         physicalDevice: VkPhysicalDevice,
         pCreateInfo: *const VkDeviceCreateInfo,
@@ -68,29 +100,6 @@ extern "C" {
     ) -> VkResult;
     pub fn vkDestroySurfaceKHR(instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *const VkAllocationCallbacks);
 
-    pub fn vkGetPhysicalDeviceSurfaceSupportKHR(
-        physicalDevice: VkPhysicalDevice,
-        queueFamilyIndex: u32,
-        surface: VkSurfaceKHR,
-        pSupported: *mut VkBool32,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        physicalDevice: VkPhysicalDevice,
-        surface: VkSurfaceKHR,
-        pSurfaceCapabilities: *mut VkSurfaceCapabilitiesKHR,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceSurfaceFormatsKHR(
-        physicalDevice: VkPhysicalDevice,
-        surface: VkSurfaceKHR,
-        pSurfaceFormatCount: *mut u32,
-        pSurfaceFormats: *mut VkSurfaceFormatKHR,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceSurfacePresentModesKHR(
-        physicalDevice: VkPhysicalDevice,
-        surface: VkSurfaceKHR,
-        pPresentModeCount: *mut u32,
-        pPresentModes: *mut VkPresentModeKHR,
-    ) -> VkResult;
     pub fn vkCreateSwapchainKHR(
         device: VkDevice,
         pCreateInfo: *const VkSwapchainCreateInfoKHR,
@@ -258,10 +267,6 @@ extern "C" {
         device: VkDevice,
         buffer: VkBuffer,
         pMemoryRequirements: *mut VkMemoryRequirements,
-    );
-    pub fn vkGetPhysicalDeviceMemoryProperties(
-        physicalDevice: VkPhysicalDevice,
-        pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
     );
     pub fn vkAllocateMemory(
         device: VkDevice,
@@ -1430,8 +1435,30 @@ pub struct VkPipelineTessellationStateCreateInfo {
 #[repr(C)]
 #[derive(Debug)]
 pub struct VkPipelineDepthStencilStateCreateInfo {
-    // TODO
-    _data: [u8; 0],
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineDepthStencilStateCreateFlags,
+    pub depthTestEnable: VkBool32,
+    pub depthWriteEnable: VkBool32,
+    pub depthCompareOp: VkCompareOp,
+    pub depthBoundsTestEnable: VkBool32,
+    pub stencilTestEnable: VkBool32,
+    pub front: VkStencilOpState,
+    pub back: VkStencilOpState,
+    pub minDepthBounds: f32,
+    pub maxDepthBounds: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkStencilOpState {
+    pub failOp: VkStencilOp,
+    pub passOp: VkStencilOp,
+    pub depthFailOp: VkStencilOp,
+    pub compareOp: VkCompareOp,
+    pub compareMask: u32,
+    pub writeMask: u32,
+    pub reference: u32,
 }
 
 #[repr(C)]
@@ -1531,6 +1558,14 @@ pub struct VkMemoryType {
 pub struct VkMemoryHeap {
     pub size: VkDeviceSize,
     pub flags: VkMemoryHeapFlags,
+}
+
+#[repr(C)]
+#[derive(Debug, Default, Clone)]
+pub struct VkFormatProperties {
+    pub linearTilingFeatures: VkFormatFeatureFlags,
+    pub optimalTilingFeatures: VkFormatFeatureFlags,
+    pub bufferFeatures: VkFormatFeatureFlags,
 }
 
 #[repr(C)]
@@ -3119,6 +3154,60 @@ bitflag_enum!(VkSamplerCreateFlagBits {
     VK_SAMPLER_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
 });
 
+bitflag_struct!(VkFormatFeatureFlags: VkFormatFeatureFlagBits);
+bitflag_enum!(VkFormatFeatureFlagBits {
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT = 0x00000001,
+    VK_FORMAT_FEATURE_STORAGE_IMAGE_BIT = 0x00000002,
+    VK_FORMAT_FEATURE_STORAGE_IMAGE_ATOMIC_BIT = 0x00000004,
+    VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT = 0x00000008,
+    VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT = 0x00000010,
+    VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_ATOMIC_BIT = 0x00000020,
+    VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT = 0x00000040,
+    VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT = 0x00000080,
+    VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BLEND_BIT = 0x00000100,
+    VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT = 0x00000200,
+    VK_FORMAT_FEATURE_BLIT_SRC_BIT = 0x00000400,
+    VK_FORMAT_FEATURE_BLIT_DST_BIT = 0x00000800,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT = 0x00001000,
+    VK_FORMAT_FEATURE_TRANSFER_SRC_BIT = 0x00004000,
+    VK_FORMAT_FEATURE_TRANSFER_DST_BIT = 0x00008000,
+    VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT = 0x00020000,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT = 0x00040000,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT = 0x00080000,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT = 0x00100000,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT = 0x00200000,
+    VK_FORMAT_FEATURE_DISJOINT_BIT = 0x00400000,
+    VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT = 0x00800000,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT = 0x00010000,
+    VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG = 0x00002000,
+    VK_FORMAT_FEATURE_VIDEO_DECODE_OUTPUT_BIT_KHR = 0x02000000,
+    VK_FORMAT_FEATURE_VIDEO_DECODE_DPB_BIT_KHR = 0x04000000,
+    VK_FORMAT_FEATURE_ACCELERATION_STRUCTURE_VERTEX_BUFFER_BIT_KHR = 0x20000000,
+    VK_FORMAT_FEATURE_FRAGMENT_DENSITY_MAP_BIT_EXT = 0x01000000,
+    VK_FORMAT_FEATURE_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR = 0x40000000,
+    VK_FORMAT_FEATURE_VIDEO_ENCODE_INPUT_BIT_KHR = 0x08000000,
+    VK_FORMAT_FEATURE_VIDEO_ENCODE_DPB_BIT_KHR = 0x10000000,
+//    VK_FORMAT_FEATURE_TRANSFER_SRC_BIT_KHR = VK_FORMAT_FEATURE_TRANSFER_SRC_BIT,
+//    VK_FORMAT_FEATURE_TRANSFER_DST_BIT_KHR = VK_FORMAT_FEATURE_TRANSFER_DST_BIT,
+//    VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT_EXT = VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_MINMAX_BIT,
+//    VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT_KHR = VK_FORMAT_FEATURE_MIDPOINT_CHROMA_SAMPLES_BIT,
+//    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT_KHR = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_LINEAR_FILTER_BIT,
+//    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT_KHR = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_SEPARATE_RECONSTRUCTION_FILTER_BIT,
+//    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT_KHR = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_BIT,
+//    VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT_KHR = VK_FORMAT_FEATURE_SAMPLED_IMAGE_YCBCR_CONVERSION_CHROMA_RECONSTRUCTION_EXPLICIT_FORCEABLE_BIT,
+//    VK_FORMAT_FEATURE_DISJOINT_BIT_KHR = VK_FORMAT_FEATURE_DISJOINT_BIT,
+//    VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT_KHR = VK_FORMAT_FEATURE_COSITED_CHROMA_SAMPLES_BIT,
+//    VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_EXT = VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_CUBIC_BIT_IMG,
+    VK_FORMAT_FEATURE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
+});
+
+bitflag_struct!(VkPipelineDepthStencilStateCreateFlags: VkPipelineDepthStencilStateCreateFlagBits);
+bitflag_enum!(VkPipelineDepthStencilStateCreateFlagBits {
+    VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_ARM = 0x00000001,
+    VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_ARM = 0x00000002,
+    VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
+});
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum VkFormat {
@@ -3702,6 +3791,27 @@ pub use VkBlendOp::*;
 impl Default for VkBlendOp {
     fn default() -> Self {
         VK_BLEND_OP_ADD
+    }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum VkStencilOp {
+    VK_STENCIL_OP_KEEP = 0,
+    VK_STENCIL_OP_ZERO = 1,
+    VK_STENCIL_OP_REPLACE = 2,
+    VK_STENCIL_OP_INCREMENT_AND_CLAMP = 3,
+    VK_STENCIL_OP_DECREMENT_AND_CLAMP = 4,
+    VK_STENCIL_OP_INVERT = 5,
+    VK_STENCIL_OP_INCREMENT_AND_WRAP = 6,
+    VK_STENCIL_OP_DECREMENT_AND_WRAP = 7,
+    VK_STENCIL_OP_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkStencilOp::*;
+
+impl Default for VkStencilOp {
+    fn default() -> Self {
+        VK_STENCIL_OP_KEEP
     }
 }
 
