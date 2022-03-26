@@ -1,3 +1,4 @@
+use std::fmt;
 use std::ops::{Add, Mul, Neg, Sub};
 
 /// Linear interpolation between A and B by a "normalized percentage" T.
@@ -36,7 +37,7 @@ pub struct Vec4 {
 
 // Mat4 stores its elements as row-major
 #[repr(C)]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy)]
 pub struct Mat4([f32; 16]);
 
 impl Vec3 {
@@ -140,6 +141,24 @@ impl Vec4 {
 
     pub fn dot(&self, rhs: Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
+    }
+}
+
+impl From<(f32, f32, f32)> for Vec4 {
+    fn from(item: (f32, f32, f32)) -> Self {
+        Self::new(item.0, item.1, item.2, 1.0)
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for Vec4 {
+    fn from(item: (f32, f32, f32, f32)) -> Self {
+        Self::new(item.0, item.1, item.2, item.3)
+    }
+}
+
+impl From<[f32; 4]> for Vec4 {
+    fn from(item: [f32; 4]) -> Self {
+        Self::new(item[0], item[1], item[2], item[3])
     }
 }
 
@@ -253,19 +272,21 @@ impl Mat4 {
     #[rustfmt::skip]
     #[allow(unused_variables)]
     pub fn look_at<T: Into<Vec3>>(eye: T, at: T, up: T) -> Self {
-        let forward = (at.into() - eye.into()).normalize();
+        let eye = eye.into();
+        let forward = (at.into() - eye).normalize();
         let up = up.into().normalize();
         let right = forward.cross(up).normalize();
+        let up = forward.cross(right).normalize();
 
         //let r = Mat4::rotate();
         let t = Mat4::translate(-forward);
 
         // TODO
         Self([
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+              right.x,   right.y,   right.z, 0.0,
+                 up.x,      up.y,      up.z, 0.0,
+            forward.x, forward.y, forward.z, 0.0,
+                eye.x,     eye.y,     eye.z, 1.0,
         ])
     }
 
@@ -286,13 +307,12 @@ impl Mat4 {
 
     #[rustfmt::skip]
     pub fn perspective(fovy_radians: f32, aspect: f32, near: f32, far: f32) -> Self {
-        // TODO
         let focal_length = 1.0 / (fovy_radians / 2.0).tan();
         Self([
             focal_length / aspect,           0.0,                       0.0,                       0.0,
                               0.0, -focal_length,                       0.0,                       0.0,
-                              0.0,           0.0,        far / (near - far),                      -1.0,
-                              0.0,           0.0, near * far / (near - far),                       1.0,
+                              0.0,           0.0,       near / (far - near),     near*far/(far - near),
+                              0.0,           0.0,                      -1.0,                       0.0,
         ])
     }
 }
@@ -323,6 +343,17 @@ impl Mul for Mat4 {
         }
 
         Mat4::from_cols(cols)
+    }
+}
+
+impl fmt::Debug for Mat4 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "Mat4 {{")?;
+        writeln!(f, "    {:>.6}, {:>.6}, {:>.6}, {:>.6},", self.0[0], self.0[1], self.0[2], self.0[3])?;
+        writeln!(f, "    {:>.6}, {:>.6}, {:>.6}, {:>.6},", self.0[4], self.0[5], self.0[6], self.0[7])?;
+        writeln!(f, "    {:>.6}, {:>.6}, {:>.6}, {:>.6},", self.0[8], self.0[9], self.0[10], self.0[11])?;
+        writeln!(f, "    {:>.6}, {:>.6}, {:>.6}, {:>.6},", self.0[12], self.0[13], self.0[14], self.0[15])?;
+        writeln!(f, "}}")
     }
 }
 
@@ -430,7 +461,9 @@ mod tests {
     }
 
     #[test]
-    fn perspective() {}
+    fn perspective() {
+        todo!()
+    }
 
     #[test]
     fn ortho_translate_scale() {
