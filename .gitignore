@@ -1,5 +1,16 @@
 /target
+
+# compiled artifacts
 *.spv
 *.o
 *.a
+
+# 3d models
+*.obj
+
+# images/textures
+*.jpg
+*.png
+
+# external source code
 stb_image.h

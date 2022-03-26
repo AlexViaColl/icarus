@@ -16,5 +16,28 @@ fn main() {
             .unwrap();
     }
 
+    if !Path::new("assets/models/viking_room.obj").exists() {
+        Command::new("/usr/bin/wget")
+            .arg("-O")
+            .arg("assets/models/viking_room.obj")
+            .arg("https://vulkan-tutorial.com/resources/viking_room.obj")
+            .status()
+            .unwrap();
+
+        Command::new("/usr/bin/wget")
+            .arg("-O")
+            .arg("assets/textures/viking_room.png")
+            .arg("https://vulkan-tutorial.com/resources/viking_room.png")
+            .status()
+            .unwrap();
+
+        Command::new("/usr/bin/wget")
+            .arg("-O")
+            .arg("assets/textures/texture.jpg")
+            .arg("https://vulkan-tutorial.com/images/texture.jpg")
+            .status()
+            .unwrap();
+    }
+
     Command::new("/bin/sh").arg("compile.sh").status().unwrap();
 }
