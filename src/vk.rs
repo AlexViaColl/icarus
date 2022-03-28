@@ -579,6 +579,32 @@ pub type PFN_vkDebugUtilsMessengerCallbackEXT = extern "C" fn(
     pCallbackData: *const VkDebugUtilsMessengerCallbackDataEXT,
     pUserData: *mut c_void,
 ) -> VkBool32;
+pub type PFN_vkAllocationFunction = extern "C" fn(
+    pUserData: *mut c_void,
+    size: usize,
+    alignment: usize,
+    allocationScope: VkSystemAllocationScope,
+) -> *mut c_void;
+pub type PFN_vkReallocationFunction = extern "C" fn(
+    pUserData: *mut c_void,
+    pOriginal: *mut c_void,
+    size: usize,
+    alignment: usize,
+    allocationScope: VkSystemAllocationScope,
+) -> *mut c_void;
+pub type PFN_vkFreeFunction = extern "C" fn(pUserData: *mut c_void, pMemory: *mut c_void);
+pub type PFN_vkInternalAllocationNotification = extern "C" fn(
+    pUserData: *mut c_void,
+    size: usize,
+    allocationType: VkInternalAllocationType,
+    allocationScope: VkSystemAllocationScope,
+);
+pub type PFN_vkInternalFreeNotification = extern "C" fn(
+    pUserData: *mut c_void,
+    size: usize,
+    allocationType: VkInternalAllocationType,
+    allocationScope: VkSystemAllocationScope,
+);
 
 #[repr(C)]
 pub struct VkBaseInStructure {
@@ -655,9 +681,14 @@ pub struct VkApplicationInfo {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct VkAllocationCallbacks {
-    _data: [u8; 0],
-    // TODO
+    pub pUserData: *mut c_void,
+    pub pfnAllocation: Option<PFN_vkAllocationFunction>,
+    pub pfnReallocation: Option<PFN_vkReallocationFunction>,
+    pub pfnFree: Option<PFN_vkFreeFunction>,
+    pub pfnInternalAllocation: Option<PFN_vkInternalAllocationNotification>,
+    pub pfnInternalFree: Option<PFN_vkInternalFreeNotification>,
 }
 
 #[repr(C)]
@@ -4256,4 +4287,22 @@ impl Default for VkCompareOp {
     fn default() -> Self {
         VK_COMPARE_OP_NEVER
     }
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum VkSystemAllocationScope {
+    VK_SYSTEM_ALLOCATION_SCOPE_COMMAND = 0,
+    VK_SYSTEM_ALLOCATION_SCOPE_OBJECT = 1,
+    VK_SYSTEM_ALLOCATION_SCOPE_CACHE = 2,
+    VK_SYSTEM_ALLOCATION_SCOPE_DEVICE = 3,
+    VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE = 4,
+    VK_SYSTEM_ALLOCATION_SCOPE_MAX_ENUM = 0x7FFFFFFF,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum VkInternalAllocationType {
+    VK_INTERNAL_ALLOCATION_TYPE_EXECUTABLE = 0,
+    VK_INTERNAL_ALLOCATION_TYPE_MAX_ENUM = 0x7FFFFFFF,
 }
