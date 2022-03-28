@@ -1,4 +1,5 @@
 mod color;
+mod macros;
 mod math;
 mod stb_image;
 mod string_util;
