@@ -3,6 +3,13 @@
 
 use std::ffi::c_void;
 
+#[macro_export]
+macro_rules! cstr(
+    ($s:expr) => {
+        concat!($s, "\0").as_ptr() as *const i8
+    }
+);
+
 macro_rules! VK_DEFINE_HANDLE(
     ($pub_name: ident, $priv_name: ident) => {
         #[repr(C)]
@@ -486,10 +493,11 @@ pub const VK_MAX_PHYSICAL_DEVICE_NAME_SIZE: usize = 256;
 pub const VK_MAX_EXTENSION_NAME_SIZE: usize = 256;
 pub const VK_MAX_DESCRIPTION_SIZE: usize = 256;
 
-pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = b"VK_KHR_swapchain\0".as_ptr() as *const i8;
-pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = b"VK_KHR_surface\0".as_ptr() as *const i8;
-pub const VK_KHR_XLIB_SURFACE_EXTENSION_NAME: *const i8 = b"VK_KHR_xlib_surface\0".as_ptr() as *const i8;
-pub const VK_EXT_DEBUG_UTILS_EXTENSION_NAME: *const i8 = b"VK_EXT_debug_utils\0".as_ptr() as *const i8;
+pub const VK_EXT_DEBUG_REPORT_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_debug_report");
+pub const VK_EXT_DEBUG_UTILS_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_debug_utils");
+pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_swapchain");
+pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_surface");
+pub const VK_KHR_XLIB_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_xlib_surface");
 
 pub type VkDeviceAddress = u64;
 pub type VkDeviceSize = u64;
@@ -525,6 +533,8 @@ VK_DEFINE_HANDLE!(VkFramebuffer, _VkFramebuffer_);
 VK_DEFINE_HANDLE!(VkCommandPool, _VkCommandPool_);
 
 // Extensions
+VK_DEFINE_HANDLE!(VkDebugReportCallbackEXT, VkDebugReportCallbackEXT_);
+VK_DEFINE_HANDLE!(VkDebugUtilsMessengerEXT, VkDebugUtilsMessengerEXT_);
 VK_DEFINE_HANDLE!(VkSurfaceKHR, _VkSurfaceKHR_);
 VK_DEFINE_HANDLE!(VkSwapchainKHR, _VkSwapchainKHR_);
 
@@ -684,8 +694,6 @@ impl Default for VkLayerProperties {
         }
     }
 }
-
-VK_DEFINE_HANDLE!(VkDebugUtilsMessengerEXT, VkDebugUtilsMessengerEXT_);
 
 #[repr(C)]
 #[derive(Debug)]

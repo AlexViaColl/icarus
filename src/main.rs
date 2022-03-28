@@ -10,12 +10,6 @@ use std::mem;
 use std::ptr;
 use std::time::Instant;
 
-macro_rules! cstr(
-    ($s:expr) => {
-        concat!($s, "\0").as_ptr() as *const i8
-    }
-);
-
 const APP_NAME: *const i8 = cstr!("Icarus");
 const ENGINE_NAME: *const i8 = cstr!("No engine");
 //const BG_COLOR: u32 = 0x001d1f21; // AA RR GG BB
