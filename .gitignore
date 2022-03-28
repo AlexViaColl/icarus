@@ -14,3 +14,4 @@
 
 # external source code
 stb_image.h
+*.cpp
