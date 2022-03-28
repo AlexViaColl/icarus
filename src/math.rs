@@ -37,7 +37,7 @@ pub struct Vec4 {
 
 // Mat4 stores its elements as row-major
 #[repr(C)]
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Default)]
 pub struct Mat4([f32; 16]);
 
 impl Vec3 {
