@@ -1,7 +1,12 @@
 use super::string_util::*;
 use super::vk::*;
 
+use crate::cstr;
+
+use core::ffi::c_void;
+use std::ffi::CStr;
 use std::fmt;
+use std::mem;
 use std::ptr;
 
 #[macro_export]
@@ -39,6 +44,27 @@ pub fn vk_enumerate_instance_layer_properties() -> Vec<VkLayerProperties> {
         let mut layers = vec![VkLayerProperties::default(); layer_count as usize];
         check!(vkEnumerateInstanceLayerProperties(&mut layer_count, layers.as_mut_ptr()));
         layers
+    }
+}
+
+pub fn vk_create_instance(layers: &[*const i8], extensions: &[*const i8]) -> VkInstance {
+    unsafe {
+        let mut instance = VkInstance::default();
+        check!(vkCreateInstance(
+            &VkInstanceCreateInfo {
+                pApplicationInfo: &VkApplicationInfo {
+                    ..VkApplicationInfo::default()
+                },
+                enabledLayerCount: layers.len() as u32,
+                ppEnabledLayerNames: layers.as_ptr(),
+                enabledExtensionCount: extensions.len() as u32,
+                ppEnabledExtensionNames: extensions.as_ptr(),
+                ..VkInstanceCreateInfo::default()
+            },
+            ptr::null(),
+            &mut instance,
+        ));
+        instance
     }
 }
 
@@ -130,6 +156,50 @@ pub fn vk_get_physical_device_format_properties(
     }
 }
 
+pub fn vk_create_debug_utils_messenger_ext(
+    instance: VkInstance,
+    debug_callback: PFN_vkDebugUtilsMessengerCallbackEXT,
+) -> VkDebugUtilsMessengerEXT {
+    unsafe {
+        let mut debug_messenger = VkDebugUtilsMessengerEXT::default();
+        #[allow(non_snake_case)]
+        let vkCreateDebugUtilsMessengerEXT = mem::transmute::<_, PFN_vkCreateDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(instance, cstr!("vkCreateDebugUtilsMessengerEXT")),
+        );
+        check!(vkCreateDebugUtilsMessengerEXT(
+            instance,
+            #[allow(clippy::identity_op)]
+            &VkDebugUtilsMessengerCreateInfoEXT {
+                messageSeverity: (0
+                    //| VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+                    //| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+                    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+                    | VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
+                    .into(),
+                messageType: (VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT
+                    | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT
+                    | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)
+                    .into(),
+                pfnUserCallback: Some(debug_callback),
+                ..VkDebugUtilsMessengerCreateInfoEXT::default()
+            },
+            ptr::null(),
+            &mut debug_messenger,
+        ));
+        debug_messenger
+    }
+}
+
+pub fn vk_destroy_debug_utils_messenger_ext(instance: VkInstance, messenger: VkDebugUtilsMessengerEXT) {
+    unsafe {
+        #[allow(non_snake_case)]
+        let vkDestroyDebugUtilsMessengerEXT = std::mem::transmute::<_, PFN_vkDestroyDebugUtilsMessengerEXT>(
+            vkGetInstanceProcAddr(instance, cstr!("vkDestroyDebugUtilsMessengerEXT") as *const i8),
+        );
+        vkDestroyDebugUtilsMessengerEXT(instance, messenger, ptr::null());
+    }
+}
+
 pub fn vk_create_xlib_surface_khr(
     instance: VkInstance,
     dpy: *mut crate::x11::Display,
@@ -148,6 +218,66 @@ pub fn vk_create_xlib_surface_khr(
             &mut surface,
         ));
         surface
+    }
+}
+
+pub fn vk_create_swapchain_khr(
+    device: VkDevice,
+    surface: VkSurfaceKHR,
+    surface_caps: VkSurfaceCapabilitiesKHR,
+    surface_format: VkSurfaceFormatKHR,
+) -> VkSwapchainKHR {
+    unsafe {
+        let mut swapchain = VkSwapchainKHR::default();
+        check!(vkCreateSwapchainKHR(
+            device,
+            &VkSwapchainCreateInfoKHR {
+                surface,
+                minImageCount: surface_caps.minImageCount + 1,
+                imageFormat: surface_format.format,
+                imageColorSpace: surface_format.colorSpace,
+                imageExtent: surface_caps.currentExtent,
+                imageArrayLayers: 1,
+                imageUsage: VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.into(),
+                preTransform: surface_caps.currentTransform,
+                compositeAlpha: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.into(),
+                presentMode: VK_PRESENT_MODE_FIFO_KHR,
+                clipped: VK_TRUE,
+                ..VkSwapchainCreateInfoKHR::default()
+            },
+            ptr::null(),
+            &mut swapchain
+        ));
+        swapchain
+    }
+}
+
+pub fn vk_create_image_view(
+    device: VkDevice,
+    image: VkImage,
+    format: VkFormat,
+    aspect: VkImageAspectFlags,
+) -> VkImageView {
+    unsafe {
+        let mut image_view = VkImageView::default();
+        check!(vkCreateImageView(
+            device,
+            &VkImageViewCreateInfo {
+                image,
+                viewType: VK_IMAGE_VIEW_TYPE_2D,
+                format,
+                subresourceRange: VkImageSubresourceRange {
+                    aspectMask: aspect,
+                    levelCount: 1,
+                    layerCount: 1,
+                    ..VkImageSubresourceRange::default()
+                },
+                ..VkImageViewCreateInfo::default()
+            },
+            ptr::null(),
+            &mut image_view
+        ));
+        image_view
     }
 }
 
@@ -216,6 +346,250 @@ pub fn vk_get_physical_device_surface_present_modes_khr(
             surface_present_modes.as_mut_ptr()
         ));
         surface_present_modes
+    }
+}
+
+pub fn begin_single_time_commands(device: VkDevice, command_pool: VkCommandPool) -> VkCommandBuffer {
+    unsafe {
+        let mut command_buffer = VkCommandBuffer::default();
+        check!(vkAllocateCommandBuffers(
+            device,
+            &VkCommandBufferAllocateInfo {
+                commandPool: command_pool,
+                commandBufferCount: 1,
+                ..VkCommandBufferAllocateInfo::default()
+            },
+            &mut command_buffer
+        ));
+
+        check!(vkBeginCommandBuffer(
+            command_buffer,
+            &VkCommandBufferBeginInfo {
+                flags: VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT.into(),
+                ..VkCommandBufferBeginInfo::default()
+            }
+        ));
+
+        command_buffer
+    }
+}
+
+pub fn end_single_time_commands(
+    device: VkDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    command_buffer: VkCommandBuffer,
+) {
+    unsafe {
+        check!(vkEndCommandBuffer(command_buffer));
+
+        check!(vkQueueSubmit(
+            graphics_queue,
+            1,
+            &VkSubmitInfo {
+                commandBufferCount: 1,
+                pCommandBuffers: &command_buffer,
+                ..VkSubmitInfo::default()
+            },
+            VkFence::default(),
+        ));
+
+        check!(vkQueueWaitIdle(graphics_queue));
+
+        vkFreeCommandBuffers(device, command_pool, 1, &command_buffer);
+    }
+}
+
+pub fn transition_image_layout(
+    device: VkDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    image: VkImage,
+    _format: VkFormat,
+    old_layout: VkImageLayout,
+    new_layout: VkImageLayout,
+) {
+    unsafe {
+        let command_buffer = begin_single_time_commands(device, command_pool);
+        let (src_access_mask, dst_access_mask, src_stage, dst_stage) =
+            if old_layout == VK_IMAGE_LAYOUT_UNDEFINED && new_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL {
+                (
+                    VK_ACCESS_NONE,
+                    VK_ACCESS_TRANSFER_WRITE_BIT,
+                    VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                )
+            } else if old_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL
+                && new_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            {
+                (
+                    VK_ACCESS_TRANSFER_WRITE_BIT,
+                    VK_ACCESS_SHADER_READ_BIT,
+                    VK_PIPELINE_STAGE_TRANSFER_BIT,
+                    VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+                )
+            } else {
+                panic!("Invalid combination of old_layout: {:?} / new_layout: {:?}", old_layout, new_layout);
+            };
+
+        vkCmdPipelineBarrier(
+            command_buffer,
+            src_stage.into(),
+            dst_stage.into(),
+            0.into(),
+            0,
+            ptr::null(),
+            0,
+            ptr::null(),
+            1,
+            &VkImageMemoryBarrier {
+                srcAccessMask: src_access_mask.into(),
+                dstAccessMask: dst_access_mask.into(),
+                oldLayout: old_layout,
+                newLayout: new_layout,
+                srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+                dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+                image,
+                subresourceRange: VkImageSubresourceRange {
+                    aspectMask: VK_IMAGE_ASPECT_COLOR_BIT.into(),
+                    levelCount: 1,
+                    layerCount: 1,
+                    ..VkImageSubresourceRange::default()
+                },
+                ..VkImageMemoryBarrier::default()
+            },
+        );
+        end_single_time_commands(device, graphics_queue, command_pool, command_buffer);
+    }
+}
+
+pub fn copy_buffer_to_image(
+    device: VkDevice,
+    graphics_queue: VkQueue,
+    command_pool: VkCommandPool,
+    buffer: VkBuffer,
+    image: VkImage,
+    width: u32,
+    height: u32,
+) {
+    unsafe {
+        let command_buffer = begin_single_time_commands(device, command_pool);
+        vkCmdCopyBufferToImage(
+            command_buffer,
+            buffer,
+            image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &VkBufferImageCopy {
+                bufferOffset: 0,
+                bufferRowLength: 0,
+                bufferImageHeight: 0,
+                imageSubresource: VkImageSubresourceLayers {
+                    aspectMask: VK_IMAGE_ASPECT_COLOR_BIT.into(),
+                    mipLevel: 0,
+                    baseArrayLayer: 0,
+                    layerCount: 1,
+                },
+                imageOffset: VkOffset3D::default(),
+                imageExtent: VkExtent3D {
+                    width,
+                    height,
+                    depth: 1,
+                },
+            },
+        );
+        end_single_time_commands(device, graphics_queue, command_pool, command_buffer);
+    }
+}
+
+#[derive(Default)]
+pub struct Buffer {
+    pub device: VkDevice,
+    pub buffer: VkBuffer,
+    pub memory: VkDeviceMemory,
+}
+impl Drop for Buffer {
+    fn drop(&mut self) {
+        if self.device != VkDevice::default() {
+            unsafe { vkFreeMemory(self.device, self.memory, ptr::null()) };
+            unsafe { vkDestroyBuffer(self.device, self.buffer, ptr::null()) };
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Image {
+    pub device: VkDevice,
+    pub image: VkImage,
+    pub memory: VkDeviceMemory,
+    pub view: VkImageView,
+}
+impl Drop for Image {
+    fn drop(&mut self) {
+        if self.device != VkDevice::default() {
+            unsafe { vkDestroyImageView(self.device, self.view, ptr::null()) };
+            unsafe { vkFreeMemory(self.device, self.memory, ptr::null()) };
+            unsafe { vkDestroyImage(self.device, self.image, ptr::null()) };
+        }
+    }
+}
+
+impl VkRect2D {
+    pub fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
+        Self {
+            offset: VkOffset2D {
+                x,
+                y,
+            },
+            extent: VkExtent2D {
+                width,
+                height,
+            },
+        }
+    }
+}
+
+impl VkViewport {
+    pub fn new(x: f32, y: f32, width: f32, height: f32, min_z: f32, max_z: f32) -> Self {
+        Self {
+            x,
+            y,
+            width,
+            height,
+            minDepth: min_z,
+            maxDepth: max_z,
+        }
+    }
+}
+
+impl VkClearColorValue {
+    pub fn new(value: [f32; 4]) -> VkClearValue {
+        VkClearValue {
+            color: VkClearColorValue {
+                float32: value,
+            },
+        }
+    }
+}
+
+impl VkClearDepthStencilValue {
+    pub fn new(depth: f32, stencil: u32) -> VkClearValue {
+        VkClearValue {
+            depthStencil: VkClearDepthStencilValue {
+                depth,
+                stencil,
+            },
+        }
+    }
+}
+
+impl VkBufferCopy {
+    pub fn new(src_offset: usize, dst_offset: usize, size: usize) -> Self {
+        Self {
+            srcOffset: src_offset as VkDeviceSize,
+            dstOffset: dst_offset as VkDeviceSize,
+            size: size as VkDeviceSize,
+        }
     }
 }
 
@@ -293,7 +667,7 @@ impl Default for VkPhysicalDeviceProperties {
 impl fmt::Debug for VkPhysicalDeviceProperties {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VkPhysicalDeviceProperties")
-            .field("apiVersion", &self.apiVersion)
+            .field("apiVersion", &vk_version_to_string(self.apiVersion))
             .field("driverVersion", &self.driverVersion)
             .field("vendorID", &self.vendorID)
             .field("deviceID", &self.deviceID)
@@ -306,11 +680,24 @@ impl fmt::Debug for VkPhysicalDeviceProperties {
     }
 }
 
+impl fmt::Debug for VkPhysicalDeviceDriverProperties {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("VkPhysicalDeviceDriverProperties")
+            .field("sType", &self.sType)
+            .field("pNext", &self.pNext)
+            .field("driverID", &self.driverID)
+            .field("driverName", &cstr_to_string(self.driverName.as_ptr()))
+            .field("driverInfo", &cstr_to_string(self.driverInfo.as_ptr()))
+            .field("conformanceVersion", &self.conformanceVersion)
+            .finish()
+    }
+}
+
 impl fmt::Debug for VkExtensionProperties {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VkExtensionProperties")
             .field("extensionName", &cstr_to_string(self.extensionName.as_ptr()))
-            .field("specVersion", &self.specVersion)
+            .field("specVersion", &vk_version_to_string(self.specVersion))
             .finish()
     }
 }
@@ -319,7 +706,7 @@ impl fmt::Debug for VkLayerProperties {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VkLayerProperties")
             .field("layerName", &cstr_to_string(self.layerName.as_ptr()))
-            .field("specVersion", &self.specVersion)
+            .field("specVersion", &vk_version_to_string(self.specVersion))
             .field("implementationVersion", &self.implementationVersion)
             .field("description", &cstr_to_string(self.description.as_ptr()))
             .finish()
@@ -855,5 +1242,76 @@ impl Default for VkSubmitInfo {
             signalSemaphoreCount: 0,
             pSignalSemaphores: ptr::null(),
         }
+    }
+}
+
+impl Default for VkPresentInfoKHR {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            pNext: ptr::null(),
+            waitSemaphoreCount: 0,
+            pWaitSemaphores: ptr::null(),
+            swapchainCount: 0,
+            pSwapchains: ptr::null(),
+            pImageIndices: ptr::null(),
+            pResults: ptr::null_mut(),
+        }
+    }
+}
+
+impl Default for VkRenderPassBeginInfo {
+    fn default() -> Self {
+        VkRenderPassBeginInfo {
+            sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            pNext: ptr::null(),
+            renderPass: VkRenderPass::default(),
+            framebuffer: VkFramebuffer::default(),
+            renderArea: VkRect2D::default(),
+            clearValueCount: 0,
+            pClearValues: ptr::null(),
+        }
+    }
+}
+
+impl Default for VkWriteDescriptorSet {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            pNext: ptr::null(),
+            dstSet: VkDescriptorSet::default(),
+            dstBinding: 0,
+            dstArrayElement: 0,
+            descriptorCount: 0,
+            descriptorType: VkDescriptorType::default(),
+            pImageInfo: ptr::null(),
+            pBufferInfo: ptr::null(),
+            pTexelBufferView: ptr::null(),
+        }
+    }
+}
+
+pub extern "C" fn debug_callback(
+    _message_severity: VkDebugUtilsMessageSeverityFlagsEXT,
+    _message_type: VkDebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,
+    _p_user_data: *mut c_void,
+) -> VkBool32 {
+    unsafe {
+        // TODO: Possible false positive validation errors:
+        // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/1340
+
+        //  2094043421 VUID-VkSwapchainCreateInfoKHR-imageExtent-01274
+        // -1615083365 VUID-VkRenderPassBeginInfo-renderArea-02848
+        // -1280461305 VUID-VkRenderPassBeginInfo-renderArea-02849
+        match (*p_callback_data).messageIdNumber {
+            2094043421 => {}
+            -1615083365 => {}
+            -1280461305 => {}
+            _ => {
+                println!("{}", CStr::from_ptr((*p_callback_data).pMessage).to_string_lossy());
+            }
+        }
+        VK_FALSE
     }
 }
