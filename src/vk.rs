@@ -495,6 +495,7 @@ pub const VK_MAX_DESCRIPTION_SIZE: usize = 256;
 
 pub const VK_EXT_DEBUG_REPORT_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_debug_report");
 pub const VK_EXT_DEBUG_UTILS_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_debug_utils");
+pub const VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_validation_flags");
 pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_swapchain");
 pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_surface");
 pub const VK_KHR_XLIB_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_xlib_surface");
