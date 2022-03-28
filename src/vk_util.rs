@@ -11,6 +11,17 @@ macro_rules! check(
     }
 );
 
+pub fn vk_version_to_string(version: u32) -> String {
+    format!(
+        //"{}.{}.{}.{}",
+        "{}.{}.{}",
+        //VK_API_VERSION_VARIANT(version),
+        VK_API_VERSION_MAJOR(version),
+        VK_API_VERSION_MINOR(version),
+        VK_API_VERSION_PATCH(version)
+    )
+}
+
 pub fn vk_enumerate_instance_extension_properties() -> Vec<VkExtensionProperties> {
     unsafe {
         let mut extension_count = 0;

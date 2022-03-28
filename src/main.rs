@@ -256,6 +256,10 @@ fn main() {
         // Vulkan initialization
         let mut vk_ctx = VkContext::default();
 
+        let mut version = 0;
+        check!(vkEnumerateInstanceVersion(&mut version));
+        println!("vkEnumerateInstanceVersion: {}", vk_version_to_string(version));
+
         let instance_extensions = vk_enumerate_instance_extension_properties();
         let instance_layers = vk_enumerate_instance_layer_properties();
         println!("Instance: Extensions ({}), Layers ({})", instance_extensions.len(), instance_layers.len());

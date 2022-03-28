@@ -3,9 +3,86 @@
 
 use std::ffi::c_void;
 
+macro_rules! VK_DEFINE_HANDLE(
+    ($pub_name: ident, $priv_name: ident) => {
+        #[repr(C)]
+        pub struct $priv_name {
+            _data: [u8; 0],
+            _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+        }
+
+        #[repr(transparent)]
+        #[derive(Debug, Copy, Clone)]
+        pub struct $pub_name(*mut $priv_name);
+        impl Default for $pub_name {
+            fn default() -> Self {
+                Self(std::ptr::null_mut())
+            }
+        }
+    }
+);
+
+macro_rules! bitflag_struct {
+    ($struct_name:ident : $enum_name:ident) => {
+        #[derive(Copy, Clone, Default)]
+        #[repr(C)]
+        pub struct $struct_name {
+            pub value: u32,
+        }
+        impl From<u32> for $struct_name {
+            fn from(value: u32) -> Self {
+                Self {
+                    value,
+                }
+            }
+        }
+        impl std::fmt::Debug for $struct_name {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                let mut value = self.value;
+                for i in 0..31 {
+                    let flag = (value & 1) << i;
+                    value = value >> 1;
+                    if flag != 0 {
+                        write!(f, "{:?}({})", $enum_name::from(flag), flag)?;
+                        if value > 0 {
+                            write!(f, " | ")?;
+                        }
+                    }
+                }
+                write!(f, "")
+            }
+        }
+    };
+}
+
+macro_rules! bitflag_enum {
+    (
+        $enum_name:ident {
+            $($variant:ident = $value:expr,)*
+        }
+    ) => {
+        #[repr(u32)]
+        #[derive(Debug)]
+        pub enum $enum_name {
+            $($variant = $value,)*
+        }
+        impl From<u32> for $enum_name {
+            fn from(flag: u32) -> Self {
+                match flag {
+                    $($value => $enum_name::$variant,)*
+                    n => panic!("Invalid flag: {}", n),
+                }
+            }
+        }
+        $(pub const $variant: u32 = $value;)*
+    };
+}
+
 #[link(name = "vulkan")]
 extern "C" {
     pub fn vkGetInstanceProcAddr(instance: VkInstance, name: *const i8) -> PFN_vkVoidFunction;
+    pub fn vkGetDeviceProcAddr(device: VkDevice, pName: *const i8) -> PFN_vkVoidFunction;
+    pub fn vkEnumerateInstanceVersion(pApiVersion: *mut u32) -> VkResult;
     pub fn vkCreateInstance(
         pCreateInfo: *const VkInstanceCreateInfo,
         pAllocator: *const VkAllocationCallbacks,
@@ -419,81 +496,6 @@ pub type VkDeviceSize = u64;
 pub type VkFlags = u32;
 pub type VkSampleMask = u32;
 
-macro_rules! VK_DEFINE_HANDLE(
-    ($pub_name: ident, $priv_name: ident) => {
-        #[repr(C)]
-        pub struct $priv_name {
-            _data: [u8; 0],
-            _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-        }
-
-        #[repr(transparent)]
-        #[derive(Debug, Copy, Clone)]
-        pub struct $pub_name(*mut $priv_name);
-        impl Default for $pub_name {
-            fn default() -> Self {
-                Self(std::ptr::null_mut())
-            }
-        }
-    }
-);
-
-macro_rules! bitflag_struct {
-    ($struct_name:ident : $enum_name:ident) => {
-        #[derive(Copy, Clone, Default)]
-        #[repr(C)]
-        pub struct $struct_name {
-            pub value: u32,
-        }
-        impl From<u32> for $struct_name {
-            fn from(value: u32) -> Self {
-                Self {
-                    value,
-                }
-            }
-        }
-        impl std::fmt::Debug for $struct_name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                let mut value = self.value;
-                for i in 0..31 {
-                    let flag = (value & 1) << i;
-                    value = value >> 1;
-                    if flag != 0 {
-                        write!(f, "{:?}({})", $enum_name::from(flag), flag)?;
-                        if value > 0 {
-                            write!(f, " | ")?;
-                        }
-                    }
-                }
-                write!(f, "")
-            }
-        }
-    };
-}
-
-macro_rules! bitflag_enum {
-    (
-        $enum_name:ident {
-            $($variant:ident = $value:expr,)*
-        }
-    ) => {
-        #[repr(u32)]
-        #[derive(Debug)]
-        pub enum $enum_name {
-            $($variant = $value,)*
-        }
-        impl From<u32> for $enum_name {
-            fn from(flag: u32) -> Self {
-                match flag {
-                    $($value => $enum_name::$variant,)*
-                    n => panic!("Invalid flag: {}", n),
-                }
-            }
-        }
-        $(pub const $variant: u32 = $value;)*
-    };
-}
-
 // Handles
 VK_DEFINE_HANDLE!(VkInstance, VkInstance_);
 VK_DEFINE_HANDLE!(VkPhysicalDevice, VkPhysicalDevice_);
@@ -526,6 +528,31 @@ VK_DEFINE_HANDLE!(VkCommandPool, _VkCommandPool_);
 VK_DEFINE_HANDLE!(VkSurfaceKHR, _VkSurfaceKHR_);
 VK_DEFINE_HANDLE!(VkSwapchainKHR, _VkSwapchainKHR_);
 
+pub const fn VK_API_VERSION_VARIANT(version: u32) -> u32 {
+    version >> 29
+}
+
+pub const fn VK_API_VERSION_MAJOR(version: u32) -> u32 {
+    (version >> 22) & 0x7F
+}
+
+pub const fn VK_API_VERSION_MINOR(version: u32) -> u32 {
+    (version >> 12) & 0x3FF
+}
+
+pub const fn VK_API_VERSION_PATCH(version: u32) -> u32 {
+    version & 0xFFF
+}
+
+pub const fn VK_MAKE_API_VERSION(variant: u32, major: u32, minor: u32, patch: u32) -> u32 {
+    (variant << 29) | (major << 22) | (minor << 12) | patch
+}
+
+pub const VK_API_VERSION_1_0: u32 = VK_MAKE_API_VERSION(0, 1, 0, 0);
+pub const VK_API_VERSION_1_1: u32 = VK_MAKE_API_VERSION(0, 1, 1, 0);
+pub const VK_API_VERSION_1_2: u32 = VK_MAKE_API_VERSION(0, 1, 2, 0);
+pub const VK_API_VERSION_1_3: u32 = VK_MAKE_API_VERSION(0, 1, 3, 0);
+
 pub type PFN_vkVoidFunction = extern "C" fn();
 pub type PFN_vkCreateDebugUtilsMessengerEXT = extern "C" fn(
     instance: VkInstance,
@@ -541,6 +568,55 @@ pub type PFN_vkDebugUtilsMessengerCallbackEXT = extern "C" fn(
     pCallbackData: *const VkDebugUtilsMessengerCallbackDataEXT,
     pUserData: *mut c_void,
 ) -> VkBool32;
+
+#[repr(C)]
+pub struct VkBaseInStructure {
+    pub sType: VkStructureType,
+    pub pNext: *const VkBaseInStructure,
+}
+
+#[repr(C)]
+pub struct VkBaseOutStructure {
+    pub sType: VkStructureType,
+    pub pNext: *mut VkBaseInStructure,
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkOffset2D {
+    pub x: i32,
+    pub y: i32,
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkOffset3D {
+    pub x: i32,
+    pub y: i32,
+    pub z: i32,
+}
+
+#[repr(C)]
+#[derive(Default, Debug, Clone, Copy)]
+pub struct VkExtent2D {
+    pub width: u32,
+    pub height: u32,
+}
+
+#[repr(C)]
+#[derive(Default, Debug, Clone)]
+pub struct VkExtent3D {
+    pub width: u32,
+    pub height: u32,
+    pub depth: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkRect2D {
+    pub offset: VkOffset2D,
+    pub extent: VkExtent2D,
+}
 
 #[repr(C)]
 #[derive(Debug)]
@@ -1200,43 +1276,6 @@ pub struct VkViewport {
     pub height: f32,
     pub minDepth: f32,
     pub maxDepth: f32,
-}
-
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct VkRect2D {
-    pub offset: VkOffset2D,
-    pub extent: VkExtent2D,
-}
-
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct VkOffset2D {
-    pub x: i32,
-    pub y: i32,
-}
-
-#[repr(C)]
-#[derive(Debug, Default)]
-pub struct VkOffset3D {
-    pub x: i32,
-    pub y: i32,
-    pub z: i32,
-}
-
-#[repr(C)]
-#[derive(Default, Debug, Clone, Copy)]
-pub struct VkExtent2D {
-    pub width: u32,
-    pub height: u32,
-}
-
-#[repr(C)]
-#[derive(Default, Debug, Clone)]
-pub struct VkExtent3D {
-    pub width: u32,
-    pub height: u32,
-    pub depth: u32,
 }
 
 #[repr(C)]
