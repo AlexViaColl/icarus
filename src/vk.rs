@@ -3,12 +3,7 @@
 
 use std::ffi::c_void;
 
-#[macro_export]
-macro_rules! cstr(
-    ($s:expr) => {
-        concat!($s, "\0").as_ptr() as *const i8
-    }
-);
+use crate::cstr;
 
 macro_rules! VK_DEFINE_HANDLE(
     ($pub_name: ident, $priv_name: ident) => {
@@ -19,7 +14,7 @@ macro_rules! VK_DEFINE_HANDLE(
         }
 
         #[repr(transparent)]
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Debug, Copy, Clone, PartialEq)]
         pub struct $pub_name(*mut $priv_name);
         impl Default for $pub_name {
             fn default() -> Self {
@@ -113,6 +108,10 @@ extern "C" {
     pub fn vkGetPhysicalDeviceProperties(
         physicalDevice: VkPhysicalDevice,
         pProperties: *mut VkPhysicalDeviceProperties,
+    );
+    pub fn vkGetPhysicalDeviceProperties2(
+        physicalDevice: VkPhysicalDevice,
+        pProperties: *mut VkPhysicalDeviceProperties2,
     );
     pub fn vkGetPhysicalDeviceFeatures(physicalDevice: VkPhysicalDevice, pFeatures: *mut VkPhysicalDeviceFeatures);
     pub fn vkGetPhysicalDeviceQueueFamilyProperties(
@@ -429,6 +428,18 @@ extern "C" {
         offset: VkDeviceSize,
         indexType: VkIndexType,
     );
+    pub fn vkCmdSetViewport(
+        commandBuffer: VkCommandBuffer,
+        firstViewport: u32,
+        viewportCount: u32,
+        pViewports: *const VkViewport,
+    );
+    pub fn vkCmdSetScissor(
+        commandBuffer: VkCommandBuffer,
+        firstScissor: u32,
+        scissorCount: u32,
+        pScissors: *const VkRect2D,
+    );
     pub fn vkCmdBindDescriptorSets(
         commandBuffer: VkCommandBuffer,
         pipelineBindPoint: VkPipelineBindPoint,
@@ -499,6 +510,9 @@ pub const VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_vali
 pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_swapchain");
 pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_surface");
 pub const VK_KHR_XLIB_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_xlib_surface");
+
+// For some reason there are no constants for layer names in the vulkan headers
+pub const VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME: *const i8 = cstr!("VK_LAYER_KHRONOS_validation");
 
 pub type VkDeviceAddress = u64;
 pub type VkDeviceSize = u64;
@@ -778,15 +792,45 @@ pub struct VkDebugUtilsObjectNameInfoEXT {
 #[repr(C)]
 #[derive(Clone)]
 pub struct VkPhysicalDeviceProperties {
-    pub apiVersion: u32,
-    pub driverVersion: u32,
-    pub vendorID: u32,
+    pub apiVersion: u32,    // Vulkan version number
+    pub driverVersion: u32, // vendor-specific
+    pub vendorID: u32,      // PCI vendor id if (16 high bits = 0)
     pub deviceID: u32,
     pub deviceType: VkPhysicalDeviceType,
     pub deviceName: [i8; VK_MAX_PHYSICAL_DEVICE_NAME_SIZE],
     pub pipelineCacheUUID: [u8; VK_UUID_SIZE],
     pub limits: VkPhysicalDeviceLimits,
     pub sparseProperties: VkPhysicalDeviceSparseProperties,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkPhysicalDeviceProperties2 {
+    pub sType: VkStructureType,
+    pub pNext: *mut c_void,
+    pub properties: VkPhysicalDeviceProperties,
+}
+
+pub const VK_MAX_DRIVER_NAME_SIZE: usize = 256;
+pub const VK_MAX_DRIVER_INFO_SIZE: usize = 256;
+
+#[repr(C)]
+pub struct VkPhysicalDeviceDriverProperties {
+    pub sType: VkStructureType,
+    pub pNext: *mut c_void,
+    pub driverID: VkDriverId,
+    pub driverName: [i8; VK_MAX_DRIVER_NAME_SIZE],
+    pub driverInfo: [i8; VK_MAX_DRIVER_INFO_SIZE],
+    pub conformanceVersion: VkConformanceVersion,
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkConformanceVersion {
+    pub major: u8,
+    pub minor: u8,
+    pub subminor: u8,
+    pub patch: u8,
 }
 
 #[repr(C)]
@@ -1685,13 +1729,6 @@ pub struct VkRenderPassBeginInfo {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
-pub struct VkClearDepthStencilValue {
-    pub depth: f32,
-    pub stencil: u32,
-}
-
-#[repr(C)]
 #[derive(Debug)]
 pub struct VkSubmitInfo {
     pub sType: VkStructureType,
@@ -1797,6 +1834,13 @@ pub union VkClearColorValue {
     pub float32: [f32; 4],
     pub int32: [i32; 4],
     pub uint32: [u32; 4],
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct VkClearDepthStencilValue {
+    pub depth: f32,
+    pub stencil: u32,
 }
 
 // Enums
@@ -2699,6 +2743,54 @@ pub use VkPhysicalDeviceType::*;
 impl Default for VkPhysicalDeviceType {
     fn default() -> Self {
         Self::VK_PHYSICAL_DEVICE_TYPE_OTHER
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum VkVendorId {
+    VK_VENDOR_ID_VIV = 0x10001,
+    VK_VENDOR_ID_VSI = 0x10002,
+    VK_VENDOR_ID_KAZAN = 0x10003,
+    VK_VENDOR_ID_CODEPLAY = 0x10004,
+    VK_VENDOR_ID_MESA = 0x10005,
+    VK_VENDOR_ID_POCL = 0x10006,
+    VK_VENDOR_ID_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkVendorId::*;
+
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq)]
+pub enum VkDriverId {
+    VK_DRIVER_ID_AMD_PROPRIETARY = 1,
+    VK_DRIVER_ID_AMD_OPEN_SOURCE = 2,
+    VK_DRIVER_ID_MESA_RADV = 3,
+    VK_DRIVER_ID_NVIDIA_PROPRIETARY = 4,
+    VK_DRIVER_ID_INTEL_PROPRIETARY_WINDOWS = 5,
+    VK_DRIVER_ID_INTEL_OPEN_SOURCE_MESA = 6,
+    VK_DRIVER_ID_IMAGINATION_PROPRIETARY = 7,
+    VK_DRIVER_ID_QUALCOMM_PROPRIETARY = 8,
+    VK_DRIVER_ID_ARM_PROPRIETARY = 9,
+    VK_DRIVER_ID_GOOGLE_SWIFTSHADER = 10,
+    VK_DRIVER_ID_GGP_PROPRIETARY = 11,
+    VK_DRIVER_ID_BROADCOM_PROPRIETARY = 12,
+    VK_DRIVER_ID_MESA_LLVMPIPE = 13,
+    VK_DRIVER_ID_MOLTENVK = 14,
+    VK_DRIVER_ID_COREAVI_PROPRIETARY = 15,
+    VK_DRIVER_ID_JUICE_PROPRIETARY = 16,
+    VK_DRIVER_ID_VERISILICON_PROPRIETARY = 17,
+    VK_DRIVER_ID_MESA_TURNIP = 18,
+    VK_DRIVER_ID_MESA_V3DV = 19,
+    VK_DRIVER_ID_MESA_PANVK = 20,
+    VK_DRIVER_ID_SAMSUNG_PROPRIETARY = 21,
+    VK_DRIVER_ID_MESA_VENUS = 22,
+    VK_DRIVER_ID_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkDriverId::*;
+
+impl Default for VkDriverId {
+    fn default() -> Self {
+        VK_DRIVER_ID_MAX_ENUM
     }
 }
 
