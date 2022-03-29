@@ -593,6 +593,40 @@ impl VkBufferCopy {
     }
 }
 
+pub fn layout_binding(
+    binding: usize,
+    descriptor_type: VkDescriptorType,
+    stages: VkFlags,
+) -> VkDescriptorSetLayoutBinding {
+    VkDescriptorSetLayoutBinding::new(binding, descriptor_type, stages)
+}
+
+impl VkDescriptorSetLayoutBinding {
+    pub fn new(
+        binding: usize,
+        descriptor_type: VkDescriptorType,
+        //descriptor_count: usize,
+        stages: VkFlags, // VkShaderStageFlags,
+    ) -> Self {
+        Self {
+            binding: binding as u32,
+            descriptorType: descriptor_type,
+            descriptorCount: 1,
+            stageFlags: stages.into(),
+            pImmutableSamplers: ptr::null(),
+        }
+    }
+}
+
+impl VkDescriptorPoolSize {
+    pub fn new(descriptor_type: VkDescriptorType, count: usize) -> Self {
+        Self {
+            ttype: descriptor_type,
+            descriptorCount: count as u32,
+        }
+    }
+}
+
 impl Default for VkInstanceCreateInfo {
     fn default() -> Self {
         Self {
