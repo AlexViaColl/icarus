@@ -1,4 +1,5 @@
 mod color;
+mod input;
 mod macros;
 mod math;
 mod stb_image;
@@ -9,6 +10,7 @@ mod wavefront_loader;
 mod x11;
 
 pub use color::*;
+pub use input::*;
 pub use math::*;
 pub use stb_image::*;
 pub use string_util::*;
