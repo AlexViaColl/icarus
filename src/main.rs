@@ -546,17 +546,7 @@ impl VkContext {
             };
             println!("GlobalState: {:?}", global_state);
 
-            let mut data = ptr::null_mut();
-            vkMapMemory(
-                vk_ctx.device,
-                vk_ctx.global_ubo.memory,
-                0,
-                mem::size_of::<GlobalState>() as VkDeviceSize,
-                0,
-                &mut data,
-            );
-            ptr::copy(&global_state, data as *mut GlobalState, 1);
-            vkUnmapMemory(vk_ctx.device, vk_ctx.global_ubo.memory);
+            vk_map_memory_copy(vk_ctx.device, vk_ctx.global_ubo.memory, &global_state, mem::size_of::<GlobalState>());
 
             vk_ctx.descriptor_pool = create_descriptor_pool(vk_ctx.device);
             check!(vkAllocateDescriptorSets(
@@ -714,7 +704,7 @@ impl VkContext {
     fn render(&mut self, game: &Game, current_frame: usize, index_count: usize) {
         unsafe {
             let mut vk_ctx = self;
-            let command_buffer = vk_ctx.command_buffers[current_frame];
+            let cmd = vk_ctx.command_buffers[current_frame];
             let fence = vk_ctx.in_flight_fences[current_frame];
             check!(vkWaitForFences(vk_ctx.device, 1, &fence, VK_TRUE, u64::MAX));
 
@@ -735,29 +725,24 @@ impl VkContext {
                 res => panic!("{:?}", res),
             };
 
-            let mut data = ptr::null_mut();
-            vkMapMemory(
+            vk_map_memory_copy(
                 vk_ctx.device,
                 vk_ctx.transform_storage_buffer.memory,
-                0,
-                (mem::size_of::<Entity>() * game.entity_count) as VkDeviceSize,
-                0,
-                &mut data,
+                &game.entities,
+                mem::size_of::<Entity>() * game.entity_count,
             );
-            ptr::copy(game.entities.as_ptr(), data as *mut Entity, game.entity_count);
-            vkUnmapMemory(vk_ctx.device, vk_ctx.transform_storage_buffer.memory);
 
             check!(vkResetFences(vk_ctx.device, 1, &fence));
 
-            vkResetCommandBuffer(command_buffer, 0.into());
+            vkResetCommandBuffer(cmd, 0.into());
 
             // Record command buffer
-            check!(vkBeginCommandBuffer(command_buffer, &VkCommandBufferBeginInfo::default()));
+            check!(vkBeginCommandBuffer(cmd, &VkCommandBufferBeginInfo::default()));
 
             let width = vk_ctx.surface_caps.currentExtent.width;
             let height = vk_ctx.surface_caps.currentExtent.height;
             vkCmdBeginRenderPass(
-                command_buffer,
+                cmd,
                 &VkRenderPassBeginInfo {
                     renderPass: vk_ctx.render_pass,
                     framebuffer: vk_ctx.framebuffers[image_index as usize],
@@ -773,30 +758,23 @@ impl VkContext {
                 VK_SUBPASS_CONTENTS_INLINE,
             );
 
-            vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_ctx.graphics_pipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_ctx.graphics_pipeline);
 
-            vkCmdSetViewport(command_buffer, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
-            vkCmdSetScissor(command_buffer, 0, 1, &VkRect2D::new(0, 0, width, height));
+            vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
+            vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
 
-            vkCmdBindVertexBuffers(command_buffer, 0, 1, &vk_ctx.vertex_buffer.buffer, &0);
-            vkCmdBindIndexBuffer(command_buffer, vk_ctx.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdBindVertexBuffers(cmd, 0, 1, &vk_ctx.vertex_buffer.buffer, &0);
+            vkCmdBindIndexBuffer(cmd, vk_ctx.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-            vkCmdBindDescriptorSets(
-                command_buffer,
-                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                vk_ctx.pipeline_layout,
-                0,
-                1,
-                &vk_ctx.descriptor_sets[current_frame],
-                0,
-                ptr::null(),
-            );
+            let layout = vk_ctx.pipeline_layout;
+            let dsc_set = vk_ctx.descriptor_sets[current_frame];
+            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &dsc_set, 0, ptr::null());
             // vkCmdDraw(command_buffer, vertices.len() as u32, 1, 0, 0);
-            vkCmdDrawIndexed(command_buffer, index_count as u32, game.entity_count as u32, 0, 0, 0);
+            vkCmdDrawIndexed(cmd, index_count as u32, game.entity_count as u32, 0, 0, 0);
 
-            vkCmdEndRenderPass(command_buffer);
+            vkCmdEndRenderPass(cmd);
 
-            check!(vkEndCommandBuffer(command_buffer));
+            check!(vkEndCommandBuffer(cmd));
 
             // Submit command buffer
             check!(vkQueueSubmit(
@@ -807,7 +785,7 @@ impl VkContext {
                     pWaitSemaphores: &vk_ctx.image_available_semaphores[current_frame],
                     pWaitDstStageMask: &VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
                     commandBufferCount: 1,
-                    pCommandBuffers: &command_buffer,
+                    pCommandBuffers: &cmd,
                     signalSemaphoreCount: 1,
                     pSignalSemaphores: &vk_ctx.render_finished_semaphores[current_frame],
                     ..VkSubmitInfo::default()
@@ -1250,73 +1228,63 @@ fn copy_buffer(
 }
 
 fn create_vertex_buffer(vk_ctx: &VkContext, vertices: &[Vertex]) -> Buffer {
-    unsafe {
-        let buffer_size = mem::size_of_val(&vertices[0]) * vertices.len();
-        let staging_buffer = create_buffer(
-            vk_ctx,
-            buffer_size,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
-            (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
-        );
+    let buffer_size = mem::size_of_val(&vertices[0]) * vertices.len();
+    let staging_buffer = create_buffer(
+        vk_ctx,
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
+        (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
+    );
 
-        let mut data = ptr::null_mut();
-        vkMapMemory(vk_ctx.device, staging_buffer.memory, 0, buffer_size as VkDeviceSize, 0, &mut data);
-        ptr::copy(vertices.as_ptr(), data as *mut Vertex, vertices.len());
-        vkUnmapMemory(vk_ctx.device, staging_buffer.memory);
+    vk_map_memory_copy(vk_ctx.device, staging_buffer.memory, vertices.as_ptr(), buffer_size);
 
-        let vertex_buffer = create_buffer(
-            vk_ctx,
-            buffer_size,
-            (VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).into(),
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
-        );
+    let vertex_buffer = create_buffer(
+        vk_ctx,
+        buffer_size,
+        (VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT).into(),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
+    );
 
-        copy_buffer(
-            vk_ctx.device,
-            vk_ctx.command_pool,
-            vk_ctx.graphics_queue,
-            staging_buffer.buffer,
-            vertex_buffer.buffer,
-            buffer_size,
-        );
+    copy_buffer(
+        vk_ctx.device,
+        vk_ctx.command_pool,
+        vk_ctx.graphics_queue,
+        staging_buffer.buffer,
+        vertex_buffer.buffer,
+        buffer_size,
+    );
 
-        vertex_buffer
-    }
+    vertex_buffer
 }
 
 fn create_index_buffer(vk_ctx: &VkContext, indices: &[u32]) -> Buffer {
-    unsafe {
-        let buffer_size = mem::size_of_val(&indices[0]) * indices.len();
-        let staging_buffer = create_buffer(
-            vk_ctx,
-            buffer_size,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
-            (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
-        );
+    let buffer_size = mem::size_of_val(&indices[0]) * indices.len();
+    let staging_buffer = create_buffer(
+        vk_ctx,
+        buffer_size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
+        (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
+    );
 
-        let mut data = ptr::null_mut();
-        vkMapMemory(vk_ctx.device, staging_buffer.memory, 0, buffer_size as VkDeviceSize, 0, &mut data);
-        ptr::copy(indices.as_ptr(), data as *mut u32, indices.len());
-        vkUnmapMemory(vk_ctx.device, staging_buffer.memory);
+    vk_map_memory_copy(vk_ctx.device, staging_buffer.memory, indices.as_ptr(), buffer_size);
 
-        let index_buffer = create_buffer(
-            vk_ctx,
-            buffer_size,
-            (VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT).into(),
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
-        );
+    let index_buffer = create_buffer(
+        vk_ctx,
+        buffer_size,
+        (VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT).into(),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
+    );
 
-        copy_buffer(
-            vk_ctx.device,
-            vk_ctx.command_pool,
-            vk_ctx.graphics_queue,
-            staging_buffer.buffer,
-            index_buffer.buffer,
-            buffer_size,
-        );
+    copy_buffer(
+        vk_ctx.device,
+        vk_ctx.command_pool,
+        vk_ctx.graphics_queue,
+        staging_buffer.buffer,
+        index_buffer.buffer,
+        buffer_size,
+    );
 
-        index_buffer
-    }
+    index_buffer
 }
 
 fn create_buffer(
@@ -1442,10 +1410,7 @@ fn create_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> Image {
             VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
             (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
         );
-        let mut data = ptr::null_mut();
-        vkMapMemory(vk_ctx.device, staging_buffer.memory, 0, image_size as VkDeviceSize, 0, &mut data);
-        ptr::copy(pixels, data as *mut u8, image_size as usize);
-        vkUnmapMemory(vk_ctx.device, staging_buffer.memory);
+        vk_map_memory_copy(vk_ctx.device, staging_buffer.memory, pixels, image_size as usize);
 
         stbi_image_free(pixels as *mut c_void);
 
