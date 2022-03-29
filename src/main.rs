@@ -13,11 +13,11 @@ const APP_NAME: *const i8 = cstr!("Icarus");
 //const BG_COLOR: u32 = 0x001d1f21; // AA RR GG BB
 const BG_COLOR: u32 = 0x00252632; // AA RR GG BB
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
-const WINDOW_WIDTH: u32 = 1200;
-const WINDOW_HEIGHT: u32 = 675;
-const MAX_ENTITIES: usize = 10;
+const WINDOW_WIDTH: u32 = 1600;
+const WINDOW_HEIGHT: u32 = 900;
+const MAX_ENTITIES: usize = 200;
 
-const MODEL_PATH: &str = "assets/models/viking_room.obj";
+//const MODEL_PATH: &str = "assets/models/viking_room.obj";
 const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
 
 pub struct Platform {
@@ -27,11 +27,16 @@ pub struct Platform {
     pub window_width: u32,
     pub window_height: u32,
 }
+
+pub const LEFT_PADDLE: usize = 0;
+pub const RIGHT_PADDLE: usize = 1;
+pub const BALL: usize = 2;
 pub struct Game {
     pub running: bool,
     pub entities: [Entity; MAX_ENTITIES],
-    ubo: UniformBufferObject,
+    pub entity_count: usize,
 }
+#[repr(C)]
 #[derive(Default, Copy, Clone)]
 pub struct Entity {
     pub x: f32,
@@ -39,52 +44,20 @@ pub struct Entity {
     pub w: f32,
     pub h: f32,
 }
+#[repr(C)]
+#[derive(Debug)]
+pub struct GlobalState {
+    width: u32,
+    height: u32,
+}
 
 #[repr(C)]
+#[derive(Default)]
 pub struct Vertex {
     pos: (f32, f32, f32),   // 12
     color: (f32, f32, f32), // 12
     uv: (f32, f32),         // 8
 }
-
-#[repr(C)]
-#[derive(Default)]
-struct UniformBufferObject {
-    model: Mat4,
-    view: Mat4,
-    proj: Mat4,
-}
-
-// Clip coordinates -> perspective division -> NDC coordinates -> Viewport transformation -> Framebuffer coordinates
-// (Xc, Yc, Zc, Wc) -> (Xc/Wc, Yc/Wc, Zc/Wc, Wc/Wc) = (Xd, Yd, Zd, Wd)
-//
-// We want:
-// - world origin at (0,0,0)
-// - camera is at (0,0,-5)
-// - near clip plane: 0.5
-// - far clip plane: 10.0
-// - clip region: z: [-4.9, 5.0]
-//
-// Framebuffer coordinates
-// x: [0, width]
-// y: [0, height]
-// 0,     0 ----------------- width,0
-//         |                |
-//         |                |
-//         |                |
-// 0,height ----------------- width, height
-//
-// NDC coordinates
-// x: [-1, 1]
-// y: [-1, 1]
-// z: [ 0, 1]
-// -1,-1   ----------------- 1,-1
-//         |                |
-//         |     (0,0) x -> |
-//         |       y        |
-// -1,1    ----------------- 1,1
-//
-//
 
 impl Vertex {
     fn get_binding_description() -> VkVertexInputBindingDescription {
@@ -167,11 +140,12 @@ struct VkContext {
 
     vertex_buffer: Buffer,
     index_buffer: Buffer,
-    uniform_buffers: [Buffer; MAX_FRAMES_IN_FLIGHT],
 
     texture_image: Image,
-
     texture_sampler: VkSampler,
+
+    global_ubo: Buffer,
+    transform_storage_buffer: Buffer,
 
     descriptor_set_layout: VkDescriptorSetLayout,
     descriptor_pool: VkDescriptorPool,
@@ -196,11 +170,20 @@ struct VkContext {
 }
 
 fn main() {
-    let (vertices, indices) = parse_obj(&fs::read_to_string(MODEL_PATH).unwrap()).unwrap();
+    //let (vertices, indices) = parse_obj(&fs::read_to_string(MODEL_PATH).unwrap()).unwrap();
     #[rustfmt::skip]
-    let vertices = vertices.iter().map(|v| Vertex { pos: v.0, color: (1.0, 1.0, 1.0), uv: (v.1.0, 1.0 - v.1.1) }).collect::<Vec<_>>();
+    //let vertices = vertices.iter().map(|v| Vertex { pos: v.0, color: (1.0, 1.0, 1.0), uv: (v.1.0, 1.0 - v.1.1) }).collect::<Vec<_>>();
+
+    let vertices = [                                                            // CCW
+        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
+        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), ..Vertex::default() },  // Bottom left
+        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), ..Vertex::default() },  // Bottom right
+        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), ..Vertex::default() },  // Top right
+    ];
+    let indices = [0, 1, 2, 2, 3, 0];
 
     let mut platform = Platform::init();
+    let mut input = InputState::default();
     let mut game = Game::init();
     let mut vk_ctx = VkContext::init(&platform);
     vk_ctx.vertex_buffer = create_vertex_buffer(&vk_ctx, &vertices);
@@ -209,11 +192,14 @@ fn main() {
     // Main loop
     let mut current_frame = 0;
     let start_time = Instant::now();
+    let mut prev_frame_time = start_time;
     while game.running {
-        platform.update(&mut game);
+        input.reset_transitions();
+        platform.update(&mut input);
 
-        let seconds_elapsed = start_time.elapsed().as_secs_f32();
-        game.update(seconds_elapsed);
+        let seconds_elapsed = prev_frame_time.elapsed().as_secs_f32();
+        prev_frame_time = Instant::now();
+        game.update(&input, seconds_elapsed);
 
         vk_ctx.render(&game, current_frame, indices.len());
 
@@ -223,75 +209,51 @@ fn main() {
     vk_ctx.cleanup(&platform);
 }
 
+fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
+    assert!(game.entity_count < MAX_ENTITIES);
+    game.entities[game.entity_count] = Entity {
+        x: transform.0,
+        y: transform.1,
+        w: transform.2,
+        h: transform.3,
+    };
+    game.entity_count += 1;
+}
+
 impl Game {
     fn init() -> Self {
-        Self {
+        let mut game = Self {
             entities: [Entity::default(); MAX_ENTITIES],
+            entity_count: 0,
             running: true,
-            ubo: UniformBufferObject::default(),
-        }
+        };
+
+        //        for row in 0..(WINDOW_HEIGHT / 100) {
+        //            for col in 0..(WINDOW_WIDTH / 100) {
+        //                create_entity(&mut game, (col as f32 * 100.0, row as f32 * 100.0, 100.0, 100.0));
+        //            }
+        //        }
+        create_entity(&mut game, (0.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
+        create_entity(&mut game, ((WINDOW_WIDTH as f32) - 50.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
+        println!("Entity Count: {}", game.entity_count);
+
+        game
     }
 
     #[allow(unused_variables)]
-    fn update(&mut self, dt: f32) {
-        self.ubo = {
-            let model = Mat4::rotate(dt * std::f32::consts::PI / 4.0, (0.0, 0.0, 1.0));
-            let model = Mat4::identity();
-            let view = Mat4::look_at((2.0, 2.0, 2.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0));
-            //let view = Mat4::identity();
-            //let view = Mat4::translate((0.5, 0.0, 0.0));
-            let fovy = std::f32::consts::PI / 4.0; // 45 degrees
-            let aspect = WINDOW_WIDTH as f32 / WINDOW_HEIGHT as f32;
-            let proj = Mat4::perspective(fovy, aspect, 0.1, 10.0).transpose();
-            let proj = Mat4::identity();
+    fn update(&mut self, input: &InputState, dt: f32) {
+        if input.was_pressed(KeyId::Esc) {
+            self.running = false;
+        }
 
-            #[rustfmt::skip]
-                let view = Mat4::new([
-                    -0.707107, -0.408248, 0.577350, 0.0,
-                     0.707107, -0.408248,  0.577350, 0.0,
-                     0.000000,  0.816497,  0.577350, 0.0,
-                     0.000000,  0.000000, -3.464102, 1.0,
-                ]);
-            #[rustfmt::skip]
-                let proj = Mat4::new([
-                    1.357995,  0.000000,  0.000000, 0.0,
-                    0.000000, -2.414213,  0.000000, 0.0,
-                    0.000000,  0.000000, -1.010101, -1.0,
-                    0.000000,  0.000000, -0.101010, 0.0,
-                ]);
-            //let proj = Mat4::ortho(0.0, window_width as f32, 0.0, window_height as f32, -1.0, 1.0);
-            //
-            //ubo.model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-            //ubo.view = glm::lookAt(
-            //    glm::vec3(2.0f, 2.0f, 2.0f),
-            //    glm::vec3(0.0f, 0.0f, 0.0f),
-            //    glm::vec3(0.0f, 0.0f, 1.0f)
-            //);
-            //ubo.proj = glm::perspective(
-            //    glm::radians(45.0f),
-            //    swapChainExtent.width / (float) swapChainExtent.height,
-            //    0.1f, 10.0f
-            //);
-            //ubo.proj[1][1] *= -1;
-            //if !run_once {
-            //println!("View: {:?}", view);
-            //println!("Proj: {:?}", proj);
-            //for i in 0..3 {
-            //println!("vertex: {:?}", vertices[i].pos);
-            //let v_clip = proj * view.transpose() * Vec4::from(vertices[i].pos);
-            //let v_ndc = v_clip * (1.0 / v_clip.w);
-            //println!("Proj * View * vertices[{}]:\n    Clip: {:?}\n    NDC:  {:?}", i, v_clip, v_ndc);
-            //}
-            //run_once = true;
-            //}
-            UniformBufferObject {
-                model: model.transpose(),
-                view: view, //.transpose(),
-                proj: proj, //.transpose(),
-            }
-        };
-        // ubo.view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-        // ubo.proj = glm::perspective(glm::radians(45.0f), swapChainExtent.width / (float) swapChainExtent.height, 0.1f, 10.0f);
+        let speed = 1000.0;
+        if input.is_down(KeyId::W) {
+            self.entities[LEFT_PADDLE].y -= speed * dt;
+        }
+
+        if input.is_down(KeyId::S) {
+            self.entities[LEFT_PADDLE].y += speed * dt;
+        }
     }
 }
 
@@ -309,7 +271,8 @@ impl Platform {
             let window = XCreateSimpleWindow(dpy, root, 0, 0, window_width, window_height, 1, 0, BG_COLOR as u64);
 
             assert_ne!(XStoreName(dpy, window, APP_NAME), 0);
-            assert_ne!(XSelectInput(dpy, window, KeyPressMask | ExposureMask | StructureNotifyMask), 0);
+            let mask = KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask;
+            assert_ne!(XSelectInput(dpy, window, mask), 0);
             assert_ne!(
                 XSetClassHint(
                     dpy,
@@ -331,19 +294,25 @@ impl Platform {
         }
     }
 
-    fn update(&mut self, game: &mut Game) {
+    fn update(&mut self, input: &mut InputState) {
         unsafe {
             while XPending(self.dpy) > 0 {
                 let mut event = XEvent::default();
                 XNextEvent(self.dpy, &mut event);
                 match event.ttype {
-                    KeyPress => {
+                    KeyPress | KeyRelease => {
                         #[allow(unused_variables)]
                         let keysym = XLookupKeysym(&mut event.xkey, 0);
                         let event = event.xkey;
-                        // println!("KeySym: {} / KeyCode: {}", keysym, event.keycode);
-                        match event.keycode {
-                            9 => game.running = false,
+                        //println!("KeySym: 0x{:04x} / KeyCode: 0x{:04x}", keysym, event.keycode);
+
+                        let is_down = event.ttype == KeyPress;
+                        match keysym {
+                            XK_Escape => input.set_key(KeyId::Esc, is_down),
+                            XK_a => input.set_key(KeyId::A, is_down),
+                            XK_d => input.set_key(KeyId::D, is_down),
+                            XK_s => input.set_key(KeyId::S, is_down),
+                            XK_w => input.set_key(KeyId::W, is_down),
                             _n => {} // println!("Keycode: {}", n),
                         }
                     }
@@ -530,27 +499,17 @@ impl VkContext {
                 })
                 .collect();
 
+            // Create Descriptor Set Layouts
+            let layout_bindings = [
+                layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
+                layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT),
+                layout_binding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT),
+            ];
             check!(vkCreateDescriptorSetLayout(
                 vk_ctx.device,
                 &VkDescriptorSetLayoutCreateInfo {
-                    bindingCount: 2,
-                    pBindings: [
-                        VkDescriptorSetLayoutBinding {
-                            binding: 0,
-                            descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                            descriptorCount: 1,
-                            stageFlags: VK_SHADER_STAGE_VERTEX_BIT.into(),
-                            pImmutableSamplers: ptr::null(),
-                        },
-                        VkDescriptorSetLayoutBinding {
-                            binding: 1,
-                            descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                            descriptorCount: 1,
-                            stageFlags: VK_SHADER_STAGE_FRAGMENT_BIT.into(),
-                            pImmutableSamplers: ptr::null(),
-                        }
-                    ]
-                    .as_ptr(),
+                    bindingCount: layout_bindings.len() as u32,
+                    pBindings: layout_bindings.as_ptr(),
                     ..VkDescriptorSetLayoutCreateInfo::default()
                 },
                 ptr::null(),
@@ -565,6 +524,39 @@ impl VkContext {
                 vk_ctx.render_pass,
                 vk_ctx.surface_caps,
             );
+
+            // Create Transform Storage Buffer
+            vk_ctx.transform_storage_buffer = create_buffer(
+                &vk_ctx,
+                mem::size_of::<Entity>() * MAX_ENTITIES,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.into(),
+                (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
+            );
+
+            // Create Global Uniform Buffer
+            vk_ctx.global_ubo = create_buffer(
+                &vk_ctx,
+                mem::size_of::<GlobalState>(),
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.into(),
+                (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
+            );
+            let global_state = GlobalState {
+                width: platform.window_width,
+                height: platform.window_height,
+            };
+            println!("GlobalState: {:?}", global_state);
+
+            let mut data = ptr::null_mut();
+            vkMapMemory(
+                vk_ctx.device,
+                vk_ctx.global_ubo.memory,
+                0,
+                mem::size_of::<GlobalState>() as VkDeviceSize,
+                0,
+                &mut data,
+            );
+            ptr::copy(&global_state, data as *mut GlobalState, 1);
+            vkUnmapMemory(vk_ctx.device, vk_ctx.global_ubo.memory);
 
             vk_ctx.descriptor_pool = create_descriptor_pool(vk_ctx.device);
             check!(vkAllocateDescriptorSets(
@@ -669,52 +661,51 @@ impl VkContext {
                 &mut vk_ctx.texture_sampler
             ));
 
-            // Create Uniform Buffers
+            // Update Descriptor Sets
             for i in 0..MAX_FRAMES_IN_FLIGHT {
-                vk_ctx.uniform_buffers[i] = create_buffer(
-                    &vk_ctx,
-                    mem::size_of::<UniformBufferObject>(),
-                    VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.into(),
-                    (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
-                );
-            }
+                let writes = [
+                    VkWriteDescriptorSet {
+                        dstSet: vk_ctx.descriptor_sets[i],
+                        dstBinding: 0,
+                        dstArrayElement: 0,
+                        descriptorCount: 1,
+                        descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                        pBufferInfo: &VkDescriptorBufferInfo {
+                            buffer: vk_ctx.global_ubo.buffer,
+                            offset: 0,
+                            range: mem::size_of::<GlobalState>() as VkDeviceSize,
+                        },
+                        ..VkWriteDescriptorSet::default()
+                    },
+                    VkWriteDescriptorSet {
+                        dstSet: vk_ctx.descriptor_sets[i],
+                        dstBinding: 1,
+                        dstArrayElement: 0,
+                        descriptorCount: 1,
+                        descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                        pBufferInfo: &VkDescriptorBufferInfo {
+                            buffer: vk_ctx.transform_storage_buffer.buffer,
+                            offset: 0,
+                            range: VK_WHOLE_SIZE,
+                        },
+                        ..VkWriteDescriptorSet::default()
+                    },
+                    VkWriteDescriptorSet {
+                        dstSet: vk_ctx.descriptor_sets[i],
+                        dstBinding: 2,
+                        dstArrayElement: 0,
+                        descriptorCount: 1,
+                        descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        pImageInfo: &VkDescriptorImageInfo {
+                            sampler: vk_ctx.texture_sampler,
+                            imageView: vk_ctx.texture_image.view,
+                            imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        },
+                        ..VkWriteDescriptorSet::default()
+                    },
+                ];
 
-            for (i, uniform_buffer) in vk_ctx.uniform_buffers.iter().enumerate() {
-                vkUpdateDescriptorSets(
-                    vk_ctx.device,
-                    2,
-                    [
-                        VkWriteDescriptorSet {
-                            dstSet: vk_ctx.descriptor_sets[i],
-                            dstBinding: 0,
-                            dstArrayElement: 0,
-                            descriptorCount: 1,
-                            descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                            pBufferInfo: &VkDescriptorBufferInfo {
-                                buffer: (*uniform_buffer).buffer,
-                                offset: 0,
-                                range: mem::size_of::<UniformBufferObject>() as VkDeviceSize,
-                            },
-                            ..VkWriteDescriptorSet::default()
-                        },
-                        VkWriteDescriptorSet {
-                            dstSet: vk_ctx.descriptor_sets[i],
-                            dstBinding: 1,
-                            dstArrayElement: 0,
-                            descriptorCount: 1,
-                            descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                            pImageInfo: &VkDescriptorImageInfo {
-                                sampler: vk_ctx.texture_sampler,
-                                imageView: vk_ctx.texture_image.view,
-                                imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                            },
-                            ..VkWriteDescriptorSet::default()
-                        },
-                    ]
-                    .as_ptr(),
-                    0,
-                    ptr::null(),
-                );
+                vkUpdateDescriptorSets(vk_ctx.device, writes.len() as u32, writes.as_ptr(), 0, ptr::null());
             }
         }
         vk_ctx
@@ -723,7 +714,9 @@ impl VkContext {
     fn render(&mut self, game: &Game, current_frame: usize, index_count: usize) {
         unsafe {
             let mut vk_ctx = self;
-            check!(vkWaitForFences(vk_ctx.device, 1, &vk_ctx.in_flight_fences[current_frame], VK_TRUE, u64::MAX));
+            let command_buffer = vk_ctx.command_buffers[current_frame];
+            let fence = vk_ctx.in_flight_fences[current_frame];
+            check!(vkWaitForFences(vk_ctx.device, 1, &fence, VK_TRUE, u64::MAX));
 
             let mut image_index = 0;
             match vkAcquireNextImageKHR(
@@ -745,18 +738,17 @@ impl VkContext {
             let mut data = ptr::null_mut();
             vkMapMemory(
                 vk_ctx.device,
-                vk_ctx.uniform_buffers[current_frame].memory,
+                vk_ctx.transform_storage_buffer.memory,
                 0,
-                mem::size_of::<UniformBufferObject>() as VkDeviceSize,
+                (mem::size_of::<Entity>() * game.entity_count) as VkDeviceSize,
                 0,
                 &mut data,
             );
-            ptr::copy(&game.ubo, data as *mut UniformBufferObject, 1);
-            vkUnmapMemory(vk_ctx.device, vk_ctx.uniform_buffers[current_frame].memory);
+            ptr::copy(game.entities.as_ptr(), data as *mut Entity, game.entity_count);
+            vkUnmapMemory(vk_ctx.device, vk_ctx.transform_storage_buffer.memory);
 
-            check!(vkResetFences(vk_ctx.device, 1, &vk_ctx.in_flight_fences[current_frame]));
+            check!(vkResetFences(vk_ctx.device, 1, &fence));
 
-            let command_buffer = vk_ctx.command_buffers[current_frame];
             vkResetCommandBuffer(command_buffer, 0.into());
 
             // Record command buffer
@@ -800,7 +792,7 @@ impl VkContext {
                 ptr::null(),
             );
             // vkCmdDraw(command_buffer, vertices.len() as u32, 1, 0, 0);
-            vkCmdDrawIndexed(command_buffer, index_count as u32, 1, 0, 0, 0);
+            vkCmdDrawIndexed(command_buffer, index_count as u32, game.entity_count as u32, 0, 0, 0);
 
             vkCmdEndRenderPass(command_buffer);
 
@@ -820,7 +812,7 @@ impl VkContext {
                     pSignalSemaphores: &vk_ctx.render_finished_semaphores[current_frame],
                     ..VkSubmitInfo::default()
                 },
-                vk_ctx.in_flight_fences[current_frame],
+                fence,
             ));
 
             match vkQueuePresentKHR(
@@ -1199,22 +1191,17 @@ fn create_framebuffers(
 fn create_descriptor_pool(device: VkDevice) -> VkDescriptorPool {
     unsafe {
         let mut descriptor_pool = VkDescriptorPool::default();
+        let pool_sizes = [
+            VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT),
+            VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT),
+            VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT),
+        ];
         check!(vkCreateDescriptorPool(
             device,
             &VkDescriptorPoolCreateInfo {
                 maxSets: MAX_FRAMES_IN_FLIGHT as u32,
-                poolSizeCount: 2,
-                pPoolSizes: [
-                    VkDescriptorPoolSize {
-                        ttype: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        descriptorCount: MAX_FRAMES_IN_FLIGHT as u32,
-                    },
-                    VkDescriptorPoolSize {
-                        ttype: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        descriptorCount: MAX_FRAMES_IN_FLIGHT as u32,
-                    }
-                ]
-                .as_ptr(),
+                poolSizeCount: pool_sizes.len() as u32,
+                pPoolSizes: pool_sizes.as_ptr(),
                 ..VkDescriptorPoolCreateInfo::default()
             },
             ptr::null(),
