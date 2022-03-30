@@ -204,6 +204,113 @@ extern "C" {
         fence: VkFence,
         pImageIndex: *mut u32,
     ) -> VkResult;
+
+    // 6. Command Buffers
+    pub fn vkCreateCommandPool(
+        device: VkDevice,
+        pCreateInfo: *const VkCommandPoolCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pCommandPool: *mut VkCommandPool,
+    ) -> VkResult;
+    pub fn vkDestroyCommandPool(device: VkDevice, commandPool: VkCommandPool, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkAllocateCommandBuffers(
+        device: VkDevice,
+        pAllocateInfo: *const VkCommandBufferAllocateInfo,
+        pCommandBuffers: *mut VkCommandBuffer,
+    ) -> VkResult;
+    pub fn vkFreeCommandBuffers(
+        device: VkDevice,
+        commandPool: VkCommandPool,
+        commandBufferCount: u32,
+        pCommandBuffers: *const VkCommandBuffer,
+    );
+    pub fn vkBeginCommandBuffer(
+        commandBuffer: VkCommandBuffer,
+        pBeginInfo: *const VkCommandBufferBeginInfo,
+    ) -> VkResult;
+    pub fn vkEndCommandBuffer(commandBuffer: VkCommandBuffer) -> VkResult;
+    pub fn vkResetCommandBuffer(commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult;
+
+    // 7. Synchronization
+    pub fn vkCreateFence(
+        device: VkDevice,
+        pCreateInfo: *const VkFenceCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pFence: *mut VkFence,
+    ) -> VkResult;
+    pub fn vkDestroyFence(device: VkDevice, fence: VkFence, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkWaitForFences(
+        device: VkDevice,
+        fenceCount: u32,
+        pFences: *const VkFence,
+        waitAll: VkBool32,
+        timeout: u64,
+    ) -> VkResult;
+    pub fn vkResetFences(device: VkDevice, fenceCount: u32, pFences: *const VkFence) -> VkResult;
+    pub fn vkCreateSemaphore(
+        device: VkDevice,
+        pCreateInfo: *const VkSemaphoreCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pSemaphore: *mut VkSemaphore,
+    ) -> VkResult;
+    pub fn vkDestroySemaphore(device: VkDevice, semaphore: VkSemaphore, pAllocator: *const VkAllocationCallbacks);
+
+    // 8. Render Pass, Framebuffers
+    pub fn vkCreateRenderPass(
+        device: VkDevice,
+        pCreateInfo: *const VkRenderPassCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pRenderPass: *mut VkRenderPass,
+    ) -> VkResult;
+    pub fn vkDestroyRenderPass(device: VkDevice, renderPass: VkRenderPass, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateFramebuffer(
+        device: VkDevice,
+        pCreateInfo: *const VkFramebufferCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pFramebuffer: *mut VkFramebuffer,
+    ) -> VkResult;
+    pub fn vkDestroyFramebuffer(device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *const VkAllocationCallbacks);
+
+    // 9. Shaders
+    pub fn vkCreateShaderModule(
+        device: VkDevice,
+        pCreateInfo: *const VkShaderModuleCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pShaderModule: *mut VkShaderModule,
+    ) -> VkResult;
+    pub fn vkDestroyShaderModule(
+        device: VkDevice,
+        shaderModule: VkShaderModule,
+        pAllocator: *const VkAllocationCallbacks,
+    );
+
+    // 10. Pipelines
+    pub fn vkCreateComputePipelines(
+        device: VkDevice,
+        pipelineCache: VkPipelineCache,
+        createInfoCount: u32,
+        pCreateInfos: *const VkComputePipelineCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pPipelines: *mut VkPipeline,
+    ) -> VkResult;
+    pub fn vkCreateGraphicsPipelines(
+        device: VkDevice,
+        pipelineCache: VkPipelineCache,
+        createInfoCount: u32,
+        pCreateInfos: *const VkGraphicsPipelineCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pPipelines: *mut VkPipeline,
+    ) -> VkResult;
+    //pub fn vkCreateRayTracingPipelinesNV(
+    //    device: VkDevice,
+    //    pipelineCache: VkPipelineCache,
+    //    createInfoCount: u32,
+    //    pCreateInfos: *const VkRayTracingPipelineCreateInfoNV,
+    //    pAllocator: *const VkAllocationCallbacks,
+    //    pPipelines: *mut VkPipeline,
+    //) -> VkResult;
+    pub fn vkDestroyPipeline(device: VkDevice, pipeline: VkPipeline, pAllocator: *const VkAllocationCallbacks);
+
     pub fn vkCreateImage(
         device: VkDevice,
         pCreateInfo: *const VkImageCreateInfo,
@@ -236,17 +343,6 @@ extern "C" {
         pSampler: *mut VkSampler,
     ) -> VkResult;
     pub fn vkDestroySampler(device: VkDevice, sampler: VkSampler, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkCreateShaderModule(
-        device: VkDevice,
-        pCreateInfo: *const VkShaderModuleCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pShaderModule: *mut VkShaderModule,
-    ) -> VkResult;
-    pub fn vkDestroyShaderModule(
-        device: VkDevice,
-        shaderModule: VkShaderModule,
-        pAllocator: *const VkAllocationCallbacks,
-    );
     pub fn vkCreateDescriptorSetLayout(
         device: VkDevice,
         pCreateInfo: *const VkDescriptorSetLayoutCreateInfo,
@@ -298,47 +394,6 @@ extern "C" {
         pipelineLayout: VkPipelineLayout,
         pAllocator: *const VkAllocationCallbacks,
     );
-    pub fn vkCreateRenderPass(
-        device: VkDevice,
-        pCreateInfo: *const VkRenderPassCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pRenderPass: *mut VkRenderPass,
-    ) -> VkResult;
-    pub fn vkDestroyRenderPass(device: VkDevice, renderPass: VkRenderPass, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkCreateGraphicsPipelines(
-        device: VkDevice,
-        pipelineCache: VkPipelineCache,
-        createInfoCount: u32,
-        pCreateINfos: *const VkGraphicsPipelineCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pPipelines: *mut VkPipeline,
-    ) -> VkResult;
-    pub fn vkDestroyPipeline(device: VkDevice, pipeline: VkPipeline, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkCreateFramebuffer(
-        device: VkDevice,
-        pCreateInfo: *const VkFramebufferCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pFramebuffer: *mut VkFramebuffer,
-    ) -> VkResult;
-    pub fn vkDestroyFramebuffer(device: VkDevice, framebuffer: VkFramebuffer, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkCreateCommandPool(
-        device: VkDevice,
-        pCreateInfo: *const VkCommandPoolCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pCommandPool: *mut VkCommandPool,
-    ) -> VkResult;
-    pub fn vkDestroyCommandPool(device: VkDevice, commandPool: VkCommandPool, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkAllocateCommandBuffers(
-        device: VkDevice,
-        pAllocateInfo: *const VkCommandBufferAllocateInfo,
-        pCommandBuffers: *mut VkCommandBuffer,
-    ) -> VkResult;
-    pub fn vkFreeCommandBuffers(
-        device: VkDevice,
-        commandPool: VkCommandPool,
-        commandBufferCount: u32,
-        pCommandBuffers: *const VkCommandBuffer,
-    );
     pub fn vkCreateBuffer(
         device: VkDevice,
         pCreateInfo: *const VkBufferCreateInfo,
@@ -373,34 +428,6 @@ extern "C" {
         ppData: *mut *mut c_void,
     ) -> VkResult;
     pub fn vkUnmapMemory(device: VkDevice, memory: VkDeviceMemory);
-    pub fn vkCreateSemaphore(
-        device: VkDevice,
-        pCreateInfo: *const VkSemaphoreCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pSemaphore: *mut VkSemaphore,
-    ) -> VkResult;
-    pub fn vkDestroySemaphore(device: VkDevice, semaphore: VkSemaphore, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkCreateFence(
-        device: VkDevice,
-        pCreateInfo: *const VkFenceCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pFence: *mut VkFence,
-    ) -> VkResult;
-    pub fn vkDestroyFence(device: VkDevice, fence: VkFence, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkWaitForFences(
-        device: VkDevice,
-        fenceCount: u32,
-        pFences: *const VkFence,
-        waitAll: VkBool32,
-        timeout: u64,
-    ) -> VkResult;
-    pub fn vkResetFences(device: VkDevice, fenceCount: u32, pFences: *const VkFence) -> VkResult;
-    pub fn vkBeginCommandBuffer(
-        commandBuffer: VkCommandBuffer,
-        pBeginInfo: *const VkCommandBufferBeginInfo,
-    ) -> VkResult;
-    pub fn vkEndCommandBuffer(commandBuffer: VkCommandBuffer) -> VkResult;
-    pub fn vkResetCommandBuffer(commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult;
     pub fn vkDeviceWaitIdle(device: VkDevice) -> VkResult;
     pub fn vkQueueWaitIdle(queue: VkQueue) -> VkResult;
 
@@ -1525,6 +1552,18 @@ pub struct VkSubpassDependency {
     pub srcAccessMask: VkAccessFlags,
     pub dstAccessMask: VkAccessFlags,
     pub dependencyFlags: VkDependencyFlags,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkComputePipelineCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineCreateFlags,
+    pub stage: VkPipelineShaderStageCreateInfo,
+    pub layout: VkPipelineLayout,
+    pub basePipelineHandle: VkPipeline,
+    pub basePipelineIndex: i32,
 }
 
 #[repr(C)]
