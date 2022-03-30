@@ -410,6 +410,9 @@ extern "C" {
         pRenderPassBegin: *const VkRenderPassBeginInfo,
         contents: VkSubpassContents,
     );
+    pub fn vkCmdEndRenderPass(commandBuffer: VkCommandBuffer);
+    pub fn vkCmdBeginRendering(commandBuffer: VkCommandBuffer, pRenderingInfo: *const VkRenderingInfo);
+    pub fn vkCmdEndRendering(commandBuffer: VkCommandBuffer);
     pub fn vkCmdBindPipeline(
         commandBuffer: VkCommandBuffer,
         pipelineBindPoint: VkPipelineBindPoint,
@@ -465,7 +468,6 @@ extern "C" {
         vertexOffset: i32,
         firstInstance: u32,
     );
-    pub fn vkCmdEndRenderPass(commandBuffer: VkCommandBuffer);
     pub fn vkCmdCopyBuffer(
         commandBuffer: VkCommandBuffer,
         srcBuffer: VkBuffer,
@@ -1731,6 +1733,36 @@ pub struct VkRenderPassBeginInfo {
 
 #[repr(C)]
 #[derive(Debug)]
+pub struct VkRenderingInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkRenderingFlags,
+    pub renderArea: VkRect2D,
+    pub layerCount: u32,
+    pub viewMask: u32,
+    pub colorAttachmentCount: u32,
+    pub pColorAttachments: *const VkRenderingAttachmentInfo,
+    pub pDepthAttachment: *const VkRenderingAttachmentInfo,
+    pub pStencilAttachment: *const VkRenderingAttachmentInfo,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkRenderingAttachmentInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub imageView: VkImageView,
+    pub imageLayout: VkImageLayout,
+    pub resolveMode: VkResolveModeFlagBits,
+    pub resolveImageView: VkImageView,
+    pub resolveImageLayout: VkImageLayout,
+    pub loadOp: VkAttachmentLoadOp,
+    pub storeOp: VkAttachmentStoreOp,
+    pub clearValue: VkClearValue,
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct VkSubmitInfo {
     pub sType: VkStructureType,
     pub pNext: *const c_void,
@@ -1831,6 +1863,7 @@ pub union VkClearValue {
 
 #[repr(C)]
 #[derive(Clone, Copy)]
+// 16 bytes
 pub union VkClearColorValue {
     pub float32: [f32; 4],
     pub int32: [i32; 4],
@@ -1839,6 +1872,7 @@ pub union VkClearColorValue {
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
+// 8 bytes
 pub struct VkClearDepthStencilValue {
     pub depth: f32,
     pub stencil: u32,
@@ -3378,6 +3412,35 @@ bitflag_enum!(VkPipelineDepthStencilStateCreateFlagBits {
     VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_DEPTH_ACCESS_BIT_ARM = 0x00000001,
     VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_RASTERIZATION_ORDER_ATTACHMENT_STENCIL_ACCESS_BIT_ARM = 0x00000002,
     VK_PIPELINE_DEPTH_STENCIL_STATE_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
+});
+
+bitflag_struct!(VkRenderingFlags: VkRenderingBitFlags);
+bitflag_enum!(VkRenderingBitFlags {
+    VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT = 0x00000001,
+    VK_RENDERING_SUSPENDING_BIT = 0x00000002,
+    VK_RENDERING_RESUMING_BIT = 0x00000004,
+//    VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT_KHR = VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT,
+//    VK_RENDERING_SUSPENDING_BIT_KHR = VK_RENDERING_SUSPENDING_BIT,
+//    VK_RENDERING_RESUMING_BIT_KHR = VK_RENDERING_RESUMING_BIT,
+});
+
+bitflag_struct!(VkResolveModeFlags: VkResolveModeFlagBits);
+bitflag_enum!(VkResolveModeFlagBits {
+    VK_RESOLVE_MODE_NONE = 0,
+    VK_RESOLVE_MODE_SAMPLE_ZERO_BIT = 0x00000001,
+    VK_RESOLVE_MODE_AVERAGE_BIT = 0x00000002,
+    VK_RESOLVE_MODE_MIN_BIT = 0x00000004,
+    VK_RESOLVE_MODE_MAX_BIT = 0x00000008,
+  // Provided by VK_KHR_depth_stencil_resolve
+//    VK_RESOLVE_MODE_NONE_KHR = VK_RESOLVE_MODE_NONE,
+  // Provided by VK_KHR_depth_stencil_resolve
+//    VK_RESOLVE_MODE_SAMPLE_ZERO_BIT_KHR = VK_RESOLVE_MODE_SAMPLE_ZERO_BIT,
+  // Provided by VK_KHR_depth_stencil_resolve
+//    VK_RESOLVE_MODE_AVERAGE_BIT_KHR = VK_RESOLVE_MODE_AVERAGE_BIT,
+  // Provided by VK_KHR_depth_stencil_resolve
+//    VK_RESOLVE_MODE_MIN_BIT_KHR = VK_RESOLVE_MODE_MIN_BIT,
+  // Provided by VK_KHR_depth_stencil_resolve
+//    VK_RESOLVE_MODE_MAX_BIT_KHR = VK_RESOLVE_MODE_MAX_BIT,
 });
 
 #[repr(C)]

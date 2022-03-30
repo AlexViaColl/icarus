@@ -756,6 +756,15 @@ impl fmt::Debug for VkLayerProperties {
     }
 }
 
+impl fmt::Debug for VkClearValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "VkClearValue {{")?;
+        let uint32 = unsafe { self.color.uint32 };
+        writeln!(f, "    [{:#08x} {:#08x} {:#08x} {:#08x}]", uint32[0], uint32[1], uint32[2], uint32[3])?;
+        writeln!(f, "}}")
+    }
+}
+
 impl Default for VkDeviceCreateInfo {
     fn default() -> Self {
         Self {
