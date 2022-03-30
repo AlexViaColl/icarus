@@ -82,6 +82,7 @@ macro_rules! bitflag_enum {
 
 #[link(name = "vulkan")]
 extern "C" {
+    // 4. Initialization
     pub fn vkGetInstanceProcAddr(instance: VkInstance, name: *const i8) -> PFN_vkVoidFunction;
     pub fn vkGetDeviceProcAddr(device: VkDevice, pName: *const i8) -> PFN_vkVoidFunction;
     pub fn vkEnumerateInstanceVersion(pApiVersion: *mut u32) -> VkResult;
@@ -91,15 +92,8 @@ extern "C" {
         pInstance: *mut VkInstance,
     ) -> VkResult;
     pub fn vkDestroyInstance(instance: VkInstance, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkEnumerateInstanceExtensionProperties(
-        pLayerName: *const i8,
-        pPropertyCount: *mut u32,
-        pProperties: *mut VkExtensionProperties,
-    ) -> VkResult;
-    pub fn vkEnumerateInstanceLayerProperties(
-        pPropertyCount: *mut u32,
-        pProperties: *mut VkLayerProperties,
-    ) -> VkResult;
+
+    // 5. Devices and Queues
     pub fn vkEnumeratePhysicalDevices(
         instance: VkInstance,
         pPhysicalDeviceCount: *mut u32,
@@ -113,43 +107,10 @@ extern "C" {
         physicalDevice: VkPhysicalDevice,
         pProperties: *mut VkPhysicalDeviceProperties2,
     );
-    pub fn vkGetPhysicalDeviceFeatures(physicalDevice: VkPhysicalDevice, pFeatures: *mut VkPhysicalDeviceFeatures);
     pub fn vkGetPhysicalDeviceQueueFamilyProperties(
         physicalDevice: VkPhysicalDevice,
         pQueueFamilyPropertyCount: *mut u32,
         pQueueFamilyProperties: *mut VkQueueFamilyProperties,
-    );
-    pub fn vkGetPhysicalDeviceSurfaceSupportKHR(
-        physicalDevice: VkPhysicalDevice,
-        queueFamilyIndex: u32,
-        surface: VkSurfaceKHR,
-        pSupported: *mut VkBool32,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
-        physicalDevice: VkPhysicalDevice,
-        surface: VkSurfaceKHR,
-        pSurfaceCapabilities: *mut VkSurfaceCapabilitiesKHR,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceSurfaceFormatsKHR(
-        physicalDevice: VkPhysicalDevice,
-        surface: VkSurfaceKHR,
-        pSurfaceFormatCount: *mut u32,
-        pSurfaceFormats: *mut VkSurfaceFormatKHR,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceSurfacePresentModesKHR(
-        physicalDevice: VkPhysicalDevice,
-        surface: VkSurfaceKHR,
-        pPresentModeCount: *mut u32,
-        pPresentModes: *mut VkPresentModeKHR,
-    ) -> VkResult;
-    pub fn vkGetPhysicalDeviceMemoryProperties(
-        physicalDevice: VkPhysicalDevice,
-        pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
-    );
-    pub fn vkGetPhysicalDeviceFormatProperties(
-        physicalDevice: VkPhysicalDevice,
-        format: VkFormat,
-        pFormatProperties: *mut VkFormatProperties,
     );
     pub fn vkCreateDevice(
         physicalDevice: VkPhysicalDevice,
@@ -158,52 +119,7 @@ extern "C" {
         pDevice: *mut VkDevice,
     ) -> VkResult;
     pub fn vkDestroyDevice(device: VkDevice, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkEnumerateDeviceExtensionProperties(
-        physicalDevice: VkPhysicalDevice,
-        pLayerName: *const i8,
-        pPropertyCount: *mut u32,
-        pProperties: *mut VkExtensionProperties,
-    ) -> VkResult;
-    // Deprecated!
-    // pub fn vkEnumerateDeviceLayerProperties(
-    //     physicalDevice: VkPhysicalDevice,
-    //     pPropertyCount: *mut u32,
-    //     pProperties: *mut VkLayerProperties,
-    // ) -> VkResult;
     pub fn vkGetDeviceQueue(device: VkDevice, queueFamilyIndex: u32, queueIndex: u32, pQueue: *mut VkQueue);
-    pub fn vkQueueSubmit(queue: VkQueue, submitCount: u32, pSubmits: *const VkSubmitInfo, fence: VkFence) -> VkResult;
-    pub fn vkQueuePresentKHR(queue: VkQueue, pPresentInfo: *const VkPresentInfoKHR) -> VkResult;
-
-    // Extensions
-    pub fn vkCreateXlibSurfaceKHR(
-        instance: VkInstance,
-        pCreateInfo: *const VkXlibSurfaceCreateInfoKHR,
-        pAllocator: *const VkAllocationCallbacks,
-        pSurface: *mut VkSurfaceKHR,
-    ) -> VkResult;
-    pub fn vkDestroySurfaceKHR(instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *const VkAllocationCallbacks);
-
-    pub fn vkCreateSwapchainKHR(
-        device: VkDevice,
-        pCreateInfo: *const VkSwapchainCreateInfoKHR,
-        pAllocator: *const VkAllocationCallbacks,
-        pSwapchain: *mut VkSwapchainKHR,
-    ) -> VkResult;
-    pub fn vkDestroySwapchainKHR(device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkGetSwapchainImagesKHR(
-        device: VkDevice,
-        swapchain: VkSwapchainKHR,
-        pSwapchainImageCount: *mut u32,
-        pSwapchainImages: *mut VkImage,
-    ) -> VkResult;
-    pub fn vkAcquireNextImageKHR(
-        device: VkDevice,
-        swapchain: VkSwapchainKHR,
-        timeout: u64,
-        semaphore: VkSemaphore,
-        fence: VkFence,
-        pImageIndex: *mut u32,
-    ) -> VkResult;
 
     // 6. Command Buffers
     pub fn vkCreateCommandPool(
@@ -230,6 +146,7 @@ extern "C" {
     ) -> VkResult;
     pub fn vkEndCommandBuffer(commandBuffer: VkCommandBuffer) -> VkResult;
     pub fn vkResetCommandBuffer(commandBuffer: VkCommandBuffer, flags: VkCommandBufferResetFlags) -> VkResult;
+    pub fn vkQueueSubmit(queue: VkQueue, submitCount: u32, pSubmits: *const VkSubmitInfo, fence: VkFence) -> VkResult;
 
     // 7. Synchronization
     pub fn vkCreateFence(
@@ -255,7 +172,7 @@ extern "C" {
     ) -> VkResult;
     pub fn vkDestroySemaphore(device: VkDevice, semaphore: VkSemaphore, pAllocator: *const VkAllocationCallbacks);
 
-    // 8. Render Pass, Framebuffers
+    // 8. Render Pass and Framebuffers
     pub fn vkCreateRenderPass(
         device: VkDevice,
         pCreateInfo: *const VkRenderPassCreateInfo,
@@ -310,7 +227,82 @@ extern "C" {
     //    pPipelines: *mut VkPipeline,
     //) -> VkResult;
     pub fn vkDestroyPipeline(device: VkDevice, pipeline: VkPipeline, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreatePipelineCache(
+        device: VkDevice,
+        pCreateInfo: *const VkPipelineCacheCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pPipelineCache: *mut VkPipelineCache,
+    ) -> VkResult;
+    pub fn vkMergePipelineCaches(
+        device: VkDevice,
+        dstCache: VkPipelineCache,
+        srcCacheCount: u32,
+        pSrcCaches: *const VkPipelineCache,
+    ) -> VkResult;
+    pub fn vkGetPipelineCacheData(
+        device: VkDevice,
+        pipelineCache: VkPipelineCache,
+        pDataSize: *mut usize,
+        pData: *mut c_void,
+    ) -> VkResult;
+    pub fn vkDestroyPipelineCache(
+        device: VkDevice,
+        pipelineCache: VkPipelineCache,
+        pAllocator: *const VkAllocationCallbacks,
+    );
 
+    // 11. Memory Allocation
+    pub fn vkGetPhysicalDeviceMemoryProperties(
+        physicalDevice: VkPhysicalDevice,
+        pMemoryProperties: *mut VkPhysicalDeviceMemoryProperties,
+    );
+    pub fn vkAllocateMemory(
+        device: VkDevice,
+        pAllocateInfo: *const VkMemoryAllocateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pMemory: *mut VkDeviceMemory,
+    ) -> VkResult;
+    pub fn vkFreeMemory(device: VkDevice, memory: VkDeviceMemory, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkMapMemory(
+        device: VkDevice,
+        memory: VkDeviceMemory,
+        offset: VkDeviceSize,
+        size: VkDeviceSize,
+        flags: VkMemoryMapFlags,
+        ppData: *mut *mut c_void,
+    ) -> VkResult;
+    pub fn vkUnmapMemory(device: VkDevice, memory: VkDeviceMemory);
+    pub fn vkFlushMappedMemoryRanges(
+        device: VkDevice,
+        memoryRangeCount: u32,
+        pMemoryRanges: *const VkMappedMemoryRange,
+    ) -> VkResult;
+    pub fn vkInvalidateMappedMemoryRanges(
+        device: VkDevice,
+        memoryRangeCount: u32,
+        pMemoryRanges: *const VkMappedMemoryRange,
+    ) -> VkResult;
+    pub fn vkGetDeviceMemoryCommitment(
+        device: VkDevice,
+        memory: VkDeviceMemory,
+        pCommittedMemoryInBytes: *mut VkDeviceSize,
+    );
+
+    // 12. Resource Creation
+    pub fn vkCreateBuffer(
+        device: VkDevice,
+        pCreateInfo: *const VkBufferCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pBuffer: *mut VkBuffer,
+    ) -> VkResult;
+    pub fn vkDestroyBuffer(device: VkDevice, buffer: VkBuffer, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkCreateBufferView(
+        device: VkDevice,
+        pCreateInfo: *const VkBufferViewCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pView: *mut VkBufferView,
+    ) -> VkResult;
+    pub fn vkDestroyBufferView(device: VkDevice, bufferView: VkBufferView, pAllocator: *const VkAllocationCallbacks);
     pub fn vkCreateImage(
         device: VkDevice,
         pCreateInfo: *const VkImageCreateInfo,
@@ -318,17 +310,12 @@ extern "C" {
         pImage: *mut VkImage,
     ) -> VkResult;
     pub fn vkDestroyImage(device: VkDevice, image: VkImage, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkGetImageMemoryRequirements(
+    pub fn vkGetImageSubresourceLayout(
         device: VkDevice,
         image: VkImage,
-        pMemoryRequirements: *mut VkMemoryRequirements,
+        pSubresource: *const VkImageSubresource,
+        pLayout: *mut VkSubresourceLayout,
     );
-    pub fn vkBindImageMemory(
-        device: VkDevice,
-        image: VkImage,
-        memory: VkDeviceMemory,
-        memoryOffset: VkDeviceSize,
-    ) -> VkResult;
     pub fn vkCreateImageView(
         device: VkDevice,
         pCreateInfo: *const VkImageViewCreateInfo,
@@ -336,6 +323,31 @@ extern "C" {
         pView: *mut VkImageView,
     ) -> VkResult;
     pub fn vkDestroyImageView(device: VkDevice, imageView: VkImageView, pAllocator: *const VkAllocationCallbacks);
+
+    pub fn vkGetBufferMemoryRequirements(
+        device: VkDevice,
+        buffer: VkBuffer,
+        pMemoryRequirements: *mut VkMemoryRequirements,
+    );
+    pub fn vkGetImageMemoryRequirements(
+        device: VkDevice,
+        image: VkImage,
+        pMemoryRequirements: *mut VkMemoryRequirements,
+    );
+    pub fn vkBindBufferMemory(
+        device: VkDevice,
+        buffer: VkBuffer,
+        memory: VkDeviceMemory,
+        memoryOffset: VkDeviceSize,
+    ) -> VkResult;
+    pub fn vkBindImageMemory(
+        device: VkDevice,
+        image: VkImage,
+        memory: VkDeviceMemory,
+        memoryOffset: VkDeviceSize,
+    ) -> VkResult;
+
+    // 13. Samplers
     pub fn vkCreateSampler(
         device: VkDevice,
         pCreateInfo: *const VkSamplerCreateInfo,
@@ -343,6 +355,10 @@ extern "C" {
         pSampler: *mut VkSampler,
     ) -> VkResult;
     pub fn vkDestroySampler(device: VkDevice, sampler: VkSampler, pAllocator: *const VkAllocationCallbacks);
+    // pub fn vkCreateSamplerYcbcrConversion(...) -> VkResult;
+    // pub fn vkDestroySamplerYcbcrConversion(...);
+
+    // 14. Resource Descriptors
     pub fn vkCreateDescriptorSetLayout(
         device: VkDevice,
         pCreateInfo: *const VkDescriptorSetLayoutCreateInfo,
@@ -352,6 +368,18 @@ extern "C" {
     pub fn vkDestroyDescriptorSetLayout(
         device: VkDevice,
         descriptorSetLayout: VkDescriptorSetLayout,
+        pAllocator: *const VkAllocationCallbacks,
+    );
+    // pub fn vkGetDescriptorSetLayoutSupport(...);
+    pub fn vkCreatePipelineLayout(
+        device: VkDevice,
+        pCreateInfo: *const VkPipelineLayoutCreateInfo,
+        pAllocator: *const VkAllocationCallbacks,
+        pPipelineLayout: *mut VkPipelineLayout,
+    ) -> VkResult;
+    pub fn vkDestroyPipelineLayout(
+        device: VkDevice,
+        pipelineLayout: VkPipelineLayout,
         pAllocator: *const VkAllocationCallbacks,
     );
     pub fn vkCreateDescriptorPool(
@@ -365,6 +393,11 @@ extern "C" {
         descriptorPool: VkDescriptorPool,
         pAllocator: *const VkAllocationCallbacks,
     );
+    pub fn vkResetDescriptorPool(
+        device: VkDevice,
+        descriptorPool: VkDescriptorPool,
+        flags: VkDescriptorPoolResetFlags,
+    ) -> VkResult;
     pub fn vkAllocateDescriptorSets(
         device: VkDevice,
         pAllocateInfo: *const VkDescriptorSetAllocateInfo,
@@ -383,55 +416,178 @@ extern "C" {
         descriptorCopyCount: u32,
         pDescriptorCopies: *const VkCopyDescriptorSet,
     );
-    pub fn vkCreatePipelineLayout(
+
+    // 15. Shader Interfaces
+
+    // 16. Image Operations
+
+    // 17. Fragment Density Map Operations
+
+    // 18. Queries
+    pub fn vkCreateQueryPool(
         device: VkDevice,
-        pCreateInfo: *const VkPipelineLayoutCreateInfo,
+        pCreateInfo: *const VkQueryPoolCreateInfo,
         pAllocator: *const VkAllocationCallbacks,
-        pPipelineLayout: *mut VkPipelineLayout,
+        pQueryPool: *mut VkQueryPool,
     ) -> VkResult;
-    pub fn vkDestroyPipelineLayout(
+    pub fn vkDestroyQueryPool(device: VkDevice, queryPool: VkQueryPool, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkResetQueryPool(device: VkDevice, queryPool: VkQueryPool, firstQuery: u32, queryCount: u32);
+    pub fn vkGetQueryPoolResults(
         device: VkDevice,
-        pipelineLayout: VkPipelineLayout,
-        pAllocator: *const VkAllocationCallbacks,
-    );
-    pub fn vkCreateBuffer(
-        device: VkDevice,
-        pCreateInfo: *const VkBufferCreateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pBuffer: *mut VkBuffer,
+        queryPool: VkQueryPool,
+        firstQuery: u32,
+        queryCount: u32,
+        dataSize: usize,
+        data: *mut c_void,
+        stride: VkDeviceSize,
+        flags: VkQueryResultFlags,
     ) -> VkResult;
-    pub fn vkDestroyBuffer(device: VkDevice, buffer: VkBuffer, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkGetBufferMemoryRequirements(
-        device: VkDevice,
-        buffer: VkBuffer,
-        pMemoryRequirements: *mut VkMemoryRequirements,
-    );
-    pub fn vkAllocateMemory(
-        device: VkDevice,
-        pAllocateInfo: *const VkMemoryAllocateInfo,
-        pAllocator: *const VkAllocationCallbacks,
-        pMemory: *mut VkDeviceMemory,
-    ) -> VkResult;
-    pub fn vkFreeMemory(device: VkDevice, memory: VkDeviceMemory, pAllocator: *const VkAllocationCallbacks);
-    pub fn vkBindBufferMemory(
-        device: VkDevice,
-        buffer: VkBuffer,
-        memory: VkDeviceMemory,
-        memoryOffset: VkDeviceSize,
-    ) -> VkResult;
-    pub fn vkMapMemory(
-        device: VkDevice,
-        memory: VkDeviceMemory,
-        offset: VkDeviceSize,
-        size: VkDeviceSize,
-        flags: VkMemoryMapFlags,
-        ppData: *mut *mut c_void,
-    ) -> VkResult;
-    pub fn vkUnmapMemory(device: VkDevice, memory: VkDeviceMemory);
+
     pub fn vkDeviceWaitIdle(device: VkDevice) -> VkResult;
     pub fn vkQueueWaitIdle(queue: VkQueue) -> VkResult;
 
+    // 31. Device-Generated Commands
+    // 32. Sparse Resources
+    // 33. Window System Integration (WSI)
+    //pub fn vkCreateAndroidSurfaceKHR(...) -> VkResult;
+    //pub fn vkCreateWaylandSurfaceKHR(...) -> VkResult;
+    //pub fn vkCreateWin32SurfaceKHR(...) -> VkResult;
+    //pub fn vkCreateXcbSurfaceKHR(...) -> VkResult;
+    pub fn vkCreateXlibSurfaceKHR(
+        instance: VkInstance,
+        pCreateInfo: *const VkXlibSurfaceCreateInfoKHR,
+        pAllocator: *const VkAllocationCallbacks,
+        pSurface: *mut VkSurfaceKHR,
+    ) -> VkResult;
+    //pub fn vkCreateDirectFBSurfaceEXT(...) -> VkResult;
+    //pub fn vkCreateImagePipeSurfaceFUCHSIA(...) -> VkResult;
+    //pub fn vkCreateStreamDescriptorSurfaceGGP(...) -> VkResult;
+    //pub fn vkCreateIOSSurfaceMVK(...) -> VkResult;
+    //pub fn vkCreateMacOSSurfaceMVK(...) -> VkResult;
+    //pub fn vkCreateViSurfaceNN(...) -> VkResult;
+    //pub fn vkCreateMetalSurfaceEXT(...) -> VkResult;
+    //pub fn vkCreateScreenSurfaceQNX(...) -> VkResult;
+    pub fn vkDestroySurfaceKHR(instance: VkInstance, surface: VkSurfaceKHR, pAllocator: *const VkAllocationCallbacks);
+    //pub fn vkGetPhysicalDeviceDisplayPropertiesKHR(...) -> VkResult;
+    //pub fn vkAcquireXlibDisplayEXT(...) -> VkResult;
+    //pub fn vkGetRandROutputDisplayEXT(...) -> VkResult;
+    //pub fn vkCreateHeadlessSurfaceEXT(...) -> VkResult;
+    pub fn vkGetPhysicalDeviceSurfaceSupportKHR(
+        physicalDevice: VkPhysicalDevice,
+        queueFamilyIndex: u32,
+        surface: VkSurfaceKHR,
+        pSupported: *mut VkBool32,
+    ) -> VkResult;
+    //pub fn vkGetPhysicalDeviceXlibPresentationSupportKHR(...) -> VkBool32;
+    pub fn vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
+        physicalDevice: VkPhysicalDevice,
+        surface: VkSurfaceKHR,
+        pSurfaceCapabilities: *mut VkSurfaceCapabilitiesKHR,
+    ) -> VkResult;
+    pub fn vkGetPhysicalDeviceSurfaceFormatsKHR(
+        physicalDevice: VkPhysicalDevice,
+        surface: VkSurfaceKHR,
+        pSurfaceFormatCount: *mut u32,
+        pSurfaceFormats: *mut VkSurfaceFormatKHR,
+    ) -> VkResult;
+    pub fn vkGetPhysicalDeviceSurfacePresentModesKHR(
+        physicalDevice: VkPhysicalDevice,
+        surface: VkSurfaceKHR,
+        pPresentModeCount: *mut u32,
+        pPresentModes: *mut VkPresentModeKHR,
+    ) -> VkResult;
+    pub fn vkCreateSwapchainKHR(
+        device: VkDevice,
+        pCreateInfo: *const VkSwapchainCreateInfoKHR,
+        pAllocator: *const VkAllocationCallbacks,
+        pSwapchain: *mut VkSwapchainKHR,
+    ) -> VkResult;
+    pub fn vkDestroySwapchainKHR(device: VkDevice, swapchain: VkSwapchainKHR, pAllocator: *const VkAllocationCallbacks);
+    pub fn vkGetSwapchainImagesKHR(
+        device: VkDevice,
+        swapchain: VkSwapchainKHR,
+        pSwapchainImageCount: *mut u32,
+        pSwapchainImages: *mut VkImage,
+    ) -> VkResult;
+    pub fn vkAcquireNextImageKHR(
+        device: VkDevice,
+        swapchain: VkSwapchainKHR,
+        timeout: u64,
+        semaphore: VkSemaphore,
+        fence: VkFence,
+        pImageIndex: *mut u32,
+    ) -> VkResult;
+    pub fn vkQueuePresentKHR(queue: VkQueue, pPresentInfo: *const VkPresentInfoKHR) -> VkResult;
+
+    // 34. Deferred Host Operations
+    // 35. Private Data
+    //pub fn vkCreatePrivateDataSlot(...) -> VkResult;
+    //pub fn vkDestroyPrivateDataSlot(...) -> VkResult;
+    //pub fn vkSetPrivateData(...) -> VkResult;
+    //pub fn vkGetPrivateData(...);
+
+    // 36. Acceleration Structures
+    // 37. Ray Traversal
+    // 38. Ray Tracing
+    // 39. Video Decode and Encode Operations
+    // 40. Extending Vulkan
+    pub fn vkEnumerateInstanceLayerProperties(
+        pPropertyCount: *mut u32,
+        pProperties: *mut VkLayerProperties,
+    ) -> VkResult;
+    // Deprecated!
+    // pub fn vkEnumerateDeviceLayerProperties(
+    //     physicalDevice: VkPhysicalDevice,
+    //     pPropertyCount: *mut u32,
+    //     pProperties: *mut VkLayerProperties,
+    // ) -> VkResult;
+    pub fn vkEnumerateInstanceExtensionProperties(
+        pLayerName: *const i8,
+        pPropertyCount: *mut u32,
+        pProperties: *mut VkExtensionProperties,
+    ) -> VkResult;
+    pub fn vkEnumerateDeviceExtensionProperties(
+        physicalDevice: VkPhysicalDevice,
+        pLayerName: *const i8,
+        pPropertyCount: *mut u32,
+        pProperties: *mut VkExtensionProperties,
+    ) -> VkResult;
+
+    // 41. Features
+    pub fn vkGetPhysicalDeviceFeatures(physicalDevice: VkPhysicalDevice, pFeatures: *mut VkPhysicalDeviceFeatures);
+    // 42. Limits
+    // 43. Formats
+    pub fn vkGetPhysicalDeviceFormatProperties(
+        physicalDevice: VkPhysicalDevice,
+        format: VkFormat,
+        pFormatProperties: *mut VkFormatProperties,
+    );
+    // 44. Additional Capabilities
+    //pub fn vkGetPhysicalDeviceImageFormatProperties(...) -> VkResult;
+    // 45. Debugging
+    //pub fn vkCreateDebugUtilsMessengerEXT(...) -> VkResult;
+    //pub fn vkSubmitDebugUtilsMessageEXT(...);
+    //pub fn vkDestroyDebugUtilsMessengerEXT(...);
+    //pub fn vkCreateDebugReportCallbackEXT(...) -> VkResult;
+    //pub fn vkDebugReportMessageEXT(...);
+    //pub fn vkDestroyDebugReportCallbackEXT(...);
+
     // Commands
+    // 7. Synchronization
+    pub fn vkCmdPipelineBarrier(
+        commandBuffer: VkCommandBuffer,
+        srcStageMask: VkPipelineStageFlags,
+        dstStageMask: VkPipelineStageFlags,
+        dependencyFlags: VkDependencyFlags,
+        memoryBarrierCount: u32,
+        pMemoryBarriers: *const VkMemoryBarrier,
+        bufferMemoryBarrierCount: u32,
+        pBufferMemoryBarriers: *const VkBufferMemoryBarrier,
+        imageMemoryBarrierCounts: u32,
+        pImageMemoryBarriers: *const VkImageMemoryBarrier,
+    );
+
+    // 8. Render Pass and Framebuffers
     pub fn vkCmdBeginRenderPass(
         commandBuffer: VkCommandBuffer,
         pRenderPassBegin: *const VkRenderPassBeginInfo,
@@ -440,36 +596,15 @@ extern "C" {
     pub fn vkCmdEndRenderPass(commandBuffer: VkCommandBuffer);
     pub fn vkCmdBeginRendering(commandBuffer: VkCommandBuffer, pRenderingInfo: *const VkRenderingInfo);
     pub fn vkCmdEndRendering(commandBuffer: VkCommandBuffer);
+
+    // 10. Pipelines
     pub fn vkCmdBindPipeline(
         commandBuffer: VkCommandBuffer,
         pipelineBindPoint: VkPipelineBindPoint,
         pipeline: VkPipeline,
     );
-    pub fn vkCmdBindVertexBuffers(
-        commandBuffer: VkCommandBuffer,
-        firstBinding: u32,
-        bindingCount: u32,
-        pBuffers: *const VkBuffer,
-        pOffsets: *const VkDeviceSize,
-    );
-    pub fn vkCmdBindIndexBuffer(
-        commandBuffer: VkCommandBuffer,
-        buffer: VkBuffer,
-        offset: VkDeviceSize,
-        indexType: VkIndexType,
-    );
-    pub fn vkCmdSetViewport(
-        commandBuffer: VkCommandBuffer,
-        firstViewport: u32,
-        viewportCount: u32,
-        pViewports: *const VkViewport,
-    );
-    pub fn vkCmdSetScissor(
-        commandBuffer: VkCommandBuffer,
-        firstScissor: u32,
-        scissorCount: u32,
-        pScissors: *const VkRect2D,
-    );
+
+    // 14. Resource Descriptors
     pub fn vkCmdBindDescriptorSets(
         commandBuffer: VkCommandBuffer,
         pipelineBindPoint: VkPipelineBindPoint,
@@ -479,6 +614,147 @@ extern "C" {
         pDescriptorSets: *const VkDescriptorSet,
         dynamicOffsetCount: u32,
         pDynamicOffsets: *const u32,
+    );
+    pub fn vkCmdPushConstants(
+        commandBuffer: VkCommandBuffer,
+        layout: VkPipelineLayout,
+        stageFlags: VkShaderStageFlags,
+        offset: u32,
+        size: u32,
+        pValues: *const c_void,
+    );
+
+    // 18. Queries
+    pub fn vkCmdResetQueryPool(
+        commandBuffer: VkCommandBuffer,
+        queryPool: VkQueryPool,
+        firstQuery: u32,
+        queryCount: u32,
+    );
+    pub fn vkCmdBeginQuery(
+        commandBuffer: VkCommandBuffer,
+        queryPool: VkQueryPool,
+        query: u32,
+        flags: VkQueryControlFlags,
+    );
+    pub fn vkCmdEndQuery(commandBuffer: VkCommandBuffer, queryPool: VkQueryPool, query: u32);
+    pub fn vkCmdCopyQueryPoolResults(
+        commandBuffer: VkCommandBuffer,
+        queryPool: VkQueryPool,
+        firstQuery: u32,
+        queryCount: u32,
+        dstBuffer: VkBuffer,
+        dstOffset: VkDeviceSize,
+        stride: VkDeviceSize,
+        flags: VkQueryResultFlags,
+    );
+    pub fn vkCmdWriteTimestamp(
+        commandBuffer: VkCommandBuffer,
+        pipelineStage: VkPipelineStageFlagBits,
+        queryPool: VkQueryPool,
+        query: u32,
+    );
+
+    // 19. Clear Commands
+    pub fn vkCmdClearColorImage(
+        commandBuffer: VkCommandBuffer,
+        image: VkImage,
+        imageLayout: VkImageLayout,
+        pColor: *const VkClearColorValue,
+        rangeCount: u32,
+        pRanges: *const VkImageSubresourceRange,
+    );
+    pub fn vkCmdClearDepthStencilImage(
+        commandBuffer: VkCommandBuffer,
+        image: VkImage,
+        imageLayout: VkImageLayout,
+        pDepthStencil: *const VkClearDepthStencilValue,
+        rangeCount: u32,
+        pRanges: *const VkImageSubresourceRange,
+    );
+    pub fn vkCmdClearAttachments(
+        commandBuffer: VkCommandBuffer,
+        attachmentCount: u32,
+        pAttachments: *const VkClearAttachment,
+        rectCount: u32,
+        pRects: *const VkClearRect,
+    );
+    pub fn vkCmdFillBuffer(
+        commandBuffer: VkCommandBuffer,
+        dstBuffer: VkBuffer,
+        dstOffset: VkDeviceSize,
+        size: VkDeviceSize,
+        data: u32,
+    );
+    pub fn vkCmdUpdateBuffer(
+        commandBuffer: VkCommandBuffer,
+        dstBuffer: VkBuffer,
+        dstOffset: VkDeviceSize,
+        dataSize: VkDeviceSize,
+        pData: *const c_void,
+    );
+
+    // 20. Copy Commands
+    pub fn vkCmdCopyBuffer(
+        commandBuffer: VkCommandBuffer,
+        srcBuffer: VkBuffer,
+        dstBuffer: VkBuffer,
+        regionCount: u32,
+        pRegions: *const VkBufferCopy,
+    );
+    pub fn vkCmdCopyImage(
+        commandBuffer: VkCommandBuffer,
+        srcImage: VkImage,
+        srcImageLayout: VkImageLayout,
+        dstImage: VkImage,
+        dstImageLayout: VkImageLayout,
+        regionCount: u32,
+        pRegions: *const VkImageCopy,
+    );
+    pub fn vkCmdCopyBufferToImage(
+        commandBuffer: VkCommandBuffer,
+        srcBuffer: VkBuffer,
+        dstImage: VkImage,
+        dstImageLayout: VkImageLayout,
+        regionCount: u32,
+        pRegions: *const VkBufferImageCopy,
+    );
+    pub fn vkCmdCopyImageToBuffer(
+        commandBuffer: VkCommandBuffer,
+        srcImage: VkImage,
+        srcImageLayout: VkImageLayout,
+        dstBuffer: VkBuffer,
+        regionCount: u32,
+        pRegions: *const VkBufferImageCopy,
+    );
+    pub fn vkCmdBlitImage(
+        commandBuffer: VkCommandBuffer,
+        srcImage: VkImage,
+        srcImageLayout: VkImageLayout,
+        dstImage: VkImage,
+        dstImageLayout: VkImageLayout,
+        regionCount: u32,
+        pRegions: *const VkImageBlit,
+        filter: VkFilter,
+    );
+    pub fn vkCmdResolveImage(
+        commandBuffer: VkCommandBuffer,
+        srcImage: VkImage,
+        srcImageLayout: VkImageLayout,
+        dstImage: VkImage,
+        dstImageLayout: VkImageLayout,
+        regionCount: u32,
+        pRegions: *const VkImageResolve,
+    );
+
+    // 21. Drawing Commands
+    pub fn vkCmdSetPrimitiveRestartEnable(commandBuffer: VkCommandBuffer, primitiveRestartEnable: VkBool32);
+    pub fn vkCmdSetPrimitiveTopology(commandBuffer: VkCommandBuffer, primitiveTopology: VkPrimitiveTopology);
+    pub fn vkCmdBindIndexBuffer(
+        commandBuffer: VkCommandBuffer,
+        buffer: VkBuffer,
+        offset: VkDeviceSize,
+        indexType: VkIndexType,
     );
     pub fn vkCmdDraw(
         commandBuffer: VkCommandBuffer,
@@ -495,32 +771,113 @@ extern "C" {
         vertexOffset: i32,
         firstInstance: u32,
     );
-    pub fn vkCmdCopyBuffer(
+    pub fn vkCmdDrawIndirect(
         commandBuffer: VkCommandBuffer,
-        srcBuffer: VkBuffer,
-        dstBuffer: VkBuffer,
-        regionCount: u32,
-        pRegions: *const VkBufferCopy,
+        buffer: VkBuffer,
+        offset: VkDeviceSize,
+        drawCount: u32,
+        stride: u32,
     );
-    pub fn vkCmdPipelineBarrier(
+    pub fn vkCmdDrawIndirectCount(
         commandBuffer: VkCommandBuffer,
-        srcStageMask: VkPipelineStageFlags,
-        dstStageMask: VkPipelineStageFlags,
-        dependencyFlags: VkDependencyFlags,
-        memoryBarrierCount: u32,
-        pMemoryBarriers: *const VkMemoryBarrier,
-        bufferMemoryBarrierCount: u32,
-        pBufferMemoryBarriers: *const VkBufferMemoryBarrier,
-        imageMemoryBarrierCounts: u32,
-        pImageMemoryBarriers: *const VkImageMemoryBarrier,
+        buffer: VkBuffer,
+        offset: VkDeviceSize,
+        countBuffer: VkBuffer,
+        countBufferOffset: VkDeviceSize,
+        maxDrawCount: u32,
+        stride: u32,
     );
-    pub fn vkCmdCopyBufferToImage(
+    pub fn vkCmdDrawIndexedIndirect(
         commandBuffer: VkCommandBuffer,
-        srcBuffer: VkBuffer,
-        dstImage: VkImage,
-        dstImageLayout: VkImageLayout,
-        regionCount: u32,
-        pRegions: *const VkBufferImageCopy,
+        buffer: VkBuffer,
+        offset: VkDeviceSize,
+        drawCount: u32,
+        stride: u32,
+    );
+    pub fn vkCmdDrawIndexedIndirectCount(
+        commandBuffer: VkCommandBuffer,
+        buffer: VkBuffer,
+        offset: VkDeviceSize,
+        countBuffer: VkBuffer,
+        countBufferOffset: VkDeviceSize,
+        maxDrawCount: u32,
+        stride: u32,
+    );
+
+    // 22. Fixed-Function Vertex Processing
+    pub fn vkCmdBindVertexBuffers(
+        commandBuffer: VkCommandBuffer,
+        firstBinding: u32,
+        bindingCount: u32,
+        pBuffers: *const VkBuffer,
+        pOffsets: *const VkDeviceSize,
+    );
+
+    // 23. Tesselation
+    // 24. Geomtry Shading
+    // 25. Mesh Shading
+    // 26. Fixed-Function Vertex Post-Processing
+    pub fn vkCmdSetViewportWithCount(commandBuffer: VkCommandBuffer, viewportCount: u32, pViewports: *const VkViewport);
+    pub fn vkCmdSetScissorWithCount(commandBuffer: VkCommandBuffer, scissorCount: u32, pScissors: *const VkRect2D);
+    pub fn vkCmdSetViewport(
+        commandBuffer: VkCommandBuffer,
+        firstViewport: u32,
+        viewportCount: u32,
+        pViewports: *const VkViewport,
+    );
+    pub fn vkCmdSetScissor(
+        commandBuffer: VkCommandBuffer,
+        firstScissor: u32,
+        scissorCount: u32,
+        pScissors: *const VkRect2D,
+    );
+
+    // 27. Rasterization
+    pub fn vkCmdSetRasterizerDiscardEnable(commandBuffer: VkCommandBuffer, rasterizerDiscardEnable: VkBool32);
+    pub fn vkCmdSetLineWidth(commandBuffer: VkCommandBuffer, lineWidth: f32);
+    pub fn vkCmdSetFrontFace(commandBuffer: VkCommandBuffer, frontFace: VkFrontFace);
+    pub fn vkCmdSetCullMode(commandBuffer: VkCommandBuffer, cullMode: VkCullModeFlags);
+    pub fn vkCmdSetDepthBiasEnable(commandBuffer: VkCommandBuffer, depthBiasEnable: VkBool32);
+    pub fn vkCmdSetDepthBias(
+        commandBuffer: VkCommandBuffer,
+        depthBiasConstantFactor: f32,
+        depthBiasClamp: f32,
+        depthBiasSlopeFactor: f32,
+    );
+
+    // 28. Fragment Operations
+    pub fn vkCmdSetDepthBoundsTestEnable(commandBuffer: VkCommandBuffer, depthBoundsTestEnable: VkBool32);
+    pub fn vkCmdSetDepthBounds(commandBuffer: VkCommandBuffer, minDepthBounds: f32, maxDepthBounds: f32);
+    pub fn vkCmdSetStencilTestEnable(commandBuffer: VkCommandBuffer, stencilTestEnable: VkBool32);
+    //pub fn vkCmdSetStencilOp(
+    //    commandBuffer: VkCommandBuffer,
+    //    faceMask: VkStencilFaceFlags,
+    //    failOp: VkStencilOp,
+    //    passOp: VkStencilOp,
+    //    depthFailOp: VkStencilOp,
+    //    compareOp: VkStencilOp,
+    //);
+    //pub fn vkCmdSetStencilCompareMask(commandBuffer, VkCommandBuffer, faceMask: VkStencilFaceFlags, compareMask: u32);
+    //pub fn vkCmdSetStencilWriteMask(commandBuffer, VkCommandBuffer, faceMask: VkStencilFaceFlags, writeMask: u32);
+    //pub fn vkCmdSetStencilReference(commandBuffer, VkCommandBuffer, faceMask: VkStencilFaceFlags, reference: u32);
+    pub fn vkCmdSetDepthTestEnable(commandBuffer: VkCommandBuffer, depthTestEnable: VkBool32);
+    pub fn vkCmdSetDepthCompareOp(commandBuffer: VkCommandBuffer, depthCompareOp: VkCompareOp);
+    pub fn vkCmdSetDepthWriteEnable(commandBuffer: VkCommandBuffer, depthWriteEnable: VkBool32);
+
+    // 29. The Framebuffer
+    pub fn vkCmdSetBlendConstants(commandBuffer: VkCommandBuffer, blendConstants: *const f32 /*[f32; 4]*/);
+
+    // 30. Dispatching Commands
+    pub fn vkCmdDispatch(commandBuffer: VkCommandBuffer, groupCountX: u32, groupCountY: u32, groupCountZ: u32);
+    pub fn vkCmdDispatchIndirect(commandBuffer: VkCommandBuffer, buffer: VkBuffer, offset: VkDeviceSize);
+    pub fn vkCmdDispatchBase(
+        commandBuffer: VkCommandBuffer,
+        baseGroupX: u32,
+        baseGroupY: u32,
+        baseGroupZ: u32,
+        groupCountX: u32,
+        groupCountY: u32,
+        groupCountZ: u32,
     );
 }
 
@@ -1188,6 +1545,24 @@ pub struct VkImageSubresourceRange {
 }
 
 #[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkImageSubresource {
+    pub aspectMask: VkImageAspectFlags,
+    pub mipLevel: u32,
+    pub arrayLayer: u32,
+}
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct VkSubresourceLayout {
+    pub offset: VkDeviceSize,
+    pub size: VkDeviceSize,
+    pub rowPitch: VkDeviceSize,
+    pub arrayPitch: VkDeviceSize,
+    pub depthPitch: VkDeviceSize,
+}
+
+#[repr(C)]
 #[derive(Debug)]
 pub struct VkSamplerCreateInfo {
     pub sType: VkStructureType,
@@ -1311,6 +1686,17 @@ pub struct VkDescriptorImageInfo {
     pub sampler: VkSampler,
     pub imageView: VkImageView,
     pub imageLayout: VkImageLayout,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkQueryPoolCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkQueryPoolCreateFlags,
+    pub queryType: VkQueryType,
+    pub queryCount: u32,
+    pub pipelineStatistics: VkQueryPipelineStatisticFlags,
 }
 
 #[repr(C)]
@@ -1592,6 +1978,16 @@ pub struct VkGraphicsPipelineCreateInfo {
 
 #[repr(C)]
 #[derive(Debug)]
+pub struct VkPipelineCacheCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkPipelineCacheCreateFlags,
+    pub initialDataSize: usize,
+    pub pInitialData: *const c_void,
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct VkPipelineTessellationStateCreateInfo {
     // TODO
     _data: [u8; 0],
@@ -1678,7 +2074,7 @@ pub struct VkCommandBufferInheritanceInfo {
     pub framebuffer: VkFramebuffer,
     pub occlusionQueryEnable: VkBool32,
     pub queryFlags: VkQueryControlFlags,
-    pub pipelineStatistics: VkQueryPipelineStatisticsFlags,
+    pub pipelineStatistics: VkQueryPipelineStatisticFlags,
 }
 
 #[repr(C)]
@@ -1692,6 +2088,18 @@ pub struct VkBufferCreateInfo {
     pub sharingMode: VkSharingMode,
     pub queueFamilyIndexCount: u32,
     pub pQueueFamilyIndices: *const u32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkBufferViewCreateInfo {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkBufferViewCreateFlags,
+    pub buffer: VkBuffer,
+    pub format: VkFormat,
+    pub offset: VkDeviceSize,
+    pub range: VkDeviceSize,
 }
 
 #[repr(C)]
@@ -1740,6 +2148,16 @@ pub struct VkMemoryAllocateInfo {
     pub pNext: *const c_void,
     pub allocationSize: VkDeviceSize,
     pub memoryTypeIndex: u32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkMappedMemoryRange {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub memory: VkDeviceMemory,
+    pub offset: VkDeviceSize,
+    pub size: VkDeviceSize,
 }
 
 #[repr(C)]
@@ -1837,6 +2255,16 @@ pub struct VkBufferCopy {
 
 #[repr(C)]
 #[derive(Debug)]
+pub struct VkImageCopy {
+    pub srcSubresource: VkImageSubresourceLayers,
+    pub srcOffset: VkOffset3D,
+    pub dstSubresource: VkImageSubresourceLayers,
+    pub dstOffset: VkOffset3D,
+    pub extent: VkExtent3D,
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct VkMemoryBarrier {
     pub sType: VkStructureType,
     pub pNext: *const c_void,
@@ -1886,6 +2314,25 @@ pub struct VkBufferImageCopy {
 
 #[repr(C)]
 #[derive(Debug)]
+pub struct VkImageBlit {
+    pub srcSubresource: VkImageSubresourceLayers,
+    pub srcOffsets: [VkOffset3D; 2],
+    pub dstSubresource: VkImageSubresourceLayers,
+    pub dstOffsets: [VkOffset3D; 2],
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkImageResolve {
+    pub srcSubresource: VkImageSubresourceLayers,
+    pub srcOffset: VkOffset3D,
+    pub dstSubresource: VkImageSubresourceLayers,
+    pub dstOffset: VkOffset3D,
+    pub extent: VkExtent3D,
+}
+
+#[repr(C)]
+#[derive(Debug)]
 pub struct VkImageSubresourceLayers {
     pub aspectMask: VkImageAspectFlags,
     pub mipLevel: u32,
@@ -1915,6 +2362,22 @@ pub union VkClearColorValue {
 pub struct VkClearDepthStencilValue {
     pub depth: f32,
     pub stencil: u32,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkClearAttachment {
+    pub aspectMask: VkImageAspectFlags,
+    pub colorAttachment: u32,
+    pub clearValue: VkClearValue,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkClearRect {
+    pub rect: VkRect2D,
+    pub baseArrayLayer: u32,
+    pub layerCount: u32,
 }
 
 // Enums
@@ -3253,7 +3716,7 @@ bitflag_enum!(VkQueryControlFlagBits {
     VK_QUERY_CONTROL_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
 });
 
-bitflag_struct!(VkQueryPipelineStatisticsFlags: VkQueryPipelineStatisticFlagBits);
+bitflag_struct!(VkQueryPipelineStatisticFlags: VkQueryPipelineStatisticFlagBits);
 bitflag_enum!(VkQueryPipelineStatisticFlagBits {
     VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT = 0x00000001,
     VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT = 0x00000002,
@@ -3323,6 +3786,8 @@ bitflag_enum!(VkBufferUsageFlagBits {
     VK_BUFFER_USAGE_FLAG_BITS_MAX_ENUM = 0x7FFFFFF,
 });
 
+pub type VkBufferViewCreateFlags = VkFlags;
+
 bitflag_struct!(VkMemoryPropertyFlags: VkMemoryPropertyFlagBits);
 bitflag_enum!(VkMemoryPropertyFlagBits {
     VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT = 0x00000001,
@@ -3363,6 +3828,20 @@ bitflag_enum!(VkDescriptorPoolCreateFlagBits {
     VK_DESCRIPTOR_POOL_CREATE_HOST_ONLY_BIT_VALVE = 0x00000004,
 //    VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT = VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT,
     VK_DESCRIPTOR_POOL_CREATE_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
+});
+
+pub type VkDescriptorPoolResetFlags = VkFlags;
+
+pub type VkQueryPoolCreateFlags = VkFlags;
+
+bitflag_struct!(VkQueryResultFlags: VkQueryResultFlagBits);
+bitflag_enum!(VkQueryResultFlagBits {
+    VK_QUERY_RESULT_64_BIT = 0x00000001,
+    VK_QUERY_RESULT_WAIT_BIT = 0x00000002,
+    VK_QUERY_RESULT_WITH_AVAILABILITY_BIT = 0x00000004,
+    VK_QUERY_RESULT_PARTIAL_BIT = 0x00000008,
+    VK_QUERY_RESULT_WITH_STATUS_BIT_KHR = 0x00000010,
+    VK_QUERY_RESULT_FLAG_BITS_MAX_ENUM = 0x7FFFFFFF,
 });
 
 bitflag_struct!(VkImageCreateFlags: VkImageCreateFlagBits);
@@ -3480,6 +3959,14 @@ bitflag_enum!(VkResolveModeFlagBits {
 //    VK_RESOLVE_MODE_MIN_BIT_KHR = VK_RESOLVE_MODE_MIN_BIT,
   // Provided by VK_KHR_depth_stencil_resolve
 //    VK_RESOLVE_MODE_MAX_BIT_KHR = VK_RESOLVE_MODE_MAX_BIT,
+});
+
+bitflag_struct!(VkPipelineCacheCreateFlags: VkPipelineCacheCreateFlagBits);
+bitflag_enum!(VkPipelineCacheCreateFlagBits {
+    // Provided by VK_VERSION_1_3
+    VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT = 0x00000001,
+    // Provided by VK_EXT_pipeline_creation_cache_control
+//    VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT_EXT = VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT,
 });
 
 #[repr(C)]
@@ -4494,6 +4981,7 @@ pub enum VkSystemAllocationScope {
     VK_SYSTEM_ALLOCATION_SCOPE_INSTANCE = 4,
     VK_SYSTEM_ALLOCATION_SCOPE_MAX_ENUM = 0x7FFFFFFF,
 }
+pub use VkSystemAllocationScope::*;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -4501,3 +4989,22 @@ pub enum VkInternalAllocationType {
     VK_INTERNAL_ALLOCATION_TYPE_EXECUTABLE = 0,
     VK_INTERNAL_ALLOCATION_TYPE_MAX_ENUM = 0x7FFFFFFF,
 }
+pub use VkInternalAllocationType::*;
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum VkQueryType {
+    VK_QUERY_TYPE_OCCLUSION = 0,
+    VK_QUERY_TYPE_PIPELINE_STATISTICS = 1,
+    VK_QUERY_TYPE_TIMESTAMP = 2,
+    VK_QUERY_TYPE_RESULT_STATUS_ONLY_KHR = 1000023000,
+    VK_QUERY_TYPE_TRANSFORM_FEEDBACK_STREAM_EXT = 1000028004,
+    VK_QUERY_TYPE_PERFORMANCE_QUERY_KHR = 1000116000,
+    VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR = 1000150000,
+    VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR = 1000150001,
+    VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_NV = 1000165000,
+    VK_QUERY_TYPE_PERFORMANCE_QUERY_INTEL = 1000210000,
+    VK_QUERY_TYPE_VIDEO_ENCODE_BITSTREAM_BUFFER_RANGE_KHR = 1000299000,
+    VK_QUERY_TYPE_MAX_ENUM = 0x7FFFFFFF,
+}
+pub use VkQueryType::*;
