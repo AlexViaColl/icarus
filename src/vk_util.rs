@@ -756,6 +756,16 @@ impl fmt::Debug for VkLayerProperties {
     }
 }
 
+impl Default for VkClearValue {
+    fn default() -> Self {
+        Self {
+            color: VkClearColorValue {
+                float32: [0.0; 4],
+            },
+        }
+    }
+}
+
 impl fmt::Debug for VkClearValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         writeln!(f, "VkClearValue {{")?;
@@ -1314,7 +1324,7 @@ impl Default for VkPresentInfoKHR {
 
 impl Default for VkRenderPassBeginInfo {
     fn default() -> Self {
-        VkRenderPassBeginInfo {
+        Self {
             sType: VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             pNext: ptr::null(),
             renderPass: VkRenderPass::default(),
@@ -1322,6 +1332,40 @@ impl Default for VkRenderPassBeginInfo {
             renderArea: VkRect2D::default(),
             clearValueCount: 0,
             pClearValues: ptr::null(),
+        }
+    }
+}
+
+impl Default for VkRenderingInfo {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_RENDERING_INFO,
+            pNext: ptr::null(),
+            flags: 0.into(),
+            renderArea: VkRect2D::default(),
+            layerCount: 0,
+            viewMask: 0,
+            colorAttachmentCount: 0,
+            pColorAttachments: ptr::null(),
+            pDepthAttachment: ptr::null(),
+            pStencilAttachment: ptr::null(),
+        }
+    }
+}
+
+impl Default for VkRenderingAttachmentInfo {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO,
+            pNext: ptr::null(),
+            imageView: VkImageView::default(),
+            imageLayout: VkImageLayout::default(),
+            resolveMode: 0.into(),
+            resolveImageView: VkImageView::default(),
+            resolveImageLayout: VkImageLayout::default(),
+            loadOp: VkAttachmentLoadOp::default(),
+            storeOp: VkAttachmentStoreOp::default(),
+            clearValue: VkClearValue::default(),
         }
     }
 }
