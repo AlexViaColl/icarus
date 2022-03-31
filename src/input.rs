@@ -7,6 +7,9 @@ pub enum KeyId {
     S,
     W,
 
+    Down,
+    Up,
+
     KeyCount,
 }
 
