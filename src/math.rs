@@ -20,6 +20,13 @@ pub fn inv_lerp(a: f32, b: f32, value: f32) -> f32 {
 
 #[repr(C)]
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+pub struct Vec2 {
+    pub x: f32,
+    pub y: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -39,6 +46,56 @@ pub struct Vec4 {
 #[repr(C)]
 #[derive(PartialEq, Clone, Copy, Default)]
 pub struct Mat4([f32; 16]);
+
+impl Vec2 {
+    pub fn new(x: f32, y: f32) -> Self {
+        Self {
+            x,
+            y,
+        }
+    }
+}
+
+impl From<(f32, f32)> for Vec2 {
+    fn from(item: (f32, f32)) -> Self {
+        Self::new(item.0, item.1)
+    }
+}
+
+impl From<[f32; 2]> for Vec2 {
+    fn from(item: [f32; 2]) -> Self {
+        Self::new(item[0], item[1])
+    }
+}
+
+impl Neg for Vec2 {
+    type Output = Self;
+    fn neg(self) -> Self {
+        Self::new(-self.x, -self.y)
+    }
+}
+
+impl Add for Vec2 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self::new(self.x + rhs.x, self.y + rhs.y)
+    }
+}
+
+impl Sub for Vec2 {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Self::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+
+impl Mul<f32> for Vec2 {
+    type Output = Self;
+
+    fn mul(self, rhs: f32) -> Self {
+        Self::new(self.x * rhs, self.y * rhs)
+    }
+}
 
 impl Vec3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
