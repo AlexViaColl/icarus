@@ -13,8 +13,8 @@ const APP_NAME: *const i8 = cstr!("Icarus");
 //const BG_COLOR: u32 = 0x001d1f21; // AA RR GG BB
 const BG_COLOR: u32 = 0x00252632; // AA RR GG BB
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
-const WINDOW_WIDTH: u32 = 1600;
-const WINDOW_HEIGHT: u32 = 900;
+const WINDOW_WIDTH: f32 = 1600.0;
+const WINDOW_HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 200;
 
 //const MODEL_PATH: &str = "assets/models/viking_room.obj";
@@ -41,19 +41,19 @@ pub struct Game {
 
     // Entities
     pub entity_count: usize,
-    pub transforms: [Transform; MAX_ENTITIES],
     pub entities: [Entity; MAX_ENTITIES],
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
+pub struct Entity {
+    pub transform: Transform,
+    pub vel: Vec2,
+}
+#[repr(C)]
+#[derive(Debug, Default, Copy, Clone)]
 pub struct Transform {
     pub pos: Vec2,
     pub size: Vec2,
-}
-#[repr(C)]
-#[derive(Default, Copy, Clone)]
-pub struct Entity {
-    pub vel: Vec2,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -222,18 +222,19 @@ fn main() {
 
 fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
     assert!(game.entity_count < MAX_ENTITIES);
-    game.transforms[game.entity_count] = Transform {
-        pos: Vec2::new(transform.0, transform.1),
-        size: Vec2::new(transform.2, transform.3),
+    game.entities[game.entity_count] = Entity {
+        transform: Transform {
+            pos: Vec2::new(transform.0, transform.1),
+            size: Vec2::new(transform.2, transform.3),
+        },
+        ..Entity::default()
     };
-    game.entities[game.entity_count] = Entity::default();
     game.entity_count += 1;
 }
 
 impl Game {
     fn init() -> Self {
         let mut game = Self {
-            transforms: [Transform::default(); MAX_ENTITIES],
             entities: [Entity::default(); MAX_ENTITIES],
             entity_count: 0,
             running: true,
@@ -246,15 +247,12 @@ impl Game {
         //        }
 
         // Paddles
-        create_entity(&mut game, (0.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
-        create_entity(
-            &mut game,
-            ((WINDOW_WIDTH as f32) - 50.0, WINDOW_HEIGHT as f32 / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y),
-        );
+        create_entity(&mut game, (0.0, WINDOW_HEIGHT / 2.0, 50.0, 200.0));
+        create_entity(&mut game, (WINDOW_WIDTH - 50.0, WINDOW_HEIGHT / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y));
 
         // Ball
-        create_entity(&mut game, ((WINDOW_WIDTH as f32) / 2.0, (WINDOW_HEIGHT as f32) / 2.0, BALL_SIZE.x, BALL_SIZE.y));
-        game.entities[BALL].vel = Vec2::new(-500.0, -300.0);
+        create_entity(&mut game, (WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0, BALL_SIZE.x, BALL_SIZE.y));
+        game.entities[BALL].vel = Vec2::new(-300.0, 0.0);
 
         println!("Entity Count: {}", game.entity_count);
 
@@ -266,66 +264,77 @@ impl Game {
             self.running = false;
         }
 
+        // TODO: Fix collisions when the ball is right at the edge of the paddle
         let speed = 1000.0;
-        self.entities[LEFT_PADDLE].vel = Vec2::default();
+
+        let left_paddle = &mut self.entities[LEFT_PADDLE];
+        left_paddle.vel = Vec2::default();
         if input.is_down(KeyId::W) {
-            self.entities[LEFT_PADDLE].vel.y = -speed;
+            left_paddle.vel.y = -speed;
         }
-
         if input.is_down(KeyId::S) {
-            self.entities[LEFT_PADDLE].vel.y = speed;
+            left_paddle.vel.y = speed;
         }
-        self.entities[RIGHT_PADDLE].vel = Vec2::default();
+
+        let right_paddle = &mut self.entities[RIGHT_PADDLE];
+        right_paddle.vel = Vec2::default();
         if input.is_down(KeyId::Up) {
-            self.entities[RIGHT_PADDLE].vel.y = -speed;
+            right_paddle.vel.y = -speed;
         }
-
         if input.is_down(KeyId::Down) {
-            self.entities[RIGHT_PADDLE].vel.y = speed;
+            right_paddle.vel.y = speed;
         }
 
-        let ball_pos = self.transforms[BALL].pos;
-        let left_paddle_pos = self.transforms[LEFT_PADDLE].pos;
-        let right_paddle_pos = self.transforms[RIGHT_PADDLE].pos;
+        let ball_pos = self.entities[BALL].transform.pos;
+        let left_paddle_pos = self.entities[LEFT_PADDLE].transform.pos;
+        let right_paddle_pos = self.entities[RIGHT_PADDLE].transform.pos;
+
+        let ball = &mut self.entities[BALL];
         if ball_pos.x < 0.0 {
             // Player 2 scores
             println!("Player 2 scores");
-            self.transforms[BALL].pos = Vec2::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0);
-            self.entities[BALL].vel.x *= -1.0;
+            ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
+            ball.vel.x *= -1.0;
         }
-        if ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH as f32 {
+        if ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH {
             // Player 1 scores
             println!("Player 1 scores");
-            self.transforms[BALL].pos = Vec2::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0);
-            self.entities[BALL].vel.x *= -1.0;
+            ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
+            ball.vel.x *= -1.0;
         }
 
-        if ball_pos.x < PADDLE_SIZE.x
+        if ball.vel.x < 0.0
+            && ball_pos.x < PADDLE_SIZE.x
             && (ball_pos.y > left_paddle_pos.y && ball_pos.y < left_paddle_pos.y + PADDLE_SIZE.y)
         {
             println!("Left Collision");
-            self.entities[BALL].vel.x *= -1.0;
+            ball.vel.x *= -1.0;
         }
 
-        if ball_pos.x + BALL_SIZE.x > (WINDOW_WIDTH as f32 - PADDLE_SIZE.x)
+        if ball.vel.x > 0.0
+            && ball_pos.x + BALL_SIZE.x > (WINDOW_WIDTH - PADDLE_SIZE.x)
             && (ball_pos.y > right_paddle_pos.y && ball_pos.y < right_paddle_pos.y + PADDLE_SIZE.y)
         {
             println!("Right Collision");
-            self.entities[BALL].vel.x *= -1.0;
+            ball.vel.x *= -1.0;
         }
 
-        if self.transforms[BALL].pos.y < 0.0 || (self.transforms[BALL].pos.y + BALL_SIZE.y) > WINDOW_HEIGHT as f32 {
-            self.entities[BALL].vel.y *= -1.0;
+        if (ball.vel.y < 0.0 && ball.transform.pos.y < 0.0)
+            || (ball.vel.y > 0.0 && (ball.transform.pos.y + BALL_SIZE.y) > WINDOW_HEIGHT)
+        {
+            ball.vel.y *= -1.0;
         }
 
         // Update positions
-        self.transforms[BALL].pos.x += self.entities[BALL].vel.x * dt;
-        self.transforms[BALL].pos.y += self.entities[BALL].vel.y * dt;
+        ball.transform.pos.x += ball.vel.x * dt;
+        ball.transform.pos.y += ball.vel.y * dt;
 
-        self.transforms[LEFT_PADDLE].pos.x += self.entities[LEFT_PADDLE].vel.x * dt;
-        self.transforms[LEFT_PADDLE].pos.y += self.entities[LEFT_PADDLE].vel.y * dt;
-        self.transforms[RIGHT_PADDLE].pos.x += self.entities[RIGHT_PADDLE].vel.x * dt;
-        self.transforms[RIGHT_PADDLE].pos.y += self.entities[RIGHT_PADDLE].vel.y * dt;
+        let left_paddle = &mut self.entities[LEFT_PADDLE];
+        left_paddle.transform.pos.y =
+            (left_paddle.transform.pos.y + left_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
+        let right_paddle = &mut self.entities[RIGHT_PADDLE];
+        right_paddle.transform.pos.y =
+            (right_paddle.transform.pos.y + right_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
     }
 }
 
@@ -338,8 +347,8 @@ impl Platform {
 
             let screen = XDefaultScreen(dpy);
             let root = XRootWindow(dpy, screen);
-            let window_width = WINDOW_WIDTH;
-            let window_height = WINDOW_HEIGHT;
+            let window_width = WINDOW_WIDTH as u32;
+            let window_height = WINDOW_HEIGHT as u32;
             let window = XCreateSimpleWindow(dpy, root, 0, 0, window_width, window_height, 1, 0, BG_COLOR as u64);
 
             assert_ne!(XStoreName(dpy, window, APP_NAME), 0);
@@ -803,10 +812,11 @@ impl VkContext {
                 res => panic!("{:?}", res),
             };
 
+            let transforms = game.entities.iter().map(|e| e.transform).collect::<Vec<_>>();
             vk_map_memory_copy(
                 vk_ctx.device,
                 vk_ctx.transform_storage_buffer.memory,
-                &game.transforms,
+                transforms.as_ptr(),
                 mem::size_of::<Transform>() * game.entity_count,
             );
 
