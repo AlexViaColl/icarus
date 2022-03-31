@@ -43,7 +43,7 @@ macro_rules! bitflag_struct {
                 let mut value = self.value;
                 for i in 0..31 {
                     let flag = (value & 1) << i;
-                    value = value >> 1;
+                    value >>= 1;
                     if flag != 0 {
                         write!(f, "{:?}({})", $enum_name::from(flag), flag)?;
                         if value > 0 {

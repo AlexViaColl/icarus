@@ -32,7 +32,7 @@ pub fn srgb_to_linear(color: u32) -> [f32; 4] {
     //println!("sRGB: {:?}", color);
     for c in color.iter_mut() {
         if *c <= 0.04045 {
-            *c = *c / 12.92;
+            *c /= 12.92;
         } else {
             *c = ((*c + 0.055) / 1.055).powf(2.4);
         }
@@ -49,7 +49,7 @@ pub fn linear_to_srgb(color: u32) -> [f32; 4] {
     //println!("Linear: {:?}", color);
     for c in color.iter_mut() {
         if *c <= 0.0031308 {
-            *c = *c * 12.92;
+            *c *= 12.92;
         } else {
             *c = 1.055 * (*c).powf(1.0 / 2.4) - 0.055;
         }

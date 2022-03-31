@@ -572,6 +572,7 @@ impl VkViewport {
 }
 
 impl VkClearColorValue {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(value: [f32; 4]) -> VkClearValue {
         VkClearValue {
             color: VkClearColorValue {
@@ -582,6 +583,7 @@ impl VkClearColorValue {
 }
 
 impl VkClearDepthStencilValue {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(depth: f32, stencil: u32) -> VkClearValue {
         VkClearValue {
             depthStencil: VkClearDepthStencilValue {
