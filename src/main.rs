@@ -31,18 +31,25 @@ pub struct Platform {
 pub const LEFT_PADDLE: usize = 0;
 pub const RIGHT_PADDLE: usize = 1;
 pub const BALL: usize = 2;
+pub const BALL_SIZE: f32 = 50.0;
 pub struct Game {
     pub running: bool,
-    pub entities: [Entity; MAX_ENTITIES],
+
+    // Entities
     pub entity_count: usize,
+    pub transforms: [Transform; MAX_ENTITIES],
+    pub entities: [Entity; MAX_ENTITIES],
+}
+#[repr(C)]
+#[derive(Default, Copy, Clone)]
+pub struct Transform {
+    pub pos: Vec2,
+    pub size: Vec2,
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
 pub struct Entity {
-    pub x: f32,
-    pub y: f32,
-    pub w: f32,
-    pub h: f32,
+    pub vel: Vec2,
 }
 #[repr(C)]
 #[derive(Debug)]
@@ -211,18 +218,18 @@ fn main() {
 
 fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
     assert!(game.entity_count < MAX_ENTITIES);
-    game.entities[game.entity_count] = Entity {
-        x: transform.0,
-        y: transform.1,
-        w: transform.2,
-        h: transform.3,
+    game.transforms[game.entity_count] = Transform {
+        pos: Vec2::new(transform.0, transform.1),
+        size: Vec2::new(transform.2, transform.3),
     };
+    game.entities[game.entity_count] = Entity::default();
     game.entity_count += 1;
 }
 
 impl Game {
     fn init() -> Self {
         let mut game = Self {
+            transforms: [Transform::default(); MAX_ENTITIES],
             entities: [Entity::default(); MAX_ENTITIES],
             entity_count: 0,
             running: true,
@@ -233,27 +240,47 @@ impl Game {
         //                create_entity(&mut game, (col as f32 * 100.0, row as f32 * 100.0, 100.0, 100.0));
         //            }
         //        }
+
+        // Paddles
         create_entity(&mut game, (0.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
         create_entity(&mut game, ((WINDOW_WIDTH as f32) - 50.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
+
+        // Ball
+        create_entity(&mut game, ((WINDOW_WIDTH as f32) / 2.0, (WINDOW_HEIGHT as f32) / 2.0, BALL_SIZE, BALL_SIZE));
+        game.entities[BALL].vel = Vec2::new(-500.0, 300.0);
+
         println!("Entity Count: {}", game.entity_count);
 
         game
     }
 
-    #[allow(unused_variables)]
     fn update(&mut self, input: &InputState, dt: f32) {
         if input.was_pressed(KeyId::Esc) {
             self.running = false;
         }
 
         let speed = 1000.0;
+        self.entities[LEFT_PADDLE].vel = Vec2::default();
         if input.is_down(KeyId::W) {
-            self.entities[LEFT_PADDLE].y -= speed * dt;
+            self.entities[LEFT_PADDLE].vel.y = -speed;
         }
 
         if input.is_down(KeyId::S) {
-            self.entities[LEFT_PADDLE].y += speed * dt;
+            self.entities[LEFT_PADDLE].vel.y = speed;
         }
+
+        if self.transforms[BALL].pos.x < 0.0 || self.transforms[BALL].pos.x + BALL_SIZE > WINDOW_WIDTH as f32 {
+            self.entities[BALL].vel.x *= -1.0;
+        }
+        if self.transforms[BALL].pos.y < 0.0 || self.transforms[BALL].pos.y + BALL_SIZE > WINDOW_HEIGHT as f32 {
+            self.entities[BALL].vel.y *= -1.0;
+        }
+
+        self.transforms[BALL].pos.x += self.entities[BALL].vel.x * dt;
+        self.transforms[BALL].pos.y += self.entities[BALL].vel.y * dt;
+
+        self.transforms[LEFT_PADDLE].pos.x += self.entities[LEFT_PADDLE].vel.x * dt;
+        self.transforms[LEFT_PADDLE].pos.y += self.entities[LEFT_PADDLE].vel.y * dt;
     }
 }
 
@@ -335,6 +362,10 @@ impl Platform {
 impl VkContext {
     fn init(platform: &Platform) -> Self {
         let mut vk_ctx = VkContext::default();
+
+        //println!("{:#?}", vk_enumerate_instance_layer_properties());
+        //println!("{:#?}", vk_enumerate_instance_extension_properties());
+
         let enabled_layers = [VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME];
         let enabled_extensions =
             [VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XLIB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME];
@@ -382,7 +413,7 @@ impl VkContext {
         assert_ne!(vk_ctx.physical_devices.len(), 0);
         //println!("Physical Devices ({})", vk_ctx.physical_devices.len());
         //println!("{:#?}", vk_ctx.physical_devices[0]);
-        //println!("{:#?}", vk_ctx.physical_devices[0].props);
+        //println!("{:#?}", vk_ctx.physical_devices[0].extensions);
 
         // TODO: Score physical devices and pick the "best" one.
         // TODO: Should have at least one queue family supporting graphics and presentation.
@@ -728,8 +759,8 @@ impl VkContext {
             vk_map_memory_copy(
                 vk_ctx.device,
                 vk_ctx.transform_storage_buffer.memory,
-                &game.entities,
-                mem::size_of::<Entity>() * game.entity_count,
+                &game.transforms,
+                mem::size_of::<Transform>() * game.entity_count,
             );
 
             check!(vkResetFences(vk_ctx.device, 1, &fence));
