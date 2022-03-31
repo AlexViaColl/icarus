@@ -19,14 +19,14 @@ pub fn inv_lerp(a: f32, b: f32, value: f32) -> f32 {
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy, Default)]
 pub struct Vec2 {
     pub x: f32,
     pub y: f32,
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy, Default)]
 pub struct Vec3 {
     pub x: f32,
     pub y: f32,
@@ -34,7 +34,7 @@ pub struct Vec3 {
 }
 
 #[repr(C)]
-#[derive(Debug, PartialEq, PartialOrd, Clone, Copy)]
+#[derive(Debug, PartialEq, PartialOrd, Clone, Copy, Default)]
 pub struct Vec4 {
     pub x: f32,
     pub y: f32,
