@@ -33,6 +33,8 @@ pub const LEFT_PADDLE: usize = 0;
 pub const RIGHT_PADDLE: usize = 1;
 pub const BALL: usize = 2;
 
+pub const BALL_SPEED: f32 = 700.0;
+pub const PADDLE_SPEED: f32 = 700.0;
 pub const BALL_SIZE: Vec2 = Vec2::new(50.0, 50.0);
 pub const PADDLE_SIZE: Vec2 = Vec2::new(50.0, 200.0);
 
@@ -252,7 +254,7 @@ impl Game {
 
         // Ball
         create_entity(&mut game, (WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0, BALL_SIZE.x, BALL_SIZE.y));
-        game.entities[BALL].vel = Vec2::new(-300.0, 0.0);
+        game.entities[BALL].vel = Vec2::new(-3.0, 1.0).normalize() * BALL_SPEED;
 
         println!("Entity Count: {}", game.entity_count);
 
@@ -264,25 +266,22 @@ impl Game {
             self.running = false;
         }
 
-        // TODO: Fix collisions when the ball is right at the edge of the paddle
-        let speed = 1000.0;
-
         let left_paddle = &mut self.entities[LEFT_PADDLE];
         left_paddle.vel = Vec2::default();
         if input.is_down(KeyId::W) {
-            left_paddle.vel.y = -speed;
+            left_paddle.vel.y = -PADDLE_SPEED;
         }
         if input.is_down(KeyId::S) {
-            left_paddle.vel.y = speed;
+            left_paddle.vel.y = PADDLE_SPEED;
         }
 
         let right_paddle = &mut self.entities[RIGHT_PADDLE];
         right_paddle.vel = Vec2::default();
         if input.is_down(KeyId::Up) {
-            right_paddle.vel.y = -speed;
+            right_paddle.vel.y = -PADDLE_SPEED;
         }
         if input.is_down(KeyId::Down) {
-            right_paddle.vel.y = speed;
+            right_paddle.vel.y = PADDLE_SPEED;
         }
 
         let ball_pos = self.entities[BALL].transform.pos;
@@ -290,42 +289,43 @@ impl Game {
         let right_paddle_pos = self.entities[RIGHT_PADDLE].transform.pos;
 
         let ball = &mut self.entities[BALL];
-        if ball_pos.x < 0.0 {
-            // Player 2 scores
-            println!("Player 2 scores");
+        if ball.vel.x < 0.0 && ball_pos.x < 0.0 {
+            // println!("Player 2 scores");
             ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
             ball.vel.x *= -1.0;
         }
-        if ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH {
-            // Player 1 scores
-            println!("Player 1 scores");
+        if ball.vel.x > 0.0 && ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH {
+            // println!("Player 1 scores");
             ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
             ball.vel.x *= -1.0;
         }
 
+        // Ball vs. Left Paddle
         if ball.vel.x < 0.0
             && ball_pos.x < PADDLE_SIZE.x
-            && (ball_pos.y > left_paddle_pos.y && ball_pos.y < left_paddle_pos.y + PADDLE_SIZE.y)
+            && (ball_pos.y + BALL_SIZE.y > left_paddle_pos.y && ball_pos.y < left_paddle_pos.y + PADDLE_SIZE.y)
         {
-            println!("Left Collision");
+            // println!("Left Collision");
             ball.vel.x *= -1.0;
         }
 
+        // Ball vs. Right Paddle
         if ball.vel.x > 0.0
             && ball_pos.x + BALL_SIZE.x > (WINDOW_WIDTH - PADDLE_SIZE.x)
-            && (ball_pos.y > right_paddle_pos.y && ball_pos.y < right_paddle_pos.y + PADDLE_SIZE.y)
+            && (ball_pos.y + BALL_SIZE.y > right_paddle_pos.y && ball_pos.y < right_paddle_pos.y + PADDLE_SIZE.y)
         {
-            println!("Right Collision");
+            // println!("Right Collision");
             ball.vel.x *= -1.0;
         }
 
+        // Bounce off of the top & bottom edges
         if (ball.vel.y < 0.0 && ball.transform.pos.y < 0.0)
             || (ball.vel.y > 0.0 && (ball.transform.pos.y + BALL_SIZE.y) > WINDOW_HEIGHT)
         {
             ball.vel.y *= -1.0;
         }
 
-        // Update positions
+        // Apply velocity to update positions
         ball.transform.pos.x += ball.vel.x * dt;
         ball.transform.pos.y += ball.vel.y * dt;
 
