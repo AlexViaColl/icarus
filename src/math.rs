@@ -54,6 +54,11 @@ impl Vec2 {
             y,
         }
     }
+
+    pub fn normalize(&self) -> Self {
+        let length = (self.x * self.x + self.y * self.y).sqrt();
+        Self::new(self.x / length, self.y / length)
+    }
 }
 
 impl From<(f32, f32)> for Vec2 {
@@ -233,7 +238,7 @@ impl Sub for Vec4 {
 }
 
 impl Mat4 {
-    pub fn new(e: [f32; 16]) -> Self {
+    pub const fn new(e: [f32; 16]) -> Self {
         Self(e)
     }
 
