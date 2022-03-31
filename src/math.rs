@@ -48,7 +48,7 @@ pub struct Vec4 {
 pub struct Mat4([f32; 16]);
 
 impl Vec2 {
-    pub fn new(x: f32, y: f32) -> Self {
+    pub const fn new(x: f32, y: f32) -> Self {
         Self {
             x,
             y,
@@ -98,7 +98,7 @@ impl Mul<f32> for Vec2 {
 }
 
 impl Vec3 {
-    pub fn new(x: f32, y: f32, z: f32) -> Self {
+    pub const fn new(x: f32, y: f32, z: f32) -> Self {
         Self {
             x,
             y,
@@ -174,7 +174,7 @@ impl Mul<f32> for Vec4 {
 }
 
 impl Vec4 {
-    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+    pub const fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
         Self {
             x,
             y,
