@@ -28,10 +28,14 @@ pub struct Platform {
     pub window_height: u32,
 }
 
+// Entity ID's
 pub const LEFT_PADDLE: usize = 0;
 pub const RIGHT_PADDLE: usize = 1;
 pub const BALL: usize = 2;
-pub const BALL_SIZE: f32 = 50.0;
+
+pub const BALL_SIZE: Vec2 = Vec2::new(50.0, 50.0);
+pub const PADDLE_SIZE: Vec2 = Vec2::new(50.0, 200.0);
+
 pub struct Game {
     pub running: bool,
 
@@ -243,11 +247,14 @@ impl Game {
 
         // Paddles
         create_entity(&mut game, (0.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
-        create_entity(&mut game, ((WINDOW_WIDTH as f32) - 50.0, WINDOW_HEIGHT as f32 / 2.0, 50.0, 200.0));
+        create_entity(
+            &mut game,
+            ((WINDOW_WIDTH as f32) - 50.0, WINDOW_HEIGHT as f32 / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y),
+        );
 
         // Ball
-        create_entity(&mut game, ((WINDOW_WIDTH as f32) / 2.0, (WINDOW_HEIGHT as f32) / 2.0, BALL_SIZE, BALL_SIZE));
-        game.entities[BALL].vel = Vec2::new(-500.0, 300.0);
+        create_entity(&mut game, ((WINDOW_WIDTH as f32) / 2.0, (WINDOW_HEIGHT as f32) / 2.0, BALL_SIZE.x, BALL_SIZE.y));
+        game.entities[BALL].vel = Vec2::new(-500.0, -300.0);
 
         println!("Entity Count: {}", game.entity_count);
 
@@ -268,19 +275,57 @@ impl Game {
         if input.is_down(KeyId::S) {
             self.entities[LEFT_PADDLE].vel.y = speed;
         }
+        self.entities[RIGHT_PADDLE].vel = Vec2::default();
+        if input.is_down(KeyId::Up) {
+            self.entities[RIGHT_PADDLE].vel.y = -speed;
+        }
 
-        if self.transforms[BALL].pos.x < 0.0 || self.transforms[BALL].pos.x + BALL_SIZE > WINDOW_WIDTH as f32 {
+        if input.is_down(KeyId::Down) {
+            self.entities[RIGHT_PADDLE].vel.y = speed;
+        }
+
+        let ball_pos = self.transforms[BALL].pos;
+        let left_paddle_pos = self.transforms[LEFT_PADDLE].pos;
+        let right_paddle_pos = self.transforms[RIGHT_PADDLE].pos;
+        if ball_pos.x < 0.0 {
+            // Player 2 scores
+            println!("Player 2 scores");
+            self.transforms[BALL].pos = Vec2::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0);
             self.entities[BALL].vel.x *= -1.0;
         }
-        if self.transforms[BALL].pos.y < 0.0 || self.transforms[BALL].pos.y + BALL_SIZE > WINDOW_HEIGHT as f32 {
+        if ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH as f32 {
+            // Player 1 scores
+            println!("Player 1 scores");
+            self.transforms[BALL].pos = Vec2::new(WINDOW_WIDTH as f32 / 2.0, WINDOW_HEIGHT as f32 / 2.0);
+            self.entities[BALL].vel.x *= -1.0;
+        }
+
+        if ball_pos.x < PADDLE_SIZE.x
+            && (ball_pos.y > left_paddle_pos.y && ball_pos.y < left_paddle_pos.y + PADDLE_SIZE.y)
+        {
+            println!("Left Collision");
+            self.entities[BALL].vel.x *= -1.0;
+        }
+
+        if ball_pos.x + BALL_SIZE.x > (WINDOW_WIDTH as f32 - PADDLE_SIZE.x)
+            && (ball_pos.y > right_paddle_pos.y && ball_pos.y < right_paddle_pos.y + PADDLE_SIZE.y)
+        {
+            println!("Right Collision");
+            self.entities[BALL].vel.x *= -1.0;
+        }
+
+        if self.transforms[BALL].pos.y < 0.0 || (self.transforms[BALL].pos.y + BALL_SIZE.y) > WINDOW_HEIGHT as f32 {
             self.entities[BALL].vel.y *= -1.0;
         }
 
+        // Update positions
         self.transforms[BALL].pos.x += self.entities[BALL].vel.x * dt;
         self.transforms[BALL].pos.y += self.entities[BALL].vel.y * dt;
 
         self.transforms[LEFT_PADDLE].pos.x += self.entities[LEFT_PADDLE].vel.x * dt;
         self.transforms[LEFT_PADDLE].pos.y += self.entities[LEFT_PADDLE].vel.y * dt;
+        self.transforms[RIGHT_PADDLE].pos.x += self.entities[RIGHT_PADDLE].vel.x * dt;
+        self.transforms[RIGHT_PADDLE].pos.y += self.entities[RIGHT_PADDLE].vel.y * dt;
     }
 }
 
@@ -340,6 +385,8 @@ impl Platform {
                             XK_d => input.set_key(KeyId::D, is_down),
                             XK_s => input.set_key(KeyId::S, is_down),
                             XK_w => input.set_key(KeyId::W, is_down),
+                            XK_Down => input.set_key(KeyId::Down, is_down),
+                            XK_Up => input.set_key(KeyId::Up, is_down),
                             _n => {} // println!("Keycode: {}", n),
                         }
                     }
