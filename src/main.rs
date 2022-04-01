@@ -48,14 +48,18 @@ pub struct Game {
     pub entities: [Entity; MAX_ENTITIES],
 }
 pub enum GameState {
+    Start,
     Pause,
     Playing,
+    GameOver(usize),    // EntityID of the winner
+    ScoreUpdate(usize), // EntityID of the entity that scored
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
 pub struct Entity {
     pub transform: Transform,
     pub vel: Vec2,
+    pub score: u32,
 }
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
@@ -243,17 +247,11 @@ fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
 impl Game {
     fn init() -> Self {
         let mut game = Self {
-            state: GameState::Playing,
+            state: GameState::Start,
             entities: [Entity::default(); MAX_ENTITIES],
             entity_count: 0,
             running: true,
         };
-
-        //        for row in 0..(WINDOW_HEIGHT / 100) {
-        //            for col in 0..(WINDOW_WIDTH / 100) {
-        //                create_entity(&mut game, (col as f32 * 100.0, row as f32 * 100.0, 100.0, 100.0));
-        //            }
-        //        }
 
         // Paddles
         create_entity(&mut game, (0.0, WINDOW_HEIGHT / 2.0, 50.0, 200.0));
@@ -262,8 +260,6 @@ impl Game {
         // Ball
         create_entity(&mut game, (WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0, BALL_SIZE.x, BALL_SIZE.y));
         game.entities[BALL].vel = Vec2::new(-3.0, 1.0).normalize() * BALL_SPEED;
-
-        println!("Entity Count: {}", game.entity_count);
 
         game
     }
@@ -275,6 +271,21 @@ impl Game {
         }
 
         match self.state {
+            GameState::Start => {
+                // TODO: Render start text: "Press a key to start"
+
+                self.entity_count = 0;
+                create_entity(self, (0.0, WINDOW_HEIGHT / 2.0, 50.0, 200.0));
+                create_entity(self, (WINDOW_WIDTH - 50.0, WINDOW_HEIGHT / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y));
+
+                // Ball
+                create_entity(self, (WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0, BALL_SIZE.x, BALL_SIZE.y));
+                self.entities[BALL].vel = Vec2::new(-3.0, 1.0).normalize() * BALL_SPEED;
+
+                if input.was_pressed(KeyId::Any) {
+                    self.state = GameState::Playing;
+                }
+            }
             GameState::Pause => {
                 if input.was_pressed(KeyId::P) {
                     self.state = GameState::Playing;
@@ -292,6 +303,23 @@ impl Game {
                     ball.transform.pos.x -= ball.vel.x * dt;
                     ball.transform.pos.y -= ball.vel.y * dt;
                 }
+            }
+            GameState::ScoreUpdate(entity_id) => {
+                self.entities[entity_id].score += 1;
+                let left_score = self.entities[LEFT_PADDLE].score;
+                let right_score = self.entities[RIGHT_PADDLE].score;
+                println!("Scores: {} - {}", left_score, right_score);
+                if left_score >= 5 {
+                    self.state = GameState::GameOver(LEFT_PADDLE);
+                } else if right_score >= 5 {
+                    self.state = GameState::GameOver(RIGHT_PADDLE);
+                } else {
+                    self.state = GameState::Playing;
+                }
+            }
+            GameState::GameOver(entity_id) => {
+                println!("Player {} won", entity_id);
+                self.state = GameState::Start;
             }
             GameState::Playing => {
                 if input.was_pressed(KeyId::P) {
@@ -326,11 +354,13 @@ impl Game {
                     // println!("Player 2 scores");
                     ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
                     ball.vel.x *= -1.0;
+                    self.state = GameState::ScoreUpdate(RIGHT_PADDLE);
                 }
                 if ball.vel.x > 0.0 && ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH {
                     // println!("Player 1 scores");
                     ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
                     ball.vel.x *= -1.0;
+                    self.state = GameState::ScoreUpdate(LEFT_PADDLE);
                 }
 
                 // Ball vs. Left Paddle
@@ -425,6 +455,7 @@ impl Platform {
                         //println!("KeySym: 0x{:04x} / KeyCode: 0x{:04x}", keysym, event.keycode);
 
                         let is_down = event.ttype == KeyPress;
+                        input.set_key(KeyId::Any, is_down);
                         match keysym {
                             XK_Escape => input.set_key(KeyId::Esc, is_down),
                             XK_a => input.set_key(KeyId::A, is_down),

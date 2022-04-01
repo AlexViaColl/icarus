@@ -1,6 +1,7 @@
 #[repr(u32)]
 #[derive(Copy, Clone, Debug)]
 pub enum KeyId {
+    Any,
     Esc,
     A,
     D,
