@@ -41,9 +41,15 @@ pub const PADDLE_SIZE: Vec2 = Vec2::new(50.0, 200.0);
 pub struct Game {
     pub running: bool,
 
+    pub state: GameState,
+
     // Entities
     pub entity_count: usize,
     pub entities: [Entity; MAX_ENTITIES],
+}
+pub enum GameState {
+    Pause,
+    Playing,
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
@@ -237,6 +243,7 @@ fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
 impl Game {
     fn init() -> Self {
         let mut game = Self {
+            state: GameState::Playing,
             entities: [Entity::default(); MAX_ENTITIES],
             entity_count: 0,
             running: true,
@@ -264,77 +271,107 @@ impl Game {
     fn update(&mut self, input: &InputState, dt: f32) {
         if input.was_pressed(KeyId::Esc) {
             self.running = false;
+            return;
         }
 
-        let left_paddle = &mut self.entities[LEFT_PADDLE];
-        left_paddle.vel = Vec2::default();
-        if input.is_down(KeyId::W) {
-            left_paddle.vel.y = -PADDLE_SPEED;
-        }
-        if input.is_down(KeyId::S) {
-            left_paddle.vel.y = PADDLE_SPEED;
-        }
+        match self.state {
+            GameState::Pause => {
+                if input.was_pressed(KeyId::P) {
+                    self.state = GameState::Playing;
+                }
+                // TODO: Handle collissions and bounces when advancing/undoing a frame
+                if input.was_pressed(KeyId::Right) {
+                    // Advance by a frame
+                    let ball = &mut self.entities[BALL];
+                    ball.transform.pos.x += ball.vel.x * dt;
+                    ball.transform.pos.y += ball.vel.y * dt;
+                }
+                if input.was_pressed(KeyId::Left) {
+                    // Undo the last frame
+                    let ball = &mut self.entities[BALL];
+                    ball.transform.pos.x -= ball.vel.x * dt;
+                    ball.transform.pos.y -= ball.vel.y * dt;
+                }
+            }
+            GameState::Playing => {
+                if input.was_pressed(KeyId::P) {
+                    self.state = GameState::Pause;
+                    return;
+                }
 
-        let right_paddle = &mut self.entities[RIGHT_PADDLE];
-        right_paddle.vel = Vec2::default();
-        if input.is_down(KeyId::Up) {
-            right_paddle.vel.y = -PADDLE_SPEED;
-        }
-        if input.is_down(KeyId::Down) {
-            right_paddle.vel.y = PADDLE_SPEED;
-        }
+                let left_paddle = &mut self.entities[LEFT_PADDLE];
+                left_paddle.vel = Vec2::default();
+                if input.is_down(KeyId::W) {
+                    left_paddle.vel.y = -PADDLE_SPEED;
+                }
+                if input.is_down(KeyId::S) {
+                    left_paddle.vel.y = PADDLE_SPEED;
+                }
 
-        let ball_pos = self.entities[BALL].transform.pos;
-        let left_paddle_pos = self.entities[LEFT_PADDLE].transform.pos;
-        let right_paddle_pos = self.entities[RIGHT_PADDLE].transform.pos;
+                let right_paddle = &mut self.entities[RIGHT_PADDLE];
+                right_paddle.vel = Vec2::default();
+                if input.is_down(KeyId::Up) {
+                    right_paddle.vel.y = -PADDLE_SPEED;
+                }
+                if input.is_down(KeyId::Down) {
+                    right_paddle.vel.y = PADDLE_SPEED;
+                }
 
-        let ball = &mut self.entities[BALL];
-        if ball.vel.x < 0.0 && ball_pos.x < 0.0 {
-            // println!("Player 2 scores");
-            ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
-            ball.vel.x *= -1.0;
+                let ball_pos = self.entities[BALL].transform.pos;
+                let left_paddle_pos = self.entities[LEFT_PADDLE].transform.pos;
+                let right_paddle_pos = self.entities[RIGHT_PADDLE].transform.pos;
+
+                let ball = &mut self.entities[BALL];
+                if ball.vel.x < 0.0 && ball_pos.x < 0.0 {
+                    // println!("Player 2 scores");
+                    ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
+                    ball.vel.x *= -1.0;
+                }
+                if ball.vel.x > 0.0 && ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH {
+                    // println!("Player 1 scores");
+                    ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
+                    ball.vel.x *= -1.0;
+                }
+
+                // Ball vs. Left Paddle
+                if ball.vel.x < 0.0
+                    && ball_pos.x < PADDLE_SIZE.x
+                    && (ball_pos.y + BALL_SIZE.y > left_paddle_pos.y && ball_pos.y < left_paddle_pos.y + PADDLE_SIZE.y)
+                {
+                    // println!("Left Collision");
+                    ball.vel.x *= -1.0;
+                }
+
+                // Ball vs. Right Paddle
+                if ball.vel.x > 0.0
+                    && ball_pos.x + BALL_SIZE.x > (WINDOW_WIDTH - PADDLE_SIZE.x)
+                    && (ball_pos.y + BALL_SIZE.y > right_paddle_pos.y
+                        && ball_pos.y < right_paddle_pos.y + PADDLE_SIZE.y)
+                {
+                    // println!("Right Collision");
+                    ball.vel.x *= -1.0;
+                }
+
+                // Bounce off of the top & bottom edges
+                if (ball.vel.y < 0.0 && ball.transform.pos.y < 0.0)
+                    || (ball.vel.y > 0.0 && (ball.transform.pos.y + BALL_SIZE.y) > WINDOW_HEIGHT)
+                {
+                    ball.vel.y *= -1.0;
+                }
+
+                // Apply velocity to update positions
+                let ball = &mut self.entities[BALL];
+                ball.transform.pos.x += ball.vel.x * dt;
+                ball.transform.pos.y += ball.vel.y * dt;
+
+                let left_paddle = &mut self.entities[LEFT_PADDLE];
+                left_paddle.transform.pos.y =
+                    (left_paddle.transform.pos.y + left_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
+                let right_paddle = &mut self.entities[RIGHT_PADDLE];
+                right_paddle.transform.pos.y =
+                    (right_paddle.transform.pos.y + right_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
+            }
         }
-        if ball.vel.x > 0.0 && ball_pos.x + BALL_SIZE.x > WINDOW_WIDTH {
-            // println!("Player 1 scores");
-            ball.transform.pos = Vec2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
-            ball.vel.x *= -1.0;
-        }
-
-        // Ball vs. Left Paddle
-        if ball.vel.x < 0.0
-            && ball_pos.x < PADDLE_SIZE.x
-            && (ball_pos.y + BALL_SIZE.y > left_paddle_pos.y && ball_pos.y < left_paddle_pos.y + PADDLE_SIZE.y)
-        {
-            // println!("Left Collision");
-            ball.vel.x *= -1.0;
-        }
-
-        // Ball vs. Right Paddle
-        if ball.vel.x > 0.0
-            && ball_pos.x + BALL_SIZE.x > (WINDOW_WIDTH - PADDLE_SIZE.x)
-            && (ball_pos.y + BALL_SIZE.y > right_paddle_pos.y && ball_pos.y < right_paddle_pos.y + PADDLE_SIZE.y)
-        {
-            // println!("Right Collision");
-            ball.vel.x *= -1.0;
-        }
-
-        // Bounce off of the top & bottom edges
-        if (ball.vel.y < 0.0 && ball.transform.pos.y < 0.0)
-            || (ball.vel.y > 0.0 && (ball.transform.pos.y + BALL_SIZE.y) > WINDOW_HEIGHT)
-        {
-            ball.vel.y *= -1.0;
-        }
-
-        // Apply velocity to update positions
-        ball.transform.pos.x += ball.vel.x * dt;
-        ball.transform.pos.y += ball.vel.y * dt;
-
-        let left_paddle = &mut self.entities[LEFT_PADDLE];
-        left_paddle.transform.pos.y =
-            (left_paddle.transform.pos.y + left_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
-        let right_paddle = &mut self.entities[RIGHT_PADDLE];
-        right_paddle.transform.pos.y =
-            (right_paddle.transform.pos.y + right_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
     }
 }
 
@@ -392,10 +429,13 @@ impl Platform {
                             XK_Escape => input.set_key(KeyId::Esc, is_down),
                             XK_a => input.set_key(KeyId::A, is_down),
                             XK_d => input.set_key(KeyId::D, is_down),
+                            XK_p => input.set_key(KeyId::P, is_down),
                             XK_s => input.set_key(KeyId::S, is_down),
                             XK_w => input.set_key(KeyId::W, is_down),
                             XK_Down => input.set_key(KeyId::Down, is_down),
                             XK_Up => input.set_key(KeyId::Up, is_down),
+                            XK_Left => input.set_key(KeyId::Left, is_down),
+                            XK_Right => input.set_key(KeyId::Right, is_down),
                             _n => {} // println!("Keycode: {}", n),
                         }
                     }

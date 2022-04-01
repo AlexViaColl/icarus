@@ -4,11 +4,14 @@ pub enum KeyId {
     Esc,
     A,
     D,
+    P,
     S,
     W,
 
     Down,
     Up,
+    Left,
+    Right,
 
     KeyCount,
 }
