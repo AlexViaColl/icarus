@@ -46,6 +46,8 @@ pub struct Game {
     // Entities
     pub entity_count: usize,
     pub entities: [Entity; MAX_ENTITIES],
+
+    pub render_commands: Vec<RenderCommand>,
 }
 pub enum GameState {
     Start,
@@ -53,6 +55,7 @@ pub enum GameState {
     Playing,
     GameOver(usize),    // EntityID of the winner
     ScoreUpdate(usize), // EntityID of the entity that scored
+    Timeout(f32),       // Timeout in seconds
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
@@ -72,6 +75,11 @@ pub struct Transform {
 pub struct GlobalState {
     width: u32,
     height: u32,
+}
+
+#[derive(Debug)]
+pub enum RenderCommand {
+    Quad(f32, f32, f32, f32),
 }
 
 #[repr(C)]
@@ -193,15 +201,17 @@ struct VkContext {
 }
 
 fn main() {
+    //generate_glyphs("assets/textures/charmap-oldschool_white.png");
+
     //let (vertices, indices) = parse_obj(&fs::read_to_string(MODEL_PATH).unwrap()).unwrap();
     #[rustfmt::skip]
     //let vertices = vertices.iter().map(|v| Vertex { pos: v.0, color: (1.0, 1.0, 1.0), uv: (v.1.0, 1.0 - v.1.1) }).collect::<Vec<_>>();
 
     let vertices = [                                                            // CCW
         Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), ..Vertex::default() },  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), ..Vertex::default() },  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), ..Vertex::default() },  // Top right
+        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom left
+        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom right
+        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Top right
     ];
     let indices = [0, 1, 2, 2, 3, 0];
 
@@ -224,7 +234,7 @@ fn main() {
         prev_frame_time = Instant::now();
         game.update(&input, seconds_elapsed);
 
-        vk_ctx.render(&game, current_frame, indices.len());
+        vk_ctx.render(&game.render_commands, current_frame, indices.len());
 
         current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
     }
@@ -244,24 +254,47 @@ fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
     game.entity_count += 1;
 }
 
+fn push_quad(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
+    render_commands.push(RenderCommand::Quad(x, y, w, h));
+}
+pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
+fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {
+    for row in 0..7 {
+        for col in 0..5 {
+            if glyph[row * 5 + col] != 0 {
+                push_quad(
+                    cmd,
+                    x + GLYPH_PIXEL_SIZE * (col as f32),
+                    y + GLYPH_PIXEL_SIZE * (row as f32),
+                    GLYPH_PIXEL_SIZE,
+                    GLYPH_PIXEL_SIZE,
+                );
+            }
+        }
+    }
+}
+fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32) {
+    assert!(c >= ' ' && c <= '~');
+    let glyph_idx = c as usize - ' ' as usize;
+    push_glyph(cmd, &GLYPHS[glyph_idx], x, y);
+}
+fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32) {
+    let text_extent = (s.len() as f32) * 6.0 * GLYPH_PIXEL_SIZE;
+    let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
+    for (idx, c) in s.chars().enumerate() {
+        push_char(cmd, c, x + (idx as f32) * GLYPH_PIXEL_SIZE * (GLYPH_WIDTH as f32 + 1.0), y);
+    }
+}
+
 impl Game {
     fn init() -> Self {
-        let mut game = Self {
+        Self {
             state: GameState::Start,
             entities: [Entity::default(); MAX_ENTITIES],
             entity_count: 0,
             running: true,
-        };
-
-        // Paddles
-        create_entity(&mut game, (0.0, WINDOW_HEIGHT / 2.0, 50.0, 200.0));
-        create_entity(&mut game, (WINDOW_WIDTH - 50.0, WINDOW_HEIGHT / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y));
-
-        // Ball
-        create_entity(&mut game, (WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0, BALL_SIZE.x, BALL_SIZE.y));
-        game.entities[BALL].vel = Vec2::new(-3.0, 1.0).normalize() * BALL_SPEED;
-
-        game
+            render_commands: vec![],
+        }
     }
 
     fn update(&mut self, input: &InputState, dt: f32) {
@@ -272,14 +305,26 @@ impl Game {
 
         match self.state {
             GameState::Start => {
-                // TODO: Render start text: "Press a key to start"
+                self.render_commands.clear();
+                push_str(&mut self.render_commands, "Press a key to start", 100.0, 100.0);
 
                 self.entity_count = 0;
-                create_entity(self, (0.0, WINDOW_HEIGHT / 2.0, 50.0, 200.0));
-                create_entity(self, (WINDOW_WIDTH - 50.0, WINDOW_HEIGHT / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y));
+                create_entity(self, (0.0, WINDOW_HEIGHT / 2.0 - PADDLE_SIZE.y / 2.0, 50.0, 200.0));
+                create_entity(
+                    self,
+                    (WINDOW_WIDTH - 50.0, WINDOW_HEIGHT / 2.0 - PADDLE_SIZE.y / 2.0, PADDLE_SIZE.x, PADDLE_SIZE.y),
+                );
 
                 // Ball
-                create_entity(self, (WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0, BALL_SIZE.x, BALL_SIZE.y));
+                create_entity(
+                    self,
+                    (
+                        WINDOW_WIDTH / 2.0 - BALL_SIZE.x / 2.0,
+                        WINDOW_HEIGHT / 2.0 - BALL_SIZE.y / 2.0,
+                        BALL_SIZE.x,
+                        BALL_SIZE.y,
+                    ),
+                );
                 self.entities[BALL].vel = Vec2::new(-3.0, 1.0).normalize() * BALL_SPEED;
 
                 if input.was_pressed(KeyId::Any) {
@@ -308,7 +353,6 @@ impl Game {
                 self.entities[entity_id].score += 1;
                 let left_score = self.entities[LEFT_PADDLE].score;
                 let right_score = self.entities[RIGHT_PADDLE].score;
-                println!("Scores: {} - {}", left_score, right_score);
                 if left_score >= 5 {
                     self.state = GameState::GameOver(LEFT_PADDLE);
                 } else if right_score >= 5 {
@@ -318,10 +362,27 @@ impl Game {
                 }
             }
             GameState::GameOver(entity_id) => {
-                println!("Player {} won", entity_id);
-                self.state = GameState::Start;
+                self.render_commands.clear();
+                push_str(&mut self.render_commands, &format!("Player {} won", entity_id + 1), 0.0, 100.0);
+                self.state = GameState::Timeout(5.0);
+            }
+            GameState::Timeout(time) => {
+                self.entity_count = 0;
+                if time < dt {
+                    self.state = GameState::Start;
+                } else {
+                    self.state = GameState::Timeout(time - dt);
+                }
             }
             GameState::Playing => {
+                self.render_commands.clear();
+                push_str(
+                    &mut self.render_commands,
+                    &format!("{} - {}", self.entities[LEFT_PADDLE].score, self.entities[RIGHT_PADDLE].score),
+                    0.0,
+                    100.0,
+                );
+
                 if input.was_pressed(KeyId::P) {
                     self.state = GameState::Pause;
                     return;
@@ -401,6 +462,18 @@ impl Game {
                 right_paddle.transform.pos.y =
                     (right_paddle.transform.pos.y + right_paddle.vel.y * dt).clamp(0.0, WINDOW_HEIGHT - PADDLE_SIZE.y);
             }
+        }
+        for i in 0..self.entity_count {
+            let entity = self.entities[i];
+            let Vec2 {
+                x,
+                y,
+            } = entity.transform.pos;
+            let Vec2 {
+                x: w,
+                y: h,
+            } = entity.transform.size;
+            self.render_commands.push(RenderCommand::Quad(x, y, w, h));
         }
     }
 }
@@ -859,7 +932,7 @@ impl VkContext {
         vk_ctx
     }
 
-    fn render(&mut self, game: &Game, current_frame: usize, index_count: usize) {
+    fn render(&mut self, render_commands: &[RenderCommand], current_frame: usize, index_count: usize) {
         unsafe {
             let mut vk_ctx = self;
             let cmd = vk_ctx.command_buffers[current_frame];
@@ -883,12 +956,18 @@ impl VkContext {
                 res => panic!("{:?}", res),
             };
 
-            let transforms = game.entities.iter().map(|e| e.transform).collect::<Vec<_>>();
+            //let transforms = game.entities.iter().map(|e| e.transform).collect::<Vec<_>>();
+            //vk_map_memory_copy(
+            //    vk_ctx.device,
+            //    vk_ctx.transform_storage_buffer.memory,
+            //    transforms.as_ptr(),
+            //    mem::size_of::<Transform>() * game.entity_count,
+            //);
             vk_map_memory_copy(
                 vk_ctx.device,
                 vk_ctx.transform_storage_buffer.memory,
-                transforms.as_ptr(),
-                mem::size_of::<Transform>() * game.entity_count,
+                render_commands.as_ptr(),
+                mem::size_of::<Transform>() * render_commands.len(),
             );
 
             check!(vkResetFences(vk_ctx.device, 1, &fence));
@@ -929,7 +1008,7 @@ impl VkContext {
             let dsc_set = vk_ctx.descriptor_sets[current_frame];
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &dsc_set, 0, ptr::null());
             // vkCmdDraw(command_buffer, vertices.len() as u32, 1, 0, 0);
-            vkCmdDrawIndexed(cmd, index_count as u32, game.entity_count as u32, 0, 0, 0);
+            vkCmdDrawIndexed(cmd, index_count as u32, render_commands.len() as u32, 0, 0, 0);
 
             vkCmdEndRenderPass(cmd);
 
