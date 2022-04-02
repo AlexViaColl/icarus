@@ -201,12 +201,7 @@ struct VkContext {
 }
 
 fn main() {
-    //generate_glyphs("assets/textures/charmap-oldschool_white.png");
-
-    //let (vertices, indices) = parse_obj(&fs::read_to_string(MODEL_PATH).unwrap()).unwrap();
     #[rustfmt::skip]
-    //let vertices = vertices.iter().map(|v| Vertex { pos: v.0, color: (1.0, 1.0, 1.0), uv: (v.1.0, 1.0 - v.1.1) }).collect::<Vec<_>>();
-
     let vertices = [                                                            // CCW
         Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
         Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom left
@@ -278,7 +273,7 @@ fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32) {
     let glyph_idx = c as usize - ' ' as usize;
     push_glyph(cmd, &GLYPHS[glyph_idx], x, y);
 }
-fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32) {
+fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32) {
     let text_extent = (s.len() as f32) * 6.0 * GLYPH_PIXEL_SIZE;
     let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
     for (idx, c) in s.chars().enumerate() {
@@ -397,13 +392,22 @@ impl Game {
                     left_paddle.vel.y = PADDLE_SPEED;
                 }
 
+                let ball_pos = self.entities[BALL].transform.pos;
                 let right_paddle = &mut self.entities[RIGHT_PADDLE];
                 right_paddle.vel = Vec2::default();
-                if input.is_down(KeyId::Up) {
-                    right_paddle.vel.y = -PADDLE_SPEED;
-                }
-                if input.is_down(KeyId::Down) {
-                    right_paddle.vel.y = PADDLE_SPEED;
+                if false {
+                    if input.is_down(KeyId::Up) {
+                        right_paddle.vel.y = -PADDLE_SPEED;
+                    }
+                    if input.is_down(KeyId::Down) {
+                        right_paddle.vel.y = PADDLE_SPEED;
+                    }
+                } else {
+                    if ball_pos.y < right_paddle.transform.pos.y {
+                        right_paddle.vel.y = -PADDLE_SPEED;
+                    } else {
+                        right_paddle.vel.y = PADDLE_SPEED;
+                    }
                 }
 
                 let ball_pos = self.entities[BALL].transform.pos;
@@ -1631,6 +1635,7 @@ fn create_image(
     }
 }
 
+#[allow(dead_code)]
 fn generate_glyphs<P: AsRef<str>>(path: P) {
     unsafe {
         let mut width = 0;
