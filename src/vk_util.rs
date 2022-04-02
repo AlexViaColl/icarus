@@ -504,10 +504,12 @@ pub fn copy_buffer_to_image(
 
 pub fn vk_map_memory_copy<T>(device: VkDevice, memory: VkDeviceMemory, data: *const T, size: usize) {
     unsafe {
-        let mut mapped = ptr::null_mut();
-        vkMapMemory(device, memory, 0, size as VkDeviceSize, 0, &mut mapped);
-        ptr::copy(data as *const u8, mapped as *mut u8, size);
-        vkUnmapMemory(device, memory);
+        if size > 0 {
+            let mut mapped = ptr::null_mut();
+            vkMapMemory(device, memory, 0, size as VkDeviceSize, 0, &mut mapped);
+            ptr::copy(data as *const u8, mapped as *mut u8, size);
+            vkUnmapMemory(device, memory);
+        }
     }
 }
 
