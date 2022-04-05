@@ -7,7 +7,8 @@ layout(set = 0, binding = 0) uniform GlobalUBO {
 } globalUBO;
 
 struct Transform {
-    float x, y, w, h;      
+    float x, y, w, h;
+    float r, g, b;
 };
 layout(set = 0, binding = 1) readonly buffer Transforms {
     Transform transforms[];
@@ -41,5 +42,6 @@ void main() {
     fragTexCoord = vertices[gl_VertexIndex].zw;
 
     fragColor = inColor;
+    fragColor = vec3(transform.r, transform.g, transform.b);
     //fragTexCoord = inTexCoord;
 }

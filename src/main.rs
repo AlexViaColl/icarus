@@ -15,10 +15,14 @@ const BG_COLOR: u32 = 0x00252632; // AA RR GG BB
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
-const MAX_ENTITIES: usize = 200;
+const MAX_ENTITIES: usize = 400;
 
 //const MODEL_PATH: &str = "assets/models/viking_room.obj";
 const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
+
+const PLAYER_COUNT: usize = 2;
+const PLAYER_2_AI: bool = true;
+const PLAYER_COLOR: [(f32, f32, f32); PLAYER_COUNT] = [(1.0, 1.0, 1.0), (1.0, 0.0, 0.0)];
 
 pub struct Platform {
     pub dpy: *mut Display,
@@ -30,9 +34,17 @@ pub struct Platform {
 
 pub struct Game {
     pub running: bool,
+    pub state: GameState,
     pub entities: Vec<Entity>,
-    pub tiles: [bool; 9],
+    pub player: usize,
+    pub tiles: [Option<usize>; 9],
     pub render_commands: Vec<RenderCommand>,
+}
+#[derive(PartialEq)]
+pub enum GameState {
+    Playing,
+    Draw,
+    Win(usize),
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
@@ -54,7 +66,7 @@ pub struct GlobalState {
 
 #[derive(Debug)]
 pub enum RenderCommand {
-    Rect(f32, f32, f32, f32),
+    Rect(f32, f32, f32, f32, f32, f32, f32),
 }
 
 #[repr(C)]
@@ -222,38 +234,40 @@ pub fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
     });
 }
 
-pub fn push_rect(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
-    render_commands.push(RenderCommand::Rect(x, y, w, h));
+pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R) {
+    let r = r.into();
+    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, 1.0, 1.0, 1.0));
 }
-pub fn push_centered_rect(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
-    push_rect(render_commands, x - 0.5 * w, y - 0.5 * h, w, h);
+pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, c: (f32, f32, f32)) {
+    let r = r.into();
+    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, c.0, c.1, c.2));
 }
 pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
-pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {
+pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, pixel_size: f32) {
     for row in 0..7 {
         for col in 0..5 {
             if glyph[row * 5 + col] != 0 {
                 push_rect(
                     cmd,
-                    x + GLYPH_PIXEL_SIZE * (col as f32),
-                    y + GLYPH_PIXEL_SIZE * (row as f32),
-                    GLYPH_PIXEL_SIZE,
-                    GLYPH_PIXEL_SIZE,
+                    Rect::offset_extent(
+                        (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
+                        (pixel_size, pixel_size),
+                    ),
                 );
             }
         }
     }
 }
-pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32) {
+pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, pixel_size: f32) {
     assert!(c >= ' ' && c <= '~');
     let glyph_idx = c as usize - ' ' as usize;
-    push_glyph(cmd, &GLYPHS[glyph_idx], x, y);
+    push_glyph(cmd, &GLYPHS[glyph_idx], x, y, pixel_size);
 }
-pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32) {
-    let text_extent = (s.len() as f32) * 6.0 * GLYPH_PIXEL_SIZE;
+pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32, pixel_size: f32) {
+    let text_extent = (s.len() as f32) * 6.0 * pixel_size;
     let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
     for (idx, c) in s.chars().enumerate() {
-        push_char(cmd, c, x + (idx as f32) * GLYPH_PIXEL_SIZE * (GLYPH_WIDTH as f32 + 1.0), y);
+        push_char(cmd, c, x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0), y, pixel_size);
     }
 }
 
@@ -261,20 +275,68 @@ impl Game {
     fn init() -> Self {
         Self {
             running: true,
+            state: GameState::Playing,
+            player: 0,
             entities: vec![],
-            tiles: [false; 9],
+            tiles: [None; 9],
             render_commands: vec![],
         }
     }
 
     // Advances the state of the game by dt seconds.
-    fn update(&mut self, input: &InputState, dt: f32) {
+    fn update(&mut self, input: &InputState, _dt: f32) {
         if input.was_key_pressed(KeyId::Esc) {
             self.running = false;
             return;
         }
 
-        if input.was_button_pressed(ButtonId::Left) {
+        if self.state != GameState::Playing {
+            if input.was_key_pressed(KeyId::Any) {
+                self.state = GameState::Playing;
+                self.player = 0;
+                self.tiles = [None; 9];
+            }
+            return;
+        }
+
+        if self.player == 1 && PLAYER_2_AI {
+            let pieces_placed = self.tiles.iter().filter(|t| t.is_some()).count();
+            match pieces_placed {
+                1 => {
+                    if self.tiles[4] == None {
+                        self.tiles[4] = Some(self.player); // Pick the middle
+                    } else {
+                        self.tiles[0] = Some(self.player); // Pick any corner
+                    }
+                }
+                3 | 5 | 7 => {
+                    place_blocking(self);
+                }
+                n => panic!("Unreachable {}", n),
+            }
+
+            self.player = (self.player + 1) % PLAYER_COUNT;
+
+            // Check for winner
+            // Row complete
+            if (self.tiles[0].is_some() && self.tiles[0] == self.tiles[1] && self.tiles[1] == self.tiles[2]) ||
+                (self.tiles[3].is_some() && self.tiles[3] == self.tiles[4] && self.tiles[4] == self.tiles[5]) ||
+                (self.tiles[6].is_some() && self.tiles[6] == self.tiles[7] && self.tiles[7] == self.tiles[8]) ||
+                // Column complete
+                (self.tiles[0].is_some() && self.tiles[0] == self.tiles[3] && self.tiles[3] == self.tiles[6]) ||
+                (self.tiles[1].is_some() && self.tiles[1] == self.tiles[4] && self.tiles[4] == self.tiles[7]) ||
+                (self.tiles[2].is_some() && self.tiles[2] == self.tiles[5] && self.tiles[5] == self.tiles[8]) ||
+                // Diagonal complete
+                (self.tiles[0].is_some() && self.tiles[0] == self.tiles[4] && self.tiles[4] == self.tiles[8]) ||
+                (self.tiles[2].is_some() && self.tiles[2] == self.tiles[4] && self.tiles[4] == self.tiles[6])
+            {
+                self.state = GameState::Win((self.player + 1) % PLAYER_COUNT);
+            } else if self.tiles.iter().all(|x| x.is_some()) {
+                self.state = GameState::Draw;
+            }
+        }
+
+        if self.player == 0 && input.was_button_pressed(ButtonId::Left) {
             let button = input.buttons[ButtonId::Left as usize];
             let center_x = WINDOW_WIDTH / 2.0;
             let center_y = WINDOW_HEIGHT / 2.0;
@@ -286,9 +348,29 @@ impl Game {
                 let x_start = center_x - square_dim + col * square_dim;
                 let y_start = center_y - square_dim + row * square_dim;
                 let rect = Rect::center_extent((x_start, y_start), (0.8 * square_dim, 0.8 * square_dim));
-                if rect.is_inside((button.x as f32, button.y as f32)) {
-                    self.tiles[idx] = true;
+                if self.tiles[idx].is_none() && rect.is_inside((button.x as f32, button.y as f32)) {
+                    self.tiles[idx] = Some(self.player);
+                    self.player = (self.player + 1) % PLAYER_COUNT;
+                    break;
                 }
+            }
+
+            // Check for winner
+            // Row complete
+            if (self.tiles[0].is_some() && self.tiles[0] == self.tiles[1] && self.tiles[1] == self.tiles[2]) ||
+                (self.tiles[3].is_some() && self.tiles[3] == self.tiles[4] && self.tiles[4] == self.tiles[5]) ||
+                (self.tiles[6].is_some() && self.tiles[6] == self.tiles[7] && self.tiles[7] == self.tiles[8]) ||
+                // Column complete
+                (self.tiles[0].is_some() && self.tiles[0] == self.tiles[3] && self.tiles[3] == self.tiles[6]) ||
+                (self.tiles[1].is_some() && self.tiles[1] == self.tiles[4] && self.tiles[4] == self.tiles[7]) ||
+                (self.tiles[2].is_some() && self.tiles[2] == self.tiles[5] && self.tiles[5] == self.tiles[8]) ||
+                // Diagonal complete
+                (self.tiles[0].is_some() && self.tiles[0] == self.tiles[4] && self.tiles[4] == self.tiles[8]) ||
+                (self.tiles[2].is_some() && self.tiles[2] == self.tiles[4] && self.tiles[4] == self.tiles[6])
+            {
+                self.state = GameState::Win((self.player + 1) % PLAYER_COUNT);
+            } else if self.tiles.iter().all(|x| x.is_some()) {
+                self.state = GameState::Draw;
             }
         }
     }
@@ -297,7 +379,35 @@ impl Game {
     fn render(&mut self) {
         self.render_commands.clear();
 
-        render_board(self);
+        match self.state {
+            GameState::Win(player) => {
+                push_str(
+                    &mut self.render_commands,
+                    &format!("Player {} Won!", player + 1),
+                    0.0,
+                    WINDOW_HEIGHT / 2.0 - 150.0,
+                    15.0,
+                );
+                push_str(
+                    &mut self.render_commands,
+                    &format!("Press any key to start"),
+                    0.0,
+                    WINDOW_HEIGHT / 2.0 + 100.0,
+                    8.0,
+                );
+            }
+            GameState::Draw => {
+                push_str(&mut self.render_commands, &format!("Draw!"), 0.0, WINDOW_HEIGHT / 2.0 - 150.0, 15.0);
+                push_str(
+                    &mut self.render_commands,
+                    &format!("Press any key to start"),
+                    0.0,
+                    WINDOW_HEIGHT / 2.0 + 100.0,
+                    8.0,
+                );
+            }
+            GameState::Playing => render_board(self),
+        }
     }
 }
 
@@ -311,27 +421,132 @@ fn render_board(game: &mut Game) {
     let bar_dim = 0.05 * square_dim;
 
     // Horizontal bars
-    push_centered_rect(cmd, center_x, center_y - half_square_dim, 3.0 * square_dim, bar_dim);
-    push_centered_rect(cmd, center_x, center_y + half_square_dim, 3.0 * square_dim, bar_dim);
+    push_rect(cmd, Rect::center_extent((center_x, center_y - half_square_dim), (3.0 * square_dim, bar_dim)));
+    push_rect(cmd, Rect::center_extent((center_x, center_y + half_square_dim), (3.0 * square_dim, bar_dim)));
 
     // Vertical bars
-    push_centered_rect(cmd, center_x - half_square_dim, center_y, bar_dim, 3.0 * square_dim);
-    push_centered_rect(cmd, center_x + half_square_dim, center_y, bar_dim, 3.0 * square_dim);
+    push_rect(cmd, Rect::center_extent((center_x - half_square_dim, center_y), (bar_dim, 3.0 * square_dim)));
+    push_rect(cmd, Rect::center_extent((center_x + half_square_dim, center_y), (bar_dim, 3.0 * square_dim)));
 
     // Pieces
     for idx in 0..9 {
         let row = (idx / 3) as f32;
         let col = (idx % 3) as f32;
-        if game.tiles[idx] {
-            push_centered_rect(
+        match game.tiles[idx] {
+            Some(player) => push_rect_color(
                 cmd,
-                center_x - square_dim + col * square_dim,
-                center_y - square_dim + row * square_dim,
-                0.8 * square_dim,
-                0.8 * square_dim,
-            );
+                Rect::center_extent(
+                    (center_x - square_dim + col * square_dim, center_y - square_dim + row * square_dim),
+                    (0.8 * square_dim, 0.8 * square_dim),
+                ),
+                PLAYER_COLOR[player],
+            ),
+            _ => {}
         }
     }
+}
+
+fn place_naive(game: &mut Game) {
+    for tile in game.tiles.iter_mut() {
+        if tile.is_none() {
+            *tile = Some(game.player);
+            break;
+        }
+    }
+}
+
+fn place_prefer_corners(game: &mut Game) {
+    for idx in [0, 2, 6, 8] {
+        if game.tiles[idx].is_none() {
+            game.tiles[idx] = Some(game.player);
+            return;
+        }
+    }
+    place_naive(game);
+}
+
+fn place_blocking(game: &mut Game) {
+    if let Some(idx) = get_win_tile(game, 1) {
+        game.tiles[idx] = Some(1);
+    } else if let Some(idx) = get_win_tile(game, 0) {
+        game.tiles[idx] = Some(1);
+    } else {
+        // Prefer diagonal, adjacent to the other player
+        if (game.tiles[5] == Some(0) || game.tiles[7] == Some(0)) && game.tiles[8] == None {
+            game.tiles[8] = Some(1);
+        } else {
+            place_prefer_corners(game);
+        }
+    }
+}
+
+fn get_win_tile(game: &Game, player: usize) -> Option<usize> {
+    // Rows
+    for row in 0..3 {
+        if game.tiles[row * 3 + 0] == Some(player)
+            && game.tiles[row * 3 + 1] == Some(player)
+            && game.tiles[row * 3 + 2] == None
+        {
+            return Some(row * 3 + 2);
+        }
+        if game.tiles[row * 3 + 0] == Some(player)
+            && game.tiles[row * 3 + 1] == None
+            && game.tiles[row * 3 + 2] == Some(player)
+        {
+            return Some(row * 3 + 1);
+        }
+        if game.tiles[row * 3 + 0] == None
+            && game.tiles[row * 3 + 1] == Some(player)
+            && game.tiles[row * 3 + 2] == Some(player)
+        {
+            return Some(row * 3 + 0);
+        }
+    }
+
+    // Columns
+    for col in 0..3 {
+        if game.tiles[0 * 3 + col] == Some(player)
+            && game.tiles[1 * 3 + col] == Some(player)
+            && game.tiles[2 * 3 + col] == None
+        {
+            return Some(2 * 3 + col);
+        }
+        if game.tiles[0 * 3 + col] == Some(player)
+            && game.tiles[1 * 3 + col] == None
+            && game.tiles[2 * 3 + col] == Some(player)
+        {
+            return Some(1 * 3 + col);
+        }
+        if game.tiles[0 * 3 + col] == None
+            && game.tiles[1 * 3 + col] == Some(player)
+            && game.tiles[2 * 3 + col] == Some(player)
+        {
+            return Some(0 * 3 + col);
+        }
+    }
+
+    // Diagonals
+    if game.tiles[0] == Some(player) && game.tiles[4] == Some(player) && game.tiles[8] == None {
+        return Some(8);
+    }
+    if game.tiles[0] == Some(player) && game.tiles[4] == None && game.tiles[8] == Some(player) {
+        return Some(4);
+    }
+    if game.tiles[0] == None && game.tiles[4] == Some(player) && game.tiles[8] == Some(player) {
+        return Some(0);
+    }
+
+    if game.tiles[2] == Some(player) && game.tiles[4] == Some(player) && game.tiles[6] == None {
+        return Some(6);
+    }
+    if game.tiles[2] == Some(player) && game.tiles[4] == None && game.tiles[6] == Some(player) {
+        return Some(4);
+    }
+    if game.tiles[2] == None && game.tiles[4] == Some(player) && game.tiles[6] == Some(player) {
+        return Some(2);
+    }
+
+    None
 }
 
 impl Platform {
@@ -631,7 +846,7 @@ impl VkContext {
             // Create Transform Storage Buffer
             vk_ctx.transform_storage_buffer = create_buffer(
                 &vk_ctx,
-                mem::size_of::<Entity>() * MAX_ENTITIES,
+                mem::size_of::<RenderCommand>() * MAX_ENTITIES,
                 VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.into(),
                 (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
             );
@@ -839,7 +1054,7 @@ impl VkContext {
                 vk_ctx.device,
                 vk_ctx.transform_storage_buffer.memory,
                 render_commands.as_ptr(),
-                mem::size_of::<Transform>() * render_commands.len(),
+                mem::size_of::<RenderCommand>() * render_commands.len(),
             );
 
             check!(vkResetFences(vk_ctx.device, 1, &fence));
