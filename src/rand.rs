@@ -3,9 +3,9 @@ pub struct Rand {
 }
 
 impl Rand {
-    pub fn new() -> Self {
+    pub fn new(seed: usize) -> Self {
         Self {
-            seed: 0,
+            seed: seed % RND_TABLE.len(),
         }
     }
 
