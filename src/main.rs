@@ -15,16 +15,38 @@ const BG_COLOR: u32 = 0x00252632; // AA RR GG BB
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
-const MAX_ENTITIES: usize = 400;
+const MAX_ENTITIES: usize = 5000;
 
 //const MODEL_PATH: &str = "assets/models/viking_room.obj";
 const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
 
-const TILES_X: usize = 9;
-const TILES_Y: usize = 9;
-const TILE_SIZE: f32 = 32.0;
-const TILE_COLOR: (f32, f32, f32) = (0.7, 0.7, 0.7);
-const MINE_COUNT: usize = 10;
+const TILE_SIZE: f32 = 50.0;
+
+const MAX_TILE_COUNT: usize = 30 * 16;
+
+// Beginner
+//const TILES_X: usize = 9; // Number of tiles on the X-axis or width
+//const TILES_Y: usize = 9; // Number of tiles on the Y-axis or height
+//const MINE_COUNT: usize = 10;
+
+// Intermediate
+//const TILES_X: usize = 16;
+//const TILES_Y: usize = 16;
+//const MINE_COUNT: usize = 40;
+
+// Expert
+const TILES_X: usize = 30;
+const TILES_Y: usize = 16;
+const MINE_COUNT: usize = 99;
+
+const TILE_CLEAR_COLOR: (f32, f32, f32) = (0.7, 0.7, 0.7);
+const TILE_ACTIVATED_COLOR: (f32, f32, f32) = (0.5, 0.5, 0.5);
+
+// Layers from top to bottom
+const TEXT_Z: f32 = 0.0;
+const OUTLINE_Z: f32 = 0.1;
+const TILE_FOREGROUND_Z: f32 = 0.8;
+const TILE_BACKGROUND_Z: f32 = 0.9;
 
 pub struct Platform {
     pub dpy: *mut Display,
@@ -36,8 +58,14 @@ pub struct Platform {
 
 pub struct Game {
     pub running: bool,
+
+    pub level: usize,
+    pub tiles_x: usize,
+    pub tiles_y: usize,
+    pub mine_count: usize,
+
     pub state: GameState,
-    pub tiles: [Tile; TILES_X * TILES_Y],
+    pub tiles: [Tile; MAX_TILE_COUNT], // TILES_X * TILES_Y],
     pub render_commands: Vec<RenderCommand>,
     pub rand: Rand,
 }
@@ -46,7 +74,7 @@ pub enum Tile {
     Clear, // Tile has not been clicked and it does not contain a mine
     Mine,  // Tile has not been clicked and it contains a mine
 
-    Flagged, // Tile marked with a flag after "right click"
+    Flagged(bool), // Tile marked with a flag after "right click" and a bool indicating if there is a mine or not
 
     Neighbors(usize), // Tile has been clicked, show the number indicating neighboring mines
     MineExploded,     // Tile has been clicked and it contains a mine
@@ -55,7 +83,10 @@ pub enum Tile {
 }
 #[derive(PartialEq)]
 pub enum GameState {
+    Menu(usize),
     Playing,
+    GameOver,
+    Win,
 }
 #[repr(C)]
 #[derive(Default, Copy, Clone)]
@@ -76,8 +107,13 @@ pub struct GlobalState {
 }
 
 #[derive(Debug)]
+#[rustfmt::skip]
 pub enum RenderCommand {
-    Rect(f32, f32, f32, f32, f32, f32, f32),
+    Rect(
+        f32, f32, f32,  // x, y, z,
+        f32, f32,       // w, h,
+        f32, f32, f32   // r, g, b
+    ),
 }
 
 #[repr(C)]
@@ -199,6 +235,8 @@ struct VkContext {
 }
 
 fn main() {
+    //println!("Any: {}, Esc: {}, Enter: {}", KeyId::Any as u32, KeyId::Esc as u32, KeyId::Enter as u32);
+    //println!("XK_Escape: {}, XK_Return: {}", XK_Escape, XK_Return);
     #[rustfmt::skip]
     let vertices = [                                                            // CCW
         Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
@@ -210,7 +248,7 @@ fn main() {
 
     let mut platform = Platform::init();
     let mut input = InputState::default();
-    let mut game = Game::init();
+    let mut game = Game::init(0);
     let mut vk_ctx = VkContext::init(&platform);
     vk_ctx.vertex_buffer = create_vertex_buffer(&vk_ctx, &vertices);
     vk_ctx.index_buffer = create_index_buffer(&vk_ctx, &indices);
@@ -235,52 +273,138 @@ fn main() {
     vk_ctx.cleanup(&platform);
 }
 
-pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R) {
-    let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, 1.0, 1.0, 1.0));
+pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32) {
+    push_rect_color(render_commands, r, z, (1.0, 1.0, 1.0));
 }
-pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, c: (f32, f32, f32)) {
+pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32, c: (f32, f32, f32)) {
     let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, c.0, c.1, c.2));
+    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, z, r.extent.x, r.extent.y, c.0, c.1, c.2));
 }
 pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
-pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, pixel_size: f32) {
+pub const GLYPH_OUTLINE_SIZE: f32 = 4.0;
+pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, z: f32, pixel_size: f32) {
+    push_glyph_color(cmd, glyph, x, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+}
+pub fn push_glyph_color(
+    cmd: &mut Vec<RenderCommand>,
+    glyph: &Glyph,
+    x: f32,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: (f32, f32, f32),
+    outline: bool,
+) {
     for row in 0..7 {
         for col in 0..5 {
             if glyph[row * 5 + col] != 0 {
-                push_rect(
+                push_rect_color(
                     cmd,
                     Rect::offset_extent(
                         (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
                         (pixel_size, pixel_size),
                     ),
+                    z,
+                    //TEXT_Z,
+                    color,
                 );
+                if outline {
+                    push_rect_color(
+                        cmd,
+                        Rect::offset_extent(
+                            (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
+                            (pixel_size + GLYPH_OUTLINE_SIZE, pixel_size + GLYPH_OUTLINE_SIZE),
+                        ),
+                        OUTLINE_Z,
+                        (1.0 - color.0, 1.0 - color.1, 1.0 - color.2),
+                    );
+                }
             }
         }
     }
 }
-pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, pixel_size: f32) {
+pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, z: f32, pixel_size: f32) {
+    push_char_color(cmd, c, x, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+}
+pub fn push_char_color(
+    cmd: &mut Vec<RenderCommand>,
+    c: char,
+    x: f32,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: (f32, f32, f32),
+    outline: bool,
+) {
     assert!(c >= ' ' && c <= '~');
     let glyph_idx = c as usize - ' ' as usize;
-    push_glyph(cmd, &GLYPHS[glyph_idx], x, y, pixel_size);
+    push_glyph_color(cmd, &GLYPHS[glyph_idx], x, y, z, pixel_size, color, outline);
 }
-pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32, pixel_size: f32) {
+pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32, z: f32, pixel_size: f32) {
+    push_str_color(cmd, s, x, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+}
+pub fn push_str_centered(cmd: &mut Vec<RenderCommand>, s: &str, y: f32, z: f32, pixel_size: f32) {
+    push_str_centered_color(cmd, s, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+}
+pub fn push_str_centered_color(
+    cmd: &mut Vec<RenderCommand>,
+    s: &str,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: (f32, f32, f32),
+    outline: bool,
+) {
     let text_extent = (s.len() as f32) * 6.0 * pixel_size;
     let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
+    push_str_color(cmd, s, x, y, z, pixel_size, color, outline);
+}
+pub fn push_str_color(
+    cmd: &mut Vec<RenderCommand>,
+    s: &str,
+    x: f32,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: (f32, f32, f32),
+    outline: bool,
+) {
     for (idx, c) in s.chars().enumerate() {
-        push_char(cmd, c, x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0), y, pixel_size);
+        push_char_color(
+            cmd,
+            c,
+            x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0),
+            y,
+            z,
+            pixel_size,
+            color,
+            outline,
+        );
     }
 }
 
 impl Game {
-    fn init() -> Self {
-        let mut rand = Rand::new();
-        let mut tiles = [Tile::Clear; TILES_X * TILES_Y];
+    fn init(level: usize) -> Self {
+        let (tiles_x, tiles_y, mine_count) = match level {
+            0 => (9, 9, 10),
+            1 => (16, 16, 40),
+            2 => (30, 16, 99),
+            n => panic!("Level {} is not supported!", n),
+        };
+
+        //println!("Game::init()");
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Failed to get time since UNIX_EPOCH")
+            .as_secs() as usize;
+        //println!("Seed: {}", seed);
+        let mut rand = Rand::new(seed);
+        let mut tiles = [Tile::Clear; MAX_TILE_COUNT]; // TILES_X * TILES_Y];
         let mut placed_mines = 0;
-        while placed_mines < MINE_COUNT {
-            let row = (rand.next_u32() as usize) % TILES_Y;
-            let col = (rand.next_u32() as usize) % TILES_X;
-            let idx = row * TILES_X + col;
+        while placed_mines < mine_count {
+            let row = (rand.next_u32() as usize) % tiles_y;
+            let col = (rand.next_u32() as usize) % tiles_x;
+            let idx = row * tiles_x + col;
             if tiles[idx] == Tile::Clear {
                 tiles[idx] = Tile::Mine;
                 placed_mines += 1;
@@ -288,7 +412,11 @@ impl Game {
         }
         Self {
             running: true,
-            state: GameState::Playing,
+            state: GameState::Menu(0),
+            level,
+            tiles_x,
+            tiles_y,
+            mine_count,
             tiles,
             render_commands: vec![],
             rand,
@@ -302,11 +430,49 @@ impl Game {
             return;
         }
 
-        if self.state != GameState::Playing {
-            if input.was_key_pressed(KeyId::Any) {
-                // Restart game
-            }
+        //if self.state != GameState::Playing {
+        if input.was_key_pressed(KeyId::R) {
+            *self = Self::init(self.level);
+            // Restart game
             return;
+        }
+        //}
+
+        if let GameState::Menu(level) = self.state {
+            if input.was_key_pressed(KeyId::Enter) {
+                println!("Enter pressed, moving to Playing state");
+                *self = Self::init(level);
+                self.state = GameState::Playing;
+                return;
+            }
+
+            if input.was_key_pressed(KeyId::Up) {
+                self.state = GameState::Menu(level.saturating_sub(1));
+            }
+            if input.was_key_pressed(KeyId::Down) {
+                self.state = GameState::Menu((level + 1).min(2));
+            }
+        }
+
+        if self.state == GameState::Playing {
+            if input.was_button_pressed(ButtonId::Right) {
+                let button = input.buttons[ButtonId::Right as usize];
+                if let Some(idx) = get_tile_from_pos(self, button.x, button.y) {
+                    self.tiles[idx] = match self.tiles[idx] {
+                        Tile::Clear => Tile::Flagged(false),
+                        Tile::Mine => Tile::Flagged(true),
+                        Tile::Flagged(false) => Tile::Clear,
+                        Tile::Flagged(true) => Tile::Mine,
+                        t => t,
+                    };
+                }
+            }
+            if input.was_button_pressed(ButtonId::Left) {
+                let button = input.buttons[ButtonId::Left as usize];
+                if let Some(idx) = get_tile_from_pos(self, button.x, button.y) {
+                    activate_tile(self, idx);
+                }
+            }
         }
     }
 
@@ -315,8 +481,63 @@ impl Game {
         self.render_commands.clear();
 
         match self.state {
-            GameState::Playing => render_board(self),
+            GameState::Menu(option) => render_menu(self, option),
+            GameState::Playing => {
+                // TODO: Render Timer + Remaining Mines
+                render_board(self);
+            }
+            GameState::Win => {
+                render_board(self);
+                push_str_centered_color(
+                    &mut self.render_commands,
+                    "Victory!",
+                    WINDOW_HEIGHT / 3.0,
+                    TEXT_Z,
+                    GLYPH_PIXEL_SIZE * 2.0,
+                    // (0.8, 0.7, 0.1),
+                    (1.0, 1.0, 1.0),
+                    true,
+                );
+            }
+            GameState::GameOver => {
+                render_board(self);
+                push_str_centered_color(
+                    &mut self.render_commands,
+                    "Game Over!",
+                    WINDOW_HEIGHT / 3.0,
+                    TEXT_Z,
+                    GLYPH_PIXEL_SIZE * 2.0,
+                    // (0.8, 0.7, 0.1),
+                    (0.0, 0.0, 0.0),
+                    true,
+                );
+            }
         }
+    }
+}
+
+fn render_menu(game: &mut Game, option: usize) {
+    let cmd = &mut game.render_commands;
+    push_str_centered_color(cmd, "DIFFICULY", 100.0, TEXT_Z, GLYPH_PIXEL_SIZE * 1.3, (1.0, 1.0, 1.0), true);
+    let x = WINDOW_WIDTH / 2.0;
+    let mut y = 300.0;
+    let w = 750.0;
+    let h = 100.0;
+    let padding = 25.0;
+    let texts = ["Beginner", "Intermediate", "Expert"];
+    for i in 0..3 {
+        push_rect_color(
+            cmd,
+            Rect::center_extent((x, y + 40.0), (w, h)),
+            TILE_BACKGROUND_Z,
+            if option == i {
+                (0.6, 0.6, 0.6)
+            } else {
+                (0.2, 0.2, 0.2)
+            },
+        );
+        push_str_centered_color(cmd, texts[i], y, TEXT_Z, GLYPH_PIXEL_SIZE * 1.0, (1.0, 1.0, 1.0), true);
+        y += h + padding;
     }
 }
 
@@ -325,17 +546,18 @@ fn render_board(game: &mut Game) {
     let center_x = WINDOW_WIDTH / 2.0;
     let center_y = WINDOW_HEIGHT / 2.0;
 
-    let start_x = center_x - TILE_SIZE * (TILES_X as f32 / 2.0).floor();
-    let start_y = center_y - TILE_SIZE * (TILES_Y as f32 / 2.0).floor();
-    for row in 0..TILES_Y {
-        for col in 0..TILES_X {
-            let idx = row * TILES_X + col;
+    let start_x = center_x - TILE_SIZE * (game.tiles_x as f32 / 2.0).floor();
+    let start_y = center_y - TILE_SIZE * (game.tiles_y as f32 / 2.0).floor();
+    for row in 0..game.tiles_y {
+        for col in 0..game.tiles_x {
+            let idx = row * game.tiles_x + col;
             let color = match game.tiles[idx] {
-                Tile::Clear | Tile::Mine => TILE_COLOR,
-                Tile::Flagged => (1.0, 0.2, 0.2),
-                Tile::Neighbors(count) => (0.0, 1.0, 0.0),
+                Tile::Clear => TILE_CLEAR_COLOR,
+                Tile::Mine => TILE_CLEAR_COLOR,
+                Tile::Flagged(_) => TILE_ACTIVATED_COLOR, //(1.0, 0.2, 0.2),
+                Tile::Neighbors(_) => TILE_ACTIVATED_COLOR,
                 Tile::MineExploded => (1.0, 0.0, 0.0),
-                Tile::MineShown => (0.0, 0.0, 0.0),
+                Tile::MineShown => (0.2, 0.2, 0.2),
             };
             push_rect_color(
                 cmd,
@@ -343,27 +565,128 @@ fn render_board(game: &mut Game) {
                     (start_x + (col as f32) * TILE_SIZE, start_y + (row as f32) * TILE_SIZE),
                     (TILE_SIZE - 2.0, TILE_SIZE - 2.0),
                 ),
+                TILE_BACKGROUND_Z,
                 color,
             );
+            match game.tiles[idx] {
+                Tile::MineShown | Tile::MineExploded => {
+                    push_glyph_color(
+                        cmd,
+                        &MINE_GLYPH,
+                        start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
+                        start_y + (row as f32) * TILE_SIZE - 18.0,
+                        TILE_FOREGROUND_Z,
+                        6.0,
+                        (0.0, 0.0, 0.0),
+                        false,
+                    );
+                }
+                Tile::Flagged(_) => {
+                    push_glyph_color(
+                        cmd,
+                        &FLAG_GLYPH,
+                        start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
+                        start_y + (row as f32) * TILE_SIZE - 21.0,
+                        TILE_FOREGROUND_Z,
+                        6.0,
+                        (0.0, 0.0, 0.0),
+                        false,
+                    );
+                }
+                Tile::Neighbors(0) => {}
+                Tile::Neighbors(count) => {
+                    let color = match count {
+                        1 => (0.0, 0.0, 1.0), // Blue
+                        2 => (0.0, 0.5, 0.0), // Dark Green
+                        3 => (1.0, 0.0, 0.0), // Red
+                        4 => (0.0, 0.0, 0.5), // Dark Blue
+                        5 => (0.5, 0.0, 0.0), // Brown
+                        6 => (0.0, 0.5, 0.5), // Cyan
+                        7 => (0.0, 0.0, 0.0), // Black
+                        8 => (0.5, 0.5, 0.5), // Grey
+                        _ => (1.0, 1.0, 1.0),
+                    };
+                    push_str_color(
+                        cmd,
+                        &format!("{}", count),
+                        start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
+                        start_y + (row as f32) * TILE_SIZE - 21.0,
+                        TILE_FOREGROUND_Z,
+                        6.0,
+                        color,
+                        false,
+                    );
+                }
+                _ => {}
+            }
         }
     }
+}
 
-    // Pieces
-    //for idx in 0..9 {
-    //    let row = (idx / 3) as f32;
-    //    let col = (idx % 3) as f32;
-    //    match game.tiles[idx] {
-    //        Some(player) => push_rect_color(
-    //            cmd,
-    //            Rect::center_extent(
-    //                (center_x - square_dim + col * square_dim, center_y - square_dim + row * square_dim),
-    //                (0.8 * square_dim, 0.8 * square_dim),
-    //            ),
-    //            PLAYER_COLOR[player],
-    //        ),
-    //        _ => {}
-    //    }
-    //}
+fn activate_tile(game: &mut Game, idx: usize) {
+    let row = idx / game.tiles_x;
+    let col = idx % game.tiles_x;
+    match game.tiles[idx] {
+        Tile::Clear => {
+            // println!("Activating tile at ({}, {})", col, row);
+            let neighbors = get_neighbors(&game, row as isize, col as isize);
+            let count = neighbors.iter().filter(|t| matches!(t.1, Tile::Mine | Tile::Flagged(true))).count();
+            game.tiles[idx] = Tile::Neighbors(count);
+            if count == 0 {
+                for neighbor in neighbors {
+                    activate_tile(game, neighbor.0);
+                }
+            }
+            if game.tiles.iter().filter(|t| matches!(t, Tile::Clear)).count() == 0 {
+                game.state = GameState::Win;
+            }
+        }
+        Tile::Mine => {
+            game.state = GameState::GameOver;
+            for idx2 in 0..game.tiles_x * game.tiles_y {
+                if idx2 == idx {
+                    game.tiles[idx] = Tile::MineExploded;
+                } else if game.tiles[idx2] == Tile::Mine {
+                    game.tiles[idx2] = Tile::MineShown;
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn get_tile_from_pos(game: &Game, x: i32, y: i32) -> Option<usize> {
+    let center_x = WINDOW_WIDTH / 2.0;
+    let center_y = WINDOW_HEIGHT / 2.0;
+
+    let start_x = center_x - TILE_SIZE * (game.tiles_x as f32 / 2.0).floor();
+    let start_y = center_y - TILE_SIZE * (game.tiles_y as f32 / 2.0).floor();
+    for row in 0..TILES_Y {
+        for col in 0..game.tiles_x {
+            let idx = row * game.tiles_x + col;
+            let rect = Rect::center_extent(
+                (start_x + (col as f32) * TILE_SIZE, start_y + (row as f32) * TILE_SIZE),
+                (TILE_SIZE - 2.0, TILE_SIZE - 2.0),
+            );
+            if rect.is_inside((x as f32, y as f32)) {
+                return Some(idx);
+            }
+        }
+    }
+    None
+}
+
+fn get_neighbors(game: &Game, row: isize, col: isize) -> Vec<(usize, Tile)> {
+    let mut neighbors = vec![];
+    for j in row - 1..=row + 1 {
+        for i in col - 1..=col + 1 {
+            if j >= 0 && j < (game.tiles_y as isize) && i >= 0 && i < (game.tiles_x as isize) {
+                let idx = (j as usize) * game.tiles_x + (i as usize);
+                neighbors.push((idx, game.tiles[idx]));
+            }
+        }
+    }
+    neighbors
 }
 
 impl Platform {
@@ -424,9 +747,11 @@ impl Platform {
                         input.set_key(KeyId::Any, is_down);
                         match keysym {
                             XK_Escape => input.set_key(KeyId::Esc, is_down),
+                            XK_Return => input.set_key(KeyId::Enter, is_down),
                             XK_a => input.set_key(KeyId::A, is_down),
                             XK_d => input.set_key(KeyId::D, is_down),
                             XK_p => input.set_key(KeyId::P, is_down),
+                            XK_r => input.set_key(KeyId::R, is_down),
                             XK_s => input.set_key(KeyId::S, is_down),
                             XK_w => input.set_key(KeyId::W, is_down),
                             XK_Down => input.set_key(KeyId::Down, is_down),
@@ -867,6 +1192,7 @@ impl VkContext {
             //    transforms.as_ptr(),
             //    mem::size_of::<Transform>() * game.entity_count,
             //);
+            // TODO: Check the size is less than size of the buffer
             vk_map_memory_copy(
                 vk_ctx.device,
                 vk_ctx.transform_storage_buffer.memory,
@@ -1632,6 +1958,27 @@ fn create_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> Image {
         texture_image
     }
 }
+
+#[rustfmt::skip]
+const MINE_GLYPH: Glyph = [
+    0, 0, 0, 0, 0,
+    1, 0, 1, 0, 1,
+    0, 1, 1, 1, 0,
+    1, 1, 1, 1, 1,
+    0, 1, 1, 1, 0,
+    1, 0, 1, 0, 1,
+    0, 0, 0, 0, 0,
+];
+#[rustfmt::skip]
+const FLAG_GLYPH: Glyph = [
+    0, 0, 0, 0, 0,
+    0, 1, 1, 0, 0,
+    1, 1, 1, 0, 0,
+    0, 0, 1, 0, 0,
+    0, 0, 1, 0, 0,
+    0, 1, 1, 1, 0,
+    1, 1, 1, 1, 1,
+];
 
 pub const GLYPH_WIDTH: usize = 5;
 pub const GLYPH_HEIGHT: usize = 7;
