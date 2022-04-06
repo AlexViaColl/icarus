@@ -7,7 +7,8 @@ layout(set = 0, binding = 0) uniform GlobalUBO {
 } globalUBO;
 
 struct Transform {
-    float x, y, w, h;
+    float x, y, z;
+    float w, h;
     float r, g, b;
 };
 layout(set = 0, binding = 1) readonly buffer Transforms {
@@ -38,7 +39,7 @@ void main() {
     //gl_Position = ubo.proj * ubo.view * ubo.model * vec4(inPosition, 1.0);
 
     vec2 normalized = 2.0 * vec2(vertices[gl_VertexIndex].x / globalUBO.width, vertices[gl_VertexIndex].y / globalUBO.height) - 1.0;
-    gl_Position = vec4(normalized, 0.0, 1.0);
+    gl_Position = vec4(normalized, transform.z, 1.0);
     fragTexCoord = vertices[gl_VertexIndex].zw;
 
     fragColor = inColor;
