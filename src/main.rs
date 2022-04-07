@@ -20,24 +20,25 @@ const MAX_ENTITIES: usize = 5000;
 //const MODEL_PATH: &str = "assets/models/viking_room.obj";
 const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
 
-const TILE_SIZE: f32 = 50.0;
+const BLACK: (f32, f32, f32) = (0.0, 0.0, 0.0);
+const WHITE: (f32, f32, f32) = (1.0, 1.0, 1.0);
+const RED: (f32, f32, f32) = (1.0, 0.0, 0.0);
+const GREEN: (f32, f32, f32) = (0.0, 1.0, 0.0);
+const BLUE: (f32, f32, f32) = (0.0, 0.0, 1.0);
+
+const DARK_GREEN: (f32, f32, f32) = (0.0, 0.5, 0.0);
+const DARK_BLUE: (f32, f32, f32) = (0.0, 0.0, 0.5);
+const DARK_GREY: (f32, f32, f32) = (0.2, 0.2, 0.2);
+const LIGHT_GREY: (f32, f32, f32) = (0.6, 0.6, 0.6);
+const BROWN: (f32, f32, f32) = (0.5, 0.0, 0.0);
+const CYAN: (f32, f32, f32) = (0.0, 0.5, 0.5);
+const GREY: (f32, f32, f32) = (0.5, 0.5, 0.5);
+
+const TITLE_COLOR: (f32, f32, f32) = (0.8, 0.7, 0.1);
+
+const TILE_SIZE: f32 = 42.0;
 
 const MAX_TILE_COUNT: usize = 30 * 16;
-
-// Beginner
-//const TILES_X: usize = 9; // Number of tiles on the X-axis or width
-//const TILES_Y: usize = 9; // Number of tiles on the Y-axis or height
-//const MINE_COUNT: usize = 10;
-
-// Intermediate
-//const TILES_X: usize = 16;
-//const TILES_Y: usize = 16;
-//const MINE_COUNT: usize = 40;
-
-// Expert
-const TILES_X: usize = 30;
-const TILES_Y: usize = 16;
-const MINE_COUNT: usize = 99;
 
 const TILE_CLEAR_COLOR: (f32, f32, f32) = (0.7, 0.7, 0.7);
 const TILE_ACTIVATED_COLOR: (f32, f32, f32) = (0.5, 0.5, 0.5);
@@ -58,14 +59,17 @@ pub struct Platform {
 
 pub struct Game {
     pub running: bool,
+    pub seconds_elapsed: f32,
 
     pub level: usize,
     pub tiles_x: usize,
     pub tiles_y: usize,
+    pub tile_count: usize,
     pub mine_count: usize,
+    pub mines_left: usize,
 
     pub state: GameState,
-    pub tiles: [Tile; MAX_TILE_COUNT], // TILES_X * TILES_Y],
+    pub tiles: [Tile; MAX_TILE_COUNT], // actual size: tile_count,
     pub render_commands: Vec<RenderCommand>,
     pub rand: Rand,
 }
@@ -399,7 +403,7 @@ impl Game {
             .as_secs() as usize;
         //println!("Seed: {}", seed);
         let mut rand = Rand::new(seed);
-        let mut tiles = [Tile::Clear; MAX_TILE_COUNT]; // TILES_X * TILES_Y];
+        let mut tiles = [Tile::Clear; MAX_TILE_COUNT];
         let mut placed_mines = 0;
         while placed_mines < mine_count {
             let row = (rand.next_u32() as usize) % tiles_y;
@@ -412,11 +416,14 @@ impl Game {
         }
         Self {
             running: true,
+            seconds_elapsed: 0.0,
             state: GameState::Menu(0),
             level,
             tiles_x,
             tiles_y,
+            tile_count: tiles_x * tiles_y,
             mine_count,
+            mines_left: mine_count,
             tiles,
             render_commands: vec![],
             rand,
@@ -424,23 +431,26 @@ impl Game {
     }
 
     // Advances the state of the game by dt seconds.
-    fn update(&mut self, input: &InputState, _dt: f32) {
+    fn update(&mut self, input: &InputState, dt: f32) {
         if input.was_key_pressed(KeyId::Esc) {
             self.running = false;
             return;
         }
 
-        //if self.state != GameState::Playing {
+        // Restart game
         if input.was_key_pressed(KeyId::R) {
             *self = Self::init(self.level);
-            // Restart game
+            self.state = GameState::Playing;
             return;
         }
-        //}
+        // Go back to the menu
+        if input.was_key_pressed(KeyId::M) {
+            *self = Self::init(self.level);
+            return;
+        }
 
         if let GameState::Menu(level) = self.state {
             if input.was_key_pressed(KeyId::Enter) {
-                println!("Enter pressed, moving to Playing state");
                 *self = Self::init(level);
                 self.state = GameState::Playing;
                 return;
@@ -455,14 +465,28 @@ impl Game {
         }
 
         if self.state == GameState::Playing {
+            self.seconds_elapsed += dt;
+
             if input.was_button_pressed(ButtonId::Right) {
                 let button = input.buttons[ButtonId::Right as usize];
                 if let Some(idx) = get_tile_from_pos(self, button.x, button.y) {
                     self.tiles[idx] = match self.tiles[idx] {
-                        Tile::Clear => Tile::Flagged(false),
-                        Tile::Mine => Tile::Flagged(true),
-                        Tile::Flagged(false) => Tile::Clear,
-                        Tile::Flagged(true) => Tile::Mine,
+                        Tile::Clear => {
+                            self.mines_left -= 1;
+                            Tile::Flagged(false)
+                        }
+                        Tile::Mine => {
+                            self.mines_left -= 1;
+                            Tile::Flagged(true)
+                        }
+                        Tile::Flagged(false) => {
+                            self.mines_left += 1;
+                            Tile::Clear
+                        }
+                        Tile::Flagged(true) => {
+                            self.mines_left += 1;
+                            Tile::Mine
+                        }
                         t => t,
                     };
                 }
@@ -480,10 +504,44 @@ impl Game {
     fn render(&mut self) {
         self.render_commands.clear();
 
+        //push_rect(&mut self.render_commands, Rect::offset_extent((0.0, 25.0), (WINDOW_WIDTH, 2.0)), TILE_FOREGROUND_Z);
+        //push_rect(&mut self.render_commands, Rect::offset_extent((0.0, 175.0), (WINDOW_WIDTH, 2.0)), TILE_FOREGROUND_Z);
+
+        // Glyphs are 5x7 tiles, each tile is pixel_size x pixel_size
+        // We want our text height to be 150. 150 / 7 = ~21.43
+        const TITLE_Y: f32 = 25.0;
+        const TITLE_PIXEL_SIZE: f32 = 21.43;
+
         match self.state {
-            GameState::Menu(option) => render_menu(self, option),
+            GameState::Menu(option) => {
+                push_str_centered_color(
+                    &mut self.render_commands,
+                    "Level",
+                    TITLE_Y + 25.0,
+                    TEXT_Z,
+                    TITLE_PIXEL_SIZE,
+                    TITLE_COLOR,
+                    true,
+                );
+                render_menu(self, option)
+            }
             GameState::Playing => {
-                // TODO: Render Timer + Remaining Mines
+                push_str(
+                    &mut self.render_commands,
+                    &format!("{:03}", self.mines_left),
+                    3.0 * WINDOW_WIDTH / 4.0,
+                    75.0,
+                    TEXT_Z,
+                    GLYPH_PIXEL_SIZE * 0.7,
+                );
+                push_str(
+                    &mut self.render_commands,
+                    &format!("{:03}", self.seconds_elapsed as u32),
+                    3.0 * WINDOW_WIDTH / 4.0 + 150.0,
+                    75.0,
+                    TEXT_Z,
+                    GLYPH_PIXEL_SIZE * 0.7,
+                );
                 render_board(self);
             }
             GameState::Win => {
@@ -491,11 +549,10 @@ impl Game {
                 push_str_centered_color(
                     &mut self.render_commands,
                     "Victory!",
-                    WINDOW_HEIGHT / 3.0,
+                    TITLE_Y,
                     TEXT_Z,
-                    GLYPH_PIXEL_SIZE * 2.0,
-                    // (0.8, 0.7, 0.1),
-                    (1.0, 1.0, 1.0),
+                    TITLE_PIXEL_SIZE,
+                    TITLE_COLOR,
                     true,
                 );
             }
@@ -504,11 +561,10 @@ impl Game {
                 push_str_centered_color(
                     &mut self.render_commands,
                     "Game Over!",
-                    WINDOW_HEIGHT / 3.0,
+                    TITLE_Y,
                     TEXT_Z,
-                    GLYPH_PIXEL_SIZE * 2.0,
-                    // (0.8, 0.7, 0.1),
-                    (0.0, 0.0, 0.0),
+                    TITLE_PIXEL_SIZE,
+                    TITLE_COLOR,
                     true,
                 );
             }
@@ -518,7 +574,7 @@ impl Game {
 
 fn render_menu(game: &mut Game, option: usize) {
     let cmd = &mut game.render_commands;
-    push_str_centered_color(cmd, "DIFFICULY", 100.0, TEXT_Z, GLYPH_PIXEL_SIZE * 1.3, (1.0, 1.0, 1.0), true);
+    //push_str_centered_color(cmd, "DIFFICULY", 100.0, TEXT_Z, GLYPH_PIXEL_SIZE * 1.3, WHITE, true);
     let x = WINDOW_WIDTH / 2.0;
     let mut y = 300.0;
     let w = 750.0;
@@ -531,12 +587,24 @@ fn render_menu(game: &mut Game, option: usize) {
             Rect::center_extent((x, y + 40.0), (w, h)),
             TILE_BACKGROUND_Z,
             if option == i {
-                (0.6, 0.6, 0.6)
+                DARK_GREY
             } else {
-                (0.2, 0.2, 0.2)
+                LIGHT_GREY
             },
         );
-        push_str_centered_color(cmd, texts[i], y, TEXT_Z, GLYPH_PIXEL_SIZE * 1.0, (1.0, 1.0, 1.0), true);
+        push_str_centered_color(
+            cmd,
+            texts[i],
+            y,
+            TEXT_Z,
+            GLYPH_PIXEL_SIZE * 1.0,
+            if option == i {
+                WHITE
+            } else {
+                DARK_GREY
+            },
+            true,
+        );
         y += h + padding;
     }
 }
@@ -544,7 +612,8 @@ fn render_menu(game: &mut Game, option: usize) {
 fn render_board(game: &mut Game) {
     let cmd = &mut game.render_commands;
     let center_x = WINDOW_WIDTH / 2.0;
-    let center_y = WINDOW_HEIGHT / 2.0;
+    let offset = 200.0;
+    let center_y = offset + (WINDOW_HEIGHT - offset) / 2.0;
 
     let start_x = center_x - TILE_SIZE * (game.tiles_x as f32 / 2.0).floor();
     let start_y = center_y - TILE_SIZE * (game.tiles_y as f32 / 2.0).floor();
@@ -556,8 +625,8 @@ fn render_board(game: &mut Game) {
                 Tile::Mine => TILE_CLEAR_COLOR,
                 Tile::Flagged(_) => TILE_ACTIVATED_COLOR, //(1.0, 0.2, 0.2),
                 Tile::Neighbors(_) => TILE_ACTIVATED_COLOR,
-                Tile::MineExploded => (1.0, 0.0, 0.0),
-                Tile::MineShown => (0.2, 0.2, 0.2),
+                Tile::MineExploded => RED,
+                Tile::MineShown => DARK_GREY,
             };
             push_rect_color(
                 cmd,
@@ -577,7 +646,7 @@ fn render_board(game: &mut Game) {
                         start_y + (row as f32) * TILE_SIZE - 18.0,
                         TILE_FOREGROUND_Z,
                         6.0,
-                        (0.0, 0.0, 0.0),
+                        BLACK,
                         false,
                     );
                 }
@@ -586,33 +655,33 @@ fn render_board(game: &mut Game) {
                         cmd,
                         &FLAG_GLYPH,
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
-                        start_y + (row as f32) * TILE_SIZE - 21.0,
+                        start_y + (row as f32) * TILE_SIZE - 24.0,
                         TILE_FOREGROUND_Z,
                         6.0,
-                        (0.0, 0.0, 0.0),
+                        BLACK,
                         false,
                     );
                 }
                 Tile::Neighbors(0) => {}
                 Tile::Neighbors(count) => {
                     let color = match count {
-                        1 => (0.0, 0.0, 1.0), // Blue
-                        2 => (0.0, 0.5, 0.0), // Dark Green
-                        3 => (1.0, 0.0, 0.0), // Red
-                        4 => (0.0, 0.0, 0.5), // Dark Blue
-                        5 => (0.5, 0.0, 0.0), // Brown
-                        6 => (0.0, 0.5, 0.5), // Cyan
-                        7 => (0.0, 0.0, 0.0), // Black
-                        8 => (0.5, 0.5, 0.5), // Grey
-                        _ => (1.0, 1.0, 1.0),
+                        1 => BLUE,
+                        2 => DARK_GREEN,
+                        3 => RED,
+                        4 => DARK_BLUE,
+                        5 => BROWN,
+                        6 => CYAN,
+                        7 => BLACK,
+                        8 => GREY,
+                        _ => WHITE,
                     };
                     push_str_color(
                         cmd,
                         &format!("{}", count),
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
-                        start_y + (row as f32) * TILE_SIZE - 21.0,
+                        start_y + (row as f32) * TILE_SIZE - 18.0,
                         TILE_FOREGROUND_Z,
-                        6.0,
+                        5.0,
                         color,
                         false,
                     );
@@ -637,7 +706,7 @@ fn activate_tile(game: &mut Game, idx: usize) {
                     activate_tile(game, neighbor.0);
                 }
             }
-            if game.tiles.iter().filter(|t| matches!(t, Tile::Clear)).count() == 0 {
+            if game.tiles.iter().take(game.tiles_x * game.tiles_y).filter(|t| matches!(t, Tile::Clear)).count() == 0 {
                 game.state = GameState::Win;
             }
         }
@@ -657,11 +726,15 @@ fn activate_tile(game: &mut Game, idx: usize) {
 
 fn get_tile_from_pos(game: &Game, x: i32, y: i32) -> Option<usize> {
     let center_x = WINDOW_WIDTH / 2.0;
-    let center_y = WINDOW_HEIGHT / 2.0;
+    let offset = 200.0;
+    let center_y = offset + (WINDOW_HEIGHT - offset) / 2.0;
+
+    //let center_x = WINDOW_WIDTH / 2.0;
+    //let center_y = WINDOW_HEIGHT / 2.0;
 
     let start_x = center_x - TILE_SIZE * (game.tiles_x as f32 / 2.0).floor();
     let start_y = center_y - TILE_SIZE * (game.tiles_y as f32 / 2.0).floor();
-    for row in 0..TILES_Y {
+    for row in 0..game.tiles_y {
         for col in 0..game.tiles_x {
             let idx = row * game.tiles_x + col;
             let rect = Rect::center_extent(
@@ -750,6 +823,7 @@ impl Platform {
                             XK_Return => input.set_key(KeyId::Enter, is_down),
                             XK_a => input.set_key(KeyId::A, is_down),
                             XK_d => input.set_key(KeyId::D, is_down),
+                            XK_m => input.set_key(KeyId::M, is_down),
                             XK_p => input.set_key(KeyId::P, is_down),
                             XK_r => input.set_key(KeyId::R, is_down),
                             XK_s => input.set_key(KeyId::S, is_down),
