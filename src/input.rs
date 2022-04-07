@@ -5,6 +5,7 @@ pub enum KeyId {
 
     Esc,
     Enter,
+    Space,
 
     A,
     D,

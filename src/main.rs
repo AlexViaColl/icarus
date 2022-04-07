@@ -226,7 +226,7 @@ struct VkContext {
 
 fn main() {
     //println!("Any: {}, Esc: {}, Enter: {}", KeyId::Any as u32, KeyId::Esc as u32, KeyId::Enter as u32);
-    //println!("XK_Escape: {}, XK_Return: {}", XK_Escape, XK_Return);
+    //println!("XK_Escape: {}, XK_Return: {}, XK_Space: {}", XK_Escape, XK_Return, XK_space);
     #[rustfmt::skip]
     let vertices = [                                                            // CCW
         Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
@@ -436,16 +436,16 @@ impl Game {
         }
 
         if let GameState::Menu(level) = self.state {
-            if input.was_key_pressed(KeyId::Enter) {
+            if input.was_key_pressed(KeyId::Enter) || input.was_key_pressed(KeyId::Space) {
                 *self = Self::init(level);
                 self.state = GameState::Playing;
                 return;
             }
 
-            if input.was_key_pressed(KeyId::Up) {
+            if input.was_key_pressed(KeyId::Up) || input.was_key_pressed(KeyId::W) {
                 self.state = GameState::Menu(level.saturating_sub(1));
             }
-            if input.was_key_pressed(KeyId::Down) {
+            if input.was_key_pressed(KeyId::Down) || input.was_key_pressed(KeyId::S) {
                 self.state = GameState::Menu((level + 1).min(2));
             }
         }
@@ -807,6 +807,7 @@ impl Platform {
                         match keysym {
                             XK_Escape => input.set_key(KeyId::Esc, is_down),
                             XK_Return => input.set_key(KeyId::Enter, is_down),
+                            XK_space => input.set_key(KeyId::Space, is_down),
                             XK_a => input.set_key(KeyId::A, is_down),
                             XK_d => input.set_key(KeyId::D, is_down),
                             XK_m => input.set_key(KeyId::M, is_down),
