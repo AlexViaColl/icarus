@@ -1,25 +1,19 @@
-#![allow(non_upper_case_globals)]
-#![allow(non_snake_case)]
-#![allow(unreachable_code)]
 use icarus::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
-use icarus::*;
+use icarus::input::{InputState, KeyId};
+use icarus::math::Vec2;
+use icarus::platform::{Config, Platform};
+use icarus::vk::*;
+use icarus::vk_util::{self, RenderCommand, VkContext};
 
-use core::ffi::c_void;
-use std::fs;
 use std::mem;
 use std::ptr;
 use std::time::Instant;
 
-const APP_NAME: *const i8 = cstr!("Icarus");
-//const BG_COLOR: u32 = 0x001d1f21; // AA RR GG BB
-const BG_COLOR: u32 = 0x00252632; // AA RR GG BB
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
+
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 200;
-
-//const MODEL_PATH: &str = "assets/models/viking_room.obj";
-const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
 
 // Entity ID's
 pub const LEFT_PADDLE: usize = 0;
@@ -69,12 +63,11 @@ pub struct Transform {
     pub pos: Vec2,
     pub size: Vec2,
 }
-#[repr(C)]
-#[derive(Debug)]
-pub struct GlobalState {
-    width: u32,
-    height: u32,
-}
+
+//#[derive(Debug)]
+//pub enum RenderCommand {
+//    Quad(f32, f32, f32, f32),
+//}
 
 #[repr(C)]
 #[derive(Default)]
@@ -128,21 +121,21 @@ fn main() {
     let indices = [0, 1, 2, 2, 3, 0];
 
     let mut platform = Platform::init(Config {
-        width: 1600,
-        height: 900,
-        app_name: String::from("Icarus"),
+        width: WINDOW_WIDTH as u32,
+        height: WINDOW_HEIGHT as u32,
+        app_name: String::from("Pong"),
     });
     let mut input = InputState::default();
     let mut game = Game::init();
     let mut vk_ctx = VkContext::init(
         &platform,
         mem::size_of::<Entity>() * MAX_ENTITIES,
-        mem::size_of::<GlobalState>(),
+        8, //mem::size_of::<GlobalState>(),
         Vertex::get_binding_description(),
         &Vertex::get_attribute_descriptions(),
     );
-    vk_ctx.vertex_buffer = create_vertex_buffer(&vk_ctx, &vertices);
-    vk_ctx.index_buffer = create_index_buffer(&vk_ctx, &indices);
+    vk_ctx.vertex_buffer = vk_util::create_vertex_buffer(&vk_ctx, &vertices);
+    vk_ctx.index_buffer = vk_util::create_index_buffer(&vk_ctx, &indices);
 
     // Main loop
     let mut current_frame = 0;
@@ -162,50 +155,6 @@ fn main() {
     }
 
     vk_ctx.cleanup(&platform);
-}
-
-fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
-    assert!(game.entity_count < MAX_ENTITIES);
-    game.entities[game.entity_count] = Entity {
-        transform: Transform {
-            pos: Vec2::new(transform.0, transform.1),
-            size: Vec2::new(transform.2, transform.3),
-        },
-        ..Entity::default()
-    };
-    game.entity_count += 1;
-}
-
-fn push_quad(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
-    render_commands.push(RenderCommand::Quad(x, y, w, h));
-}
-pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
-fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {
-    for row in 0..7 {
-        for col in 0..5 {
-            if glyph[row * 5 + col] != 0 {
-                push_quad(
-                    cmd,
-                    x + GLYPH_PIXEL_SIZE * (col as f32),
-                    y + GLYPH_PIXEL_SIZE * (row as f32),
-                    GLYPH_PIXEL_SIZE,
-                    GLYPH_PIXEL_SIZE,
-                );
-            }
-        }
-    }
-}
-fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32) {
-    assert!(c >= ' ' && c <= '~');
-    let glyph_idx = c as usize - ' ' as usize;
-    push_glyph(cmd, &GLYPHS[glyph_idx], x, y);
-}
-fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32) {
-    let text_extent = (s.len() as f32) * 6.0 * GLYPH_PIXEL_SIZE;
-    let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
-    for (idx, c) in s.chars().enumerate() {
-        push_char(cmd, c, x + (idx as f32) * GLYPH_PIXEL_SIZE * (GLYPH_WIDTH as f32 + 1.0), y);
-    }
 }
 
 impl Game {
@@ -412,100 +361,47 @@ impl Game {
     }
 }
 
-#[allow(dead_code)]
-fn generate_glyphs<P: AsRef<str>>(path: P) {
-    unsafe {
-        let mut width = 0;
-        let mut height = 0;
-        let mut channels = 0;
-        let mut path = path.as_ref().to_string();
-        path.push(0 as char);
-        let pixels = stbi_load(path.as_ptr() as *const i8, &mut width, &mut height, &mut channels, 1);
-
-        // 7x9 quads with 1 pixel of padding
-        let mut glyphs = vec![];
-        for row in 0..6 {
-            for col in 0..18 {
-                let quad = (7 * col, 9 * row, 7, 9);
-                let mut glyph = vec![];
-                for y in quad.1 + 1..quad.1 + 9 - 1 {
-                    for x in quad.0 + 1..quad.0 + 7 - 1 {
-                        glyph.push(if *pixels.offset((y * width + x) as isize) == 0 {
-                            0
-                        } else {
-                            1
-                        });
-                    }
-                }
-                glyphs.push(glyph);
-            }
-        }
-        println!("{:?}", glyphs);
-    }
+fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
+    assert!(game.entity_count < MAX_ENTITIES);
+    game.entities[game.entity_count] = Entity {
+        transform: Transform {
+            pos: Vec2::new(transform.0, transform.1),
+            size: Vec2::new(transform.2, transform.3),
+        },
+        ..Entity::default()
+    };
+    game.entity_count += 1;
 }
 
-fn create_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> Image {
-    unsafe {
-        let mut width = 0;
-        let mut height = 0;
-        let mut channels = 0;
-        let mut path = path.as_ref().to_string();
-        path.push(0 as char);
-        let pixels = stbi_load(path.as_ptr() as *const i8, &mut width, &mut height, &mut channels, 4);
-        assert!(!pixels.is_null());
-        let image_size = width * height * 4;
-
-        let staging_buffer = create_buffer(
-            vk_ctx,
-            image_size as usize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
-            (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
-        );
-        vk_map_memory_copy(vk_ctx.device, staging_buffer.memory, pixels, image_size as usize);
-
-        stbi_image_free(pixels as *mut c_void);
-
-        let texture_image = create_image(
-            vk_ctx,
-            width as u32,
-            height as u32,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_TILING_OPTIMAL,
-            (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).into(),
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
-            VK_IMAGE_ASPECT_COLOR_BIT.into(),
-        );
-
-        transition_image_layout(
-            vk_ctx.device,
-            vk_ctx.graphics_queue,
-            vk_ctx.command_pool,
-            texture_image.image,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        );
-
-        copy_buffer_to_image(
-            vk_ctx.device,
-            vk_ctx.graphics_queue,
-            vk_ctx.command_pool,
-            staging_buffer.buffer,
-            texture_image.image,
-            width as u32,
-            height as u32,
-        );
-
-        transition_image_layout(
-            vk_ctx.device,
-            vk_ctx.graphics_queue,
-            vk_ctx.command_pool,
-            texture_image.image,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        );
-
-        texture_image
+// Renderer API
+fn push_quad(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
+    render_commands.push(RenderCommand::Quad(x, y, w, h));
+}
+pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
+fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {
+    for row in 0..7 {
+        for col in 0..5 {
+            if glyph[row * 5 + col] != 0 {
+                push_quad(
+                    cmd,
+                    x + GLYPH_PIXEL_SIZE * (col as f32),
+                    y + GLYPH_PIXEL_SIZE * (row as f32),
+                    GLYPH_PIXEL_SIZE,
+                    GLYPH_PIXEL_SIZE,
+                );
+            }
+        }
+    }
+}
+fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32) {
+    assert!(c >= ' ' && c <= '~');
+    let glyph_idx = c as usize - ' ' as usize;
+    push_glyph(cmd, &GLYPHS[glyph_idx], x, y);
+}
+fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32) {
+    let text_extent = (s.len() as f32) * 6.0 * GLYPH_PIXEL_SIZE;
+    let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
+    for (idx, c) in s.chars().enumerate() {
+        push_char(cmd, c, x + (idx as f32) * GLYPH_PIXEL_SIZE * (GLYPH_WIDTH as f32 + 1.0), y);
     }
 }

@@ -1,17 +1,20 @@
 mod color;
-mod input;
+pub mod glyph;
+pub mod input;
 mod macros;
-mod math;
+pub mod math;
+pub mod platform;
 mod stb_image;
 mod string_util;
-mod vk;
-mod vk_util;
+pub mod vk;
+pub mod vk_util;
 mod wavefront_loader;
 mod x11;
 
 pub use color::*;
 pub use input::*;
 pub use math::*;
+pub use platform::*;
 pub use stb_image::*;
 pub use string_util::*;
 pub use vk::*;
