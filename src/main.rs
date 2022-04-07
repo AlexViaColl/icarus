@@ -20,28 +20,14 @@ const MAX_ENTITIES: usize = 5000;
 //const MODEL_PATH: &str = "assets/models/viking_room.obj";
 const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
 
-const BLACK: (f32, f32, f32) = (0.0, 0.0, 0.0);
-const WHITE: (f32, f32, f32) = (1.0, 1.0, 1.0);
-const RED: (f32, f32, f32) = (1.0, 0.0, 0.0);
-const GREEN: (f32, f32, f32) = (0.0, 1.0, 0.0);
-const BLUE: (f32, f32, f32) = (0.0, 0.0, 1.0);
-
-const DARK_GREEN: (f32, f32, f32) = (0.0, 0.5, 0.0);
-const DARK_BLUE: (f32, f32, f32) = (0.0, 0.0, 0.5);
-const DARK_GREY: (f32, f32, f32) = (0.2, 0.2, 0.2);
-const LIGHT_GREY: (f32, f32, f32) = (0.6, 0.6, 0.6);
-const BROWN: (f32, f32, f32) = (0.5, 0.0, 0.0);
-const CYAN: (f32, f32, f32) = (0.0, 0.5, 0.5);
-const GREY: (f32, f32, f32) = (0.5, 0.5, 0.5);
-
-const TITLE_COLOR: (f32, f32, f32) = (0.8, 0.7, 0.1);
+const TITLE_COLOR: Color = color!(rgb(0.8, 0.7, 0.1)); // Light yellow
 
 const TILE_SIZE: f32 = 42.0;
 
 const MAX_TILE_COUNT: usize = 30 * 16;
 
-const TILE_CLEAR_COLOR: (f32, f32, f32) = (0.7, 0.7, 0.7);
-const TILE_ACTIVATED_COLOR: (f32, f32, f32) = (0.5, 0.5, 0.5);
+const TILE_CLEAR_COLOR: Color = color!(rgb(0.7, 0.7, 0.7));
+const TILE_ACTIVATED_COLOR: Color = color!(rgb(0.5, 0.5, 0.5));
 
 // Layers from top to bottom
 const TEXT_Z: f32 = 0.0;
@@ -278,16 +264,16 @@ fn main() {
 }
 
 pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32) {
-    push_rect_color(render_commands, r, z, (1.0, 1.0, 1.0));
+    push_rect_color(render_commands, r, z, WHITE);
 }
-pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32, c: (f32, f32, f32)) {
+pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32, c: Color) {
     let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, z, r.extent.x, r.extent.y, c.0, c.1, c.2));
+    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, z, r.extent.x, r.extent.y, c.0.x, c.0.y, c.0.z));
 }
 pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
 pub const GLYPH_OUTLINE_SIZE: f32 = 4.0;
 pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_glyph_color(cmd, glyph, x, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+    push_glyph_color(cmd, glyph, x, y, z, pixel_size, WHITE, false);
 }
 pub fn push_glyph_color(
     cmd: &mut Vec<RenderCommand>,
@@ -296,7 +282,7 @@ pub fn push_glyph_color(
     y: f32,
     z: f32,
     pixel_size: f32,
-    color: (f32, f32, f32),
+    color: Color,
     outline: bool,
 ) {
     for row in 0..7 {
@@ -320,7 +306,7 @@ pub fn push_glyph_color(
                             (pixel_size + GLYPH_OUTLINE_SIZE, pixel_size + GLYPH_OUTLINE_SIZE),
                         ),
                         OUTLINE_Z,
-                        (1.0 - color.0, 1.0 - color.1, 1.0 - color.2),
+                        color.invert(), //(1.0 - color.0, 1.0 - color.1, 1.0 - color.2),
                     );
                 }
             }
@@ -328,7 +314,7 @@ pub fn push_glyph_color(
     }
 }
 pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_char_color(cmd, c, x, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+    push_char_color(cmd, c, x, y, z, pixel_size, WHITE, false);
 }
 pub fn push_char_color(
     cmd: &mut Vec<RenderCommand>,
@@ -337,7 +323,7 @@ pub fn push_char_color(
     y: f32,
     z: f32,
     pixel_size: f32,
-    color: (f32, f32, f32),
+    color: Color,
     outline: bool,
 ) {
     assert!(c >= ' ' && c <= '~');
@@ -345,10 +331,10 @@ pub fn push_char_color(
     push_glyph_color(cmd, &GLYPHS[glyph_idx], x, y, z, pixel_size, color, outline);
 }
 pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_str_color(cmd, s, x, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+    push_str_color(cmd, s, x, y, z, pixel_size, WHITE, false);
 }
 pub fn push_str_centered(cmd: &mut Vec<RenderCommand>, s: &str, y: f32, z: f32, pixel_size: f32) {
-    push_str_centered_color(cmd, s, y, z, pixel_size, (1.0, 1.0, 1.0), false);
+    push_str_centered_color(cmd, s, y, z, pixel_size, WHITE, false);
 }
 pub fn push_str_centered_color(
     cmd: &mut Vec<RenderCommand>,
@@ -356,7 +342,7 @@ pub fn push_str_centered_color(
     y: f32,
     z: f32,
     pixel_size: f32,
-    color: (f32, f32, f32),
+    color: Color,
     outline: bool,
 ) {
     let text_extent = (s.len() as f32) * 6.0 * pixel_size;
@@ -370,7 +356,7 @@ pub fn push_str_color(
     y: f32,
     z: f32,
     pixel_size: f32,
-    color: (f32, f32, f32),
+    color: Color,
     outline: bool,
 ) {
     for (idx, c) in s.chars().enumerate() {
