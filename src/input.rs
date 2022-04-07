@@ -8,6 +8,7 @@ pub enum KeyId {
 
     A,
     D,
+    M,
     P,
     R,
     S,
