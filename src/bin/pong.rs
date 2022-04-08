@@ -1,4 +1,4 @@
-use icarus::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
+use icarus::glyph::{Glyph, GLYPHS, GLYPH_WIDTH};
 use icarus::input::{InputState, KeyId};
 use icarus::math::Vec2;
 use icarus::platform::{Config, Platform};
@@ -6,7 +6,6 @@ use icarus::vk::*;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
-use std::ptr;
 use std::time::Instant;
 
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
