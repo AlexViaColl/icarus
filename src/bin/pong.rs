@@ -12,7 +12,7 @@ const MAX_FRAMES_IN_FLIGHT: usize = 2;
 
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
-const MAX_ENTITIES: usize = 200;
+const MAX_ENTITIES: usize = 1000;
 
 // Entity ID's
 pub const LEFT_PADDLE: usize = 0;
@@ -128,7 +128,7 @@ fn main() {
     let mut game = Game::init();
     let mut vk_ctx = VkContext::init(
         &platform,
-        mem::size_of::<Entity>() * MAX_ENTITIES,
+        mem::size_of::<RenderCommand>() * MAX_ENTITIES,
         8, //mem::size_of::<GlobalState>(),
         Vertex::get_binding_description(),
         &Vertex::get_attribute_descriptions(),
@@ -355,7 +355,7 @@ impl Game {
                 x: w,
                 y: h,
             } = entity.transform.size;
-            self.render_commands.push(RenderCommand::Quad(x, y, w, h));
+            self.render_commands.push(RenderCommand::Rect(x, y, w, h, 1.0, 1.0, 1.0));
         }
     }
 }
@@ -374,7 +374,7 @@ fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
 
 // Renderer API
 fn push_quad(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
-    render_commands.push(RenderCommand::Quad(x, y, w, h));
+    render_commands.push(RenderCommand::Rect(x, y, w, h, 1.0, 1.0, 1.0));
 }
 pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
 fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {

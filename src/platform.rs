@@ -1,4 +1,4 @@
-use crate::input::{InputState, KeyId};
+use crate::input::{ButtonId, InputState, KeyId};
 use crate::x11;
 
 use std::ptr;
@@ -43,7 +43,12 @@ impl Platform {
             let mut app_name = config.app_name;
             app_name.push(0 as char);
             assert_ne!(x11::XStoreName(dpy, window, app_name.as_ptr() as *const i8), 0);
-            let mask = x11::KeyPressMask | x11::KeyReleaseMask | x11::ExposureMask | x11::StructureNotifyMask;
+            let mask = x11::KeyPressMask
+                | x11::KeyReleaseMask
+                | x11::ButtonPressMask
+                | x11::ButtonReleaseMask
+                | x11::ExposureMask
+                | x11::StructureNotifyMask;
             assert_ne!(x11::XSelectInput(dpy, window, mask), 0);
             assert_ne!(
                 x11::XSetClassHint(
@@ -93,6 +98,17 @@ impl Platform {
                             x11::XK_Right => input.set_key(KeyId::Right, is_down),
                             _n => {} // println!("Keycode: {}", n),
                         }
+                    }
+                    x11::ButtonPress | x11::ButtonRelease => {
+                        let event = event.xbutton;
+                        let is_down = event.ttype == x11::ButtonPress;
+                        match event.button {
+                            x11::Button1 => input.set_button(ButtonId::Left, is_down, event.x, event.y),
+                            x11::Button3 => input.set_button(ButtonId::Right, is_down, event.x, event.y),
+                            x11::Button2 => input.set_button(ButtonId::Middle, is_down, event.x, event.y),
+                            _ => {}
+                        }
+                        //println!("{:?}", event);
                     }
                     x11::ConfigureNotify => {
                         let event = event.xconfigure;

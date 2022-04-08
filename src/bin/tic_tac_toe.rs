@@ -11,7 +11,7 @@ use std::time::Instant;
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
-const MAX_ENTITIES: usize = 400;
+const MAX_ENTITIES: usize = 1000;
 
 const PLAYER_COUNT: usize = 2;
 const PLAYER_2_AI: bool = true;
