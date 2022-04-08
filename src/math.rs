@@ -77,6 +77,10 @@ impl Rect {
             && p.y >= self.offset.y
             && p.y <= self.offset.y + self.extent.y
     }
+
+    pub fn center(&self) -> Vec2 {
+        self.offset + self.extent * 0.5
+    }
 }
 
 impl Vec2 {

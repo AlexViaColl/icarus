@@ -1,6 +1,6 @@
 use icarus::color;
 use icarus::color::*;
-use icarus::glyph::{Glyph, GLYPHS, GLYPH_WIDTH};
+use icarus::glyph::{Glyph, GLYPH_PIXEL_SIZE};
 use icarus::input::{ButtonId, InputState, KeyId};
 use icarus::math::{Rect, Vec2, Vec4};
 use icarus::platform::{Config, Platform};
@@ -27,7 +27,7 @@ const TILE_ACTIVATED_COLOR: Color = color!(rgb(0.5, 0.5, 0.5));
 
 // Layers from top to bottom
 const TEXT_Z: f32 = 0.0;
-const OUTLINE_Z: f32 = 0.1;
+//const OUTLINE_Z: f32 = 0.1;
 const TILE_FOREGROUND_Z: f32 = 0.8;
 const TILE_BACKGROUND_Z: f32 = 0.9;
 
@@ -175,116 +175,6 @@ fn main() {
     vk_ctx.cleanup(&platform);
 }
 
-pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32) {
-    push_rect_color(render_commands, r, z, WHITE);
-}
-pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, z: f32, c: Color) {
-    let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, z, r.extent.x, r.extent.y, c.0.x, c.0.y, c.0.z));
-}
-pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
-pub const GLYPH_OUTLINE_SIZE: f32 = 4.0;
-pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_glyph_color(cmd, glyph, x, y, z, pixel_size, WHITE, false);
-}
-pub fn push_glyph_color(
-    cmd: &mut Vec<RenderCommand>,
-    glyph: &Glyph,
-    x: f32,
-    y: f32,
-    z: f32,
-    pixel_size: f32,
-    color: Color,
-    outline: bool,
-) {
-    for row in 0..7 {
-        for col in 0..5 {
-            if glyph[row * 5 + col] != 0 {
-                push_rect_color(
-                    cmd,
-                    Rect::offset_extent(
-                        (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
-                        (pixel_size, pixel_size),
-                    ),
-                    z,
-                    //TEXT_Z,
-                    color,
-                );
-                if outline {
-                    push_rect_color(
-                        cmd,
-                        Rect::offset_extent(
-                            (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
-                            (pixel_size + GLYPH_OUTLINE_SIZE, pixel_size + GLYPH_OUTLINE_SIZE),
-                        ),
-                        OUTLINE_Z,
-                        color.invert(), //(1.0 - color.0, 1.0 - color.1, 1.0 - color.2),
-                    );
-                }
-            }
-        }
-    }
-}
-pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_char_color(cmd, c, x, y, z, pixel_size, WHITE, false);
-}
-pub fn push_char_color(
-    cmd: &mut Vec<RenderCommand>,
-    c: char,
-    x: f32,
-    y: f32,
-    z: f32,
-    pixel_size: f32,
-    color: Color,
-    outline: bool,
-) {
-    assert!(c >= ' ' && c <= '~');
-    let glyph_idx = c as usize - ' ' as usize;
-    push_glyph_color(cmd, &GLYPHS[glyph_idx], x, y, z, pixel_size, color, outline);
-}
-pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_str_color(cmd, s, x, y, z, pixel_size, WHITE, false);
-}
-pub fn push_str_centered(cmd: &mut Vec<RenderCommand>, s: &str, y: f32, z: f32, pixel_size: f32) {
-    push_str_centered_color(cmd, s, y, z, pixel_size, WHITE, false);
-}
-pub fn push_str_centered_color(
-    cmd: &mut Vec<RenderCommand>,
-    s: &str,
-    y: f32,
-    z: f32,
-    pixel_size: f32,
-    color: Color,
-    outline: bool,
-) {
-    let text_extent = (s.len() as f32) * 6.0 * pixel_size;
-    let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
-    push_str_color(cmd, s, x, y, z, pixel_size, color, outline);
-}
-pub fn push_str_color(
-    cmd: &mut Vec<RenderCommand>,
-    s: &str,
-    x: f32,
-    y: f32,
-    z: f32,
-    pixel_size: f32,
-    color: Color,
-    outline: bool,
-) {
-    for (idx, c) in s.chars().enumerate() {
-        push_char_color(
-            cmd,
-            c,
-            x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0),
-            y,
-            z,
-            pixel_size,
-            color,
-            outline,
-        );
-    }
-}
-
 impl Game {
     fn init(level: usize) -> Self {
         let (tiles_x, tiles_y, mine_count) = match level {
@@ -412,7 +302,7 @@ impl Game {
 
         match self.state {
             GameState::Menu(option) => {
-                push_str_centered_color(
+                vk_util::push_str_centered_color(
                     &mut self.render_commands,
                     "Level",
                     TITLE_Y + 25.0,
@@ -420,11 +310,12 @@ impl Game {
                     TITLE_PIXEL_SIZE,
                     TITLE_COLOR,
                     true,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
                 );
                 render_menu(self, option)
             }
             GameState::Playing => {
-                push_str(
+                vk_util::push_str(
                     &mut self.render_commands,
                     &format!("{:03}", self.mines_left),
                     3.0 * WINDOW_WIDTH / 4.0,
@@ -432,7 +323,7 @@ impl Game {
                     TEXT_Z,
                     GLYPH_PIXEL_SIZE * 0.7,
                 );
-                push_str(
+                vk_util::push_str(
                     &mut self.render_commands,
                     &format!("{:03}", self.seconds_elapsed as u32),
                     3.0 * WINDOW_WIDTH / 4.0 + 150.0,
@@ -444,7 +335,7 @@ impl Game {
             }
             GameState::Win => {
                 render_board(self);
-                push_str_centered_color(
+                vk_util::push_str_centered_color(
                     &mut self.render_commands,
                     "Victory!",
                     TITLE_Y,
@@ -452,11 +343,12 @@ impl Game {
                     TITLE_PIXEL_SIZE,
                     TITLE_COLOR,
                     true,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
                 );
             }
             GameState::GameOver => {
                 render_board(self);
-                push_str_centered_color(
+                vk_util::push_str_centered_color(
                     &mut self.render_commands,
                     "Game Over!",
                     TITLE_Y,
@@ -464,6 +356,7 @@ impl Game {
                     TITLE_PIXEL_SIZE,
                     TITLE_COLOR,
                     true,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
                 );
             }
         }
@@ -480,7 +373,7 @@ fn render_menu(game: &mut Game, option: usize) {
     let padding = 25.0;
     let texts = ["Beginner", "Intermediate", "Expert"];
     for i in 0..3 {
-        push_rect_color(
+        vk_util::push_rect_color(
             cmd,
             Rect::center_extent((x, y + 40.0), (w, h)),
             TILE_BACKGROUND_Z,
@@ -490,7 +383,7 @@ fn render_menu(game: &mut Game, option: usize) {
                 LIGHT_GREY
             },
         );
-        push_str_centered_color(
+        vk_util::push_str_centered_color(
             cmd,
             texts[i],
             y,
@@ -502,6 +395,7 @@ fn render_menu(game: &mut Game, option: usize) {
                 DARK_GREY
             },
             true,
+            Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
         );
         y += h + padding;
     }
@@ -526,7 +420,7 @@ fn render_board(game: &mut Game) {
                 Tile::MineExploded => RED,
                 Tile::MineShown => DARK_GREY,
             };
-            push_rect_color(
+            vk_util::push_rect_color(
                 cmd,
                 Rect::center_extent(
                     (start_x + (col as f32) * TILE_SIZE, start_y + (row as f32) * TILE_SIZE),
@@ -537,7 +431,7 @@ fn render_board(game: &mut Game) {
             );
             match game.tiles[idx] {
                 Tile::MineShown | Tile::MineExploded => {
-                    push_glyph_color(
+                    vk_util::push_glyph_color(
                         cmd,
                         &MINE_GLYPH,
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
@@ -549,7 +443,7 @@ fn render_board(game: &mut Game) {
                     );
                 }
                 Tile::Flagged(_) => {
-                    push_glyph_color(
+                    vk_util::push_glyph_color(
                         cmd,
                         &FLAG_GLYPH,
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
@@ -573,7 +467,7 @@ fn render_board(game: &mut Game) {
                         8 => GREY,
                         _ => WHITE,
                     };
-                    push_str_color(
+                    vk_util::push_str_color(
                         cmd,
                         &format!("{}", count),
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
@@ -626,9 +520,6 @@ fn get_tile_from_pos(game: &Game, x: i32, y: i32) -> Option<usize> {
     let center_x = WINDOW_WIDTH / 2.0;
     let offset = 200.0;
     let center_y = offset + (WINDOW_HEIGHT - offset) / 2.0;
-
-    //let center_x = WINDOW_WIDTH / 2.0;
-    //let center_y = WINDOW_HEIGHT / 2.0;
 
     let start_x = center_x - TILE_SIZE * (game.tiles_x as f32 / 2.0).floor();
     let start_y = center_y - TILE_SIZE * (game.tiles_y as f32 / 2.0).floor();

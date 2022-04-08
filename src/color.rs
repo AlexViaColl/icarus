@@ -37,6 +37,7 @@ macro_rules! color(
     // hsv
 );
 
+#[repr(C)]
 #[derive(Copy, Clone, Debug)]
 pub struct Color(pub Vec4);
 

@@ -1,7 +1,10 @@
 use super::string_util::*;
 use super::vk::*;
 use crate::color::srgb_to_linear;
+use crate::color::*;
 use crate::cstr;
+use crate::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
+use crate::math::Rect;
 use crate::platform::Platform;
 use crate::stb_image::*;
 use crate::x11::XCloseDisplay;
@@ -29,6 +32,134 @@ pub fn vk_version_to_string(version: u32) -> String {
         VK_API_VERSION_MINOR(version),
         VK_API_VERSION_PATCH(version)
     )
+}
+
+// Push Renderer API
+// Rect, depth (Z), color, text, alignment/layout
+
+// TODO: Remove this, should be synchronized with the shader
+#[derive(Debug)]
+#[rustfmt::skip]
+pub enum RenderCommand {
+    Rect(
+        f32, f32,   // x, y,
+        f32, f32,   // w, h,
+        f32,        // z,
+        Color,      // r, g, b,
+    ),
+}
+pub fn push_rect<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32) {
+    push_rect_color(cmd, r, z, WHITE);
+}
+pub fn push_rect_color<R: Into<Rect>, C: Into<Color>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32, c: C) {
+    let r = r.into();
+    cmd.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, z, c.into()));
+}
+pub const GLYPH_OUTLINE_SIZE: f32 = 4.0;
+pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, z: f32, pixel_size: f32) {
+    push_glyph_color(cmd, glyph, x, y, z, pixel_size, WHITE, false);
+}
+pub fn push_glyph_color<C: Into<Color>>(
+    cmd: &mut Vec<RenderCommand>,
+    glyph: &Glyph,
+    x: f32,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: C,
+    outline: bool,
+) {
+    let color = color.into();
+    for row in 0..GLYPH_HEIGHT {
+        for col in 0..GLYPH_WIDTH {
+            if glyph[row * GLYPH_WIDTH + col] != 0 {
+                push_rect_color(
+                    cmd,
+                    Rect::offset_extent(
+                        (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
+                        (pixel_size, pixel_size),
+                    ),
+                    z,
+                    //TEXT_Z,
+                    color,
+                );
+                if outline {
+                    push_rect_color(
+                        cmd,
+                        Rect::offset_extent(
+                            (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
+                            (pixel_size + GLYPH_OUTLINE_SIZE, pixel_size + GLYPH_OUTLINE_SIZE),
+                        ),
+                        //OUTLINE_Z,
+                        z + 0.1,
+                        color.invert(), //(1.0 - color.0, 1.0 - color.1, 1.0 - color.2),
+                    );
+                }
+            }
+        }
+    }
+}
+pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, z: f32, pixel_size: f32) {
+    push_char_color(cmd, c, x, y, z, pixel_size, WHITE, false);
+}
+pub fn push_char_color(
+    cmd: &mut Vec<RenderCommand>,
+    c: char,
+    x: f32,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: Color,
+    outline: bool,
+) {
+    assert!(c >= ' ' && c <= '~');
+    let glyph_idx = c as usize - ' ' as usize;
+    push_glyph_color(cmd, &GLYPHS[glyph_idx], x, y, z, pixel_size, color, outline);
+}
+pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32, z: f32, pixel_size: f32) {
+    push_str_color(cmd, s, x, y, z, pixel_size, WHITE, false);
+}
+pub fn push_str_centered<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, s: &str, y: f32, z: f32, pixel_size: f32, r: R) {
+    push_str_centered_color(cmd, s, y, z, pixel_size, WHITE, false, r);
+}
+pub fn push_str_centered_color<R: Into<Rect>>(
+    cmd: &mut Vec<RenderCommand>,
+    s: &str,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: Color,
+    outline: bool,
+    r: R,
+) {
+    let r = r.into();
+    let text_extent = (s.len() as f32) * 6.0 * pixel_size;
+    //let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
+    let x = r.center().x - text_extent / 2.0;
+    push_str_color(cmd, s, x, y, z, pixel_size, color, outline);
+}
+pub fn push_str_color(
+    cmd: &mut Vec<RenderCommand>,
+    s: &str,
+    x: f32,
+    y: f32,
+    z: f32,
+    pixel_size: f32,
+    color: Color,
+    outline: bool,
+) {
+    for (idx, c) in s.chars().enumerate() {
+        push_char_color(
+            cmd,
+            c,
+            x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0),
+            y,
+            z,
+            pixel_size,
+            color,
+            outline,
+        );
+    }
 }
 
 // Vulkan Context
@@ -111,17 +242,6 @@ pub struct VkContext {
 
     pub binding_desc: VkVertexInputBindingDescription,
     pub attribute_desc: Vec<VkVertexInputAttributeDescription>,
-}
-
-// TODO: Remove this!
-#[derive(Debug)]
-#[rustfmt::skip]
-pub enum RenderCommand {
-    Rect(
-        f32, f32, f32,  // x, y, z,
-        f32, f32,       // w, h,
-        f32, f32, f32   // r, g, b
-    ),
 }
 
 impl VkContext {

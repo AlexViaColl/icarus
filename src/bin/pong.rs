@@ -1,6 +1,6 @@
-use icarus::glyph::{Glyph, GLYPHS, GLYPH_WIDTH};
+use icarus::glyph::GLYPH_PIXEL_SIZE;
 use icarus::input::{InputState, KeyId};
-use icarus::math::Vec2;
+use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
 use icarus::vk::*;
 use icarus::vk_util::{self, RenderCommand, VkContext};
@@ -329,15 +329,36 @@ impl Game {
 
         match self.state {
             GameState::Start => {
-                push_str(&mut self.render_commands, "Press a key to start", 100.0, 100.0);
+                vk_util::push_str_centered(
+                    &mut self.render_commands,
+                    "Press a key to start",
+                    100.0,
+                    0.0,
+                    GLYPH_PIXEL_SIZE,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
+                );
             }
             GameState::GameOver(entity_id) => {
-                push_str(&mut self.render_commands, &format!("Player {} won", entity_id + 1), 0.0, 100.0);
+                vk_util::push_str_centered(
+                    &mut self.render_commands,
+                    &format!("Player {} won", entity_id + 1),
+                    100.0,
+                    0.0,
+                    GLYPH_PIXEL_SIZE,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
+                );
             }
             _ => {
                 // Score
                 let score = format!("{} - {}", self.entities[LEFT_PADDLE].score, self.entities[RIGHT_PADDLE].score);
-                push_str(&mut self.render_commands, &score, 0.0, 100.0);
+                vk_util::push_str_centered(
+                    &mut self.render_commands,
+                    &score,
+                    100.0,
+                    0.0,
+                    GLYPH_PIXEL_SIZE,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
+                );
             }
         }
 
@@ -351,7 +372,7 @@ impl Game {
                 x: w,
                 y: h,
             } = entity.transform.size;
-            self.render_commands.push(RenderCommand::Rect(x, y, 0.0, w, h, 1.0, 1.0, 1.0));
+            vk_util::push_rect(&mut self.render_commands, Rect::offset_extent((x, y), (w, h)), 0.0);
         }
     }
 }
@@ -366,37 +387,4 @@ fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
         ..Entity::default()
     };
     game.entity_count += 1;
-}
-
-// Renderer API
-fn push_quad(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
-    render_commands.push(RenderCommand::Rect(x, y, 0.0, w, h, 1.0, 1.0, 1.0));
-}
-pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
-fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {
-    for row in 0..7 {
-        for col in 0..5 {
-            if glyph[row * 5 + col] != 0 {
-                push_quad(
-                    cmd,
-                    x + GLYPH_PIXEL_SIZE * (col as f32),
-                    y + GLYPH_PIXEL_SIZE * (row as f32),
-                    GLYPH_PIXEL_SIZE,
-                    GLYPH_PIXEL_SIZE,
-                );
-            }
-        }
-    }
-}
-fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32) {
-    assert!(c >= ' ' && c <= '~');
-    let glyph_idx = c as usize - ' ' as usize;
-    push_glyph(cmd, &GLYPHS[glyph_idx], x, y);
-}
-fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32) {
-    let text_extent = (s.len() as f32) * 6.0 * GLYPH_PIXEL_SIZE;
-    let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
-    for (idx, c) in s.chars().enumerate() {
-        push_char(cmd, c, x + (idx as f32) * GLYPH_PIXEL_SIZE * (GLYPH_WIDTH as f32 + 1.0), y);
-    }
 }

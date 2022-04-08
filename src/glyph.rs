@@ -2,7 +2,8 @@ use crate::stb_image::*;
 
 pub const GLYPH_WIDTH: usize = 5;
 pub const GLYPH_HEIGHT: usize = 7;
-pub type Glyph = [u8; 35]; // GLYPH_WIDTH * GLYPH_HEIGHT
+pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
+pub type Glyph = [u8; GLYPH_WIDTH * GLYPH_HEIGHT];
 pub const GLYPHS: [Glyph; 95] = [
     [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // <Space>
     [0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0], // !

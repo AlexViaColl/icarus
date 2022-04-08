@@ -1,4 +1,4 @@
-use icarus::glyph::{Glyph, GLYPHS, GLYPH_WIDTH};
+use icarus::color::*;
 use icarus::input::{ButtonId, InputState, KeyId};
 use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
@@ -15,7 +15,7 @@ const MAX_ENTITIES: usize = 1000;
 
 const PLAYER_COUNT: usize = 2;
 const PLAYER_2_AI: bool = true;
-const PLAYER_COLOR: [(f32, f32, f32); PLAYER_COUNT] = [(1.0, 1.0, 1.0), (1.0, 0.0, 0.0)];
+const PLAYER_COLOR: [Color; PLAYER_COUNT] = [WHITE, RED];
 
 pub struct Game {
     pub running: bool,
@@ -147,43 +147,6 @@ pub fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
     });
 }
 
-pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R) {
-    let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, 0.0, r.extent.x, r.extent.y, 1.0, 1.0, 1.0));
-}
-pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, c: (f32, f32, f32)) {
-    let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, 0.0, r.extent.x, r.extent.y, c.0, c.1, c.2));
-}
-pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
-pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, pixel_size: f32) {
-    for row in 0..7 {
-        for col in 0..5 {
-            if glyph[row * 5 + col] != 0 {
-                push_rect(
-                    cmd,
-                    Rect::offset_extent(
-                        (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
-                        (pixel_size, pixel_size),
-                    ),
-                );
-            }
-        }
-    }
-}
-pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, pixel_size: f32) {
-    assert!(c >= ' ' && c <= '~');
-    let glyph_idx = c as usize - ' ' as usize;
-    push_glyph(cmd, &GLYPHS[glyph_idx], x, y, pixel_size);
-}
-pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, _x: f32, y: f32, pixel_size: f32) {
-    let text_extent = (s.len() as f32) * 6.0 * pixel_size;
-    let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
-    for (idx, c) in s.chars().enumerate() {
-        push_char(cmd, c, x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0), y, pixel_size);
-    }
-}
-
 impl Game {
     fn init() -> Self {
         Self {
@@ -294,29 +257,39 @@ impl Game {
 
         match self.state {
             GameState::Win(player) => {
-                push_str(
+                vk_util::push_str_centered(
                     &mut self.render_commands,
                     &format!("Player {} Won!", player + 1),
-                    0.0,
                     WINDOW_HEIGHT / 2.0 - 150.0,
+                    0.0,
                     15.0,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
                 );
-                push_str(
+                vk_util::push_str_centered(
                     &mut self.render_commands,
                     &format!("Press any key to start"),
-                    0.0,
                     WINDOW_HEIGHT / 2.0 + 100.0,
+                    0.0,
                     8.0,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
                 );
             }
             GameState::Draw => {
-                push_str(&mut self.render_commands, &format!("Draw!"), 0.0, WINDOW_HEIGHT / 2.0 - 150.0, 15.0);
-                push_str(
+                vk_util::push_str_centered(
+                    &mut self.render_commands,
+                    &format!("Draw!"),
+                    WINDOW_HEIGHT / 2.0 - 150.0,
+                    0.0,
+                    15.0,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
+                );
+                vk_util::push_str_centered(
                     &mut self.render_commands,
                     &format!("Press any key to start"),
-                    0.0,
                     WINDOW_HEIGHT / 2.0 + 100.0,
+                    0.0,
                     8.0,
+                    Rect::offset_extent((0.0, 0.0), (WINDOW_WIDTH, WINDOW_HEIGHT)),
                 );
             }
             GameState::Playing => render_board(self),
@@ -334,24 +307,41 @@ fn render_board(game: &mut Game) {
     let bar_dim = 0.05 * square_dim;
 
     // Horizontal bars
-    push_rect(cmd, Rect::center_extent((center_x, center_y - half_square_dim), (3.0 * square_dim, bar_dim)));
-    push_rect(cmd, Rect::center_extent((center_x, center_y + half_square_dim), (3.0 * square_dim, bar_dim)));
+    vk_util::push_rect(
+        cmd,
+        Rect::center_extent((center_x, center_y - half_square_dim), (3.0 * square_dim, bar_dim)),
+        0.0,
+    );
+    vk_util::push_rect(
+        cmd,
+        Rect::center_extent((center_x, center_y + half_square_dim), (3.0 * square_dim, bar_dim)),
+        0.0,
+    );
 
     // Vertical bars
-    push_rect(cmd, Rect::center_extent((center_x - half_square_dim, center_y), (bar_dim, 3.0 * square_dim)));
-    push_rect(cmd, Rect::center_extent((center_x + half_square_dim, center_y), (bar_dim, 3.0 * square_dim)));
+    vk_util::push_rect(
+        cmd,
+        Rect::center_extent((center_x - half_square_dim, center_y), (bar_dim, 3.0 * square_dim)),
+        0.0,
+    );
+    vk_util::push_rect(
+        cmd,
+        Rect::center_extent((center_x + half_square_dim, center_y), (bar_dim, 3.0 * square_dim)),
+        0.0,
+    );
 
     // Pieces
     for idx in 0..9 {
         let row = (idx / 3) as f32;
         let col = (idx % 3) as f32;
         match game.tiles[idx] {
-            Some(player) => push_rect_color(
+            Some(player) => vk_util::push_rect_color(
                 cmd,
                 Rect::center_extent(
                     (center_x - square_dim + col * square_dim, center_y - square_dim + row * square_dim),
                     (0.8 * square_dim, 0.8 * square_dim),
                 ),
+                0.0,
                 PLAYER_COLOR[player],
             ),
             _ => {}

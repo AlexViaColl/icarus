@@ -7,9 +7,10 @@ layout(set = 0, binding = 0) uniform GlobalUBO {
 } globalUBO;
 
 struct Transform {
-    float x, y, z;
+    float x, y;
     float w, h;
-    float r, g, b;
+    float z;
+    float r, g, b, a;
 };
 layout(set = 0, binding = 1) readonly buffer Transforms {
     Transform transforms[];
