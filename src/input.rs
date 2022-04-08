@@ -4,9 +4,14 @@ pub enum KeyId {
     Any = 0,
 
     Esc,
+    Enter,
+    Space,
+
     A,
     D,
+    M,
     P,
+    R,
     S,
     W,
 

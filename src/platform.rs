@@ -87,9 +87,13 @@ impl Platform {
                         input.set_key(KeyId::Any, is_down);
                         match keysym {
                             x11::XK_Escape => input.set_key(KeyId::Esc, is_down),
+                            x11::XK_Return => input.set_key(KeyId::Enter, is_down),
+                            x11::XK_space => input.set_key(KeyId::Space, is_down),
                             x11::XK_a => input.set_key(KeyId::A, is_down),
                             x11::XK_d => input.set_key(KeyId::D, is_down),
+                            x11::XK_m => input.set_key(KeyId::M, is_down),
                             x11::XK_p => input.set_key(KeyId::P, is_down),
+                            x11::XK_r => input.set_key(KeyId::R, is_down),
                             x11::XK_s => input.set_key(KeyId::S, is_down),
                             x11::XK_w => input.set_key(KeyId::W, is_down),
                             x11::XK_Down => input.set_key(KeyId::Down, is_down),

@@ -3,7 +3,7 @@ use icarus::input::{ButtonId, InputState, KeyId};
 use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
 use icarus::vk::*;
-use icarus::vk_util::{self, /*RenderCommand*/ VkContext};
+use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
 use std::time::Instant;
@@ -47,11 +47,6 @@ pub struct Transform {
 pub struct GlobalState {
     width: u32,
     height: u32,
-}
-
-#[derive(Debug)]
-pub enum RenderCommand {
-    Rect(f32, f32, f32, f32, f32, f32, f32), // 7 * 4 = 28 bytes
 }
 
 #[repr(C)]
@@ -154,11 +149,11 @@ pub fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
 
 pub fn push_rect<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R) {
     let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, 1.0, 1.0, 1.0));
+    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, 0.0, r.extent.x, r.extent.y, 1.0, 1.0, 1.0));
 }
 pub fn push_rect_color<R: Into<Rect>>(render_commands: &mut Vec<RenderCommand>, r: R, c: (f32, f32, f32)) {
     let r = r.into();
-    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, c.0, c.1, c.2));
+    render_commands.push(RenderCommand::Rect(r.offset.x, r.offset.y, 0.0, r.extent.x, r.extent.y, c.0, c.1, c.2));
 }
 pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
 pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, pixel_size: f32) {

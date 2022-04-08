@@ -63,11 +63,6 @@ pub struct Transform {
     pub size: Vec2,
 }
 
-//#[derive(Debug)]
-//pub enum RenderCommand {
-//    Quad(f32, f32, f32, f32),
-//}
-
 #[repr(C)]
 #[derive(Default)]
 pub struct Vertex {
@@ -126,6 +121,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
+    //println!("{}", mem::size_of::<RenderCommand>());
     let mut vk_ctx = VkContext::init(
         &platform,
         mem::size_of::<RenderCommand>() * MAX_ENTITIES,
@@ -355,7 +351,7 @@ impl Game {
                 x: w,
                 y: h,
             } = entity.transform.size;
-            self.render_commands.push(RenderCommand::Rect(x, y, w, h, 1.0, 1.0, 1.0));
+            self.render_commands.push(RenderCommand::Rect(x, y, 0.0, w, h, 1.0, 1.0, 1.0));
         }
     }
 }
@@ -374,7 +370,7 @@ fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
 
 // Renderer API
 fn push_quad(render_commands: &mut Vec<RenderCommand>, x: f32, y: f32, w: f32, h: f32) {
-    render_commands.push(RenderCommand::Rect(x, y, w, h, 1.0, 1.0, 1.0));
+    render_commands.push(RenderCommand::Rect(x, y, 0.0, w, h, 1.0, 1.0, 1.0));
 }
 pub const GLYPH_PIXEL_SIZE: f32 = 10.0;
 fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32) {

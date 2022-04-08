@@ -114,15 +114,14 @@ pub struct VkContext {
 }
 
 // TODO: Remove this!
-#[rustfmt::skip]
 #[derive(Debug)]
+#[rustfmt::skip]
 pub enum RenderCommand {
-    //Quad(f32, f32, f32, f32),
     Rect(
-        f32, f32,       // x, y,
-        f32, f32,
-        f32, f32, f32,  // r, g, b
-    ), // 7 * 4 = 28 bytes
+        f32, f32, f32,  // x, y, z,
+        f32, f32,       // w, h,
+        f32, f32, f32   // r, g, b
+    ),
 }
 
 impl VkContext {
