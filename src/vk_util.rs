@@ -516,7 +516,13 @@ impl VkContext {
         vk_ctx
     }
 
-    pub fn render(&mut self, render_commands: &[RenderCommand], current_frame: usize, index_count: usize) {
+    pub fn render<RenderCommand>(
+        &mut self,
+        render_commands: &[RenderCommand],
+        //commands_size: usize,
+        current_frame: usize,
+        index_count: usize,
+    ) {
         unsafe {
             let mut vk_ctx = self;
             let cmd = vk_ctx.command_buffers[current_frame];

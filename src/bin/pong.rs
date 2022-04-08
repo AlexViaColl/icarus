@@ -170,7 +170,7 @@ impl Game {
 
     // Advances the state of the game by dt seconds.
     fn update(&mut self, input: &InputState, dt: f32) {
-        if input.was_pressed(KeyId::Esc) {
+        if input.was_key_pressed(KeyId::Esc) {
             self.running = false;
             return;
         }
@@ -199,22 +199,22 @@ impl Game {
                 create_entity(self, (ball_x, ball_y, BALL_SIZE.x, BALL_SIZE.y));
                 self.entities[BALL].vel = Vec2::new(-3.0, 1.0).normalize() * BALL_SPEED;
 
-                if input.was_pressed(KeyId::Any) {
+                if input.was_key_pressed(KeyId::Any) {
                     self.state = GameState::Playing;
                 }
             }
             GameState::Pause => {
-                if input.was_pressed(KeyId::P) {
+                if input.was_key_pressed(KeyId::P) {
                     self.state = GameState::Playing;
                 }
                 // TODO: Handle collissions and bounces when advancing/undoing a frame
-                if input.was_pressed(KeyId::Right) {
+                if input.was_key_pressed(KeyId::Right) {
                     // Advance by a frame
                     let ball = &mut self.entities[BALL];
                     ball.transform.pos.x += ball.vel.x * dt;
                     ball.transform.pos.y += ball.vel.y * dt;
                 }
-                if input.was_pressed(KeyId::Left) {
+                if input.was_key_pressed(KeyId::Left) {
                     // Undo the last frame
                     let ball = &mut self.entities[BALL];
                     ball.transform.pos.x -= ball.vel.x * dt;
@@ -236,17 +236,17 @@ impl Game {
                 self.timeout = Some((GAMEOVER_TIMEOUT, GameState::Start));
             }
             GameState::Playing => {
-                if input.was_pressed(KeyId::P) {
+                if input.was_key_pressed(KeyId::P) {
                     self.state = GameState::Pause;
                     return;
                 }
 
                 let left_paddle = &mut self.entities[LEFT_PADDLE];
                 left_paddle.vel = Vec2::default();
-                if input.is_down(KeyId::W) {
+                if input.is_key_down(KeyId::W) {
                     left_paddle.vel.y = -PADDLE_SPEED;
                 }
-                if input.is_down(KeyId::S) {
+                if input.is_key_down(KeyId::S) {
                     left_paddle.vel.y = PADDLE_SPEED;
                 }
 
@@ -260,10 +260,10 @@ impl Game {
                         right_paddle.vel.y = PADDLE_SPEED;
                     }
                 } else {
-                    if input.is_down(KeyId::Up) {
+                    if input.is_key_down(KeyId::Up) {
                         right_paddle.vel.y = -PADDLE_SPEED;
                     }
-                    if input.is_down(KeyId::Down) {
+                    if input.is_key_down(KeyId::Down) {
                         right_paddle.vel.y = PADDLE_SPEED;
                     }
                 }

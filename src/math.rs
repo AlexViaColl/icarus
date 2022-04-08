@@ -19,6 +19,13 @@ pub fn inv_lerp(a: f32, b: f32, value: f32) -> f32 {
 }
 
 #[repr(C)]
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub struct Rect {
+    pub offset: Vec2,
+    pub extent: Vec2,
+}
+
+#[repr(C)]
 #[derive(Debug, PartialEq, PartialOrd, Clone, Copy, Default)]
 pub struct Vec2 {
     pub x: f32,
@@ -46,6 +53,31 @@ pub struct Vec4 {
 #[repr(C)]
 #[derive(PartialEq, Clone, Copy, Default)]
 pub struct Mat4([f32; 16]);
+
+impl Rect {
+    pub fn offset_extent<T: Into<Vec2>>(offset: T, extent: T) -> Self {
+        Self {
+            offset: offset.into(),
+            extent: extent.into(),
+        }
+    }
+
+    pub fn center_extent<T: Into<Vec2>>(center: T, extent: T) -> Self {
+        let extent = extent.into();
+        Self {
+            offset: center.into() - extent * 0.5,
+            extent: extent.into(),
+        }
+    }
+
+    pub fn is_inside<T: Into<Vec2>>(&self, p: T) -> bool {
+        let p = p.into();
+        p.x >= self.offset.x
+            && p.x <= self.offset.x + self.extent.x
+            && p.y >= self.offset.y
+            && p.y <= self.offset.y + self.extent.y
+    }
+}
 
 impl Vec2 {
     pub const fn new(x: f32, y: f32) -> Self {

@@ -68,8 +68,10 @@ pub type XIOErrorHandler = extern "C" fn(display: *mut Display) -> i32;
 #[repr(C)]
 pub union XEvent {
     pub ttype: i32,
-    // pub xany: XAnyEvent,
+    pub xany: XAnyEvent,
     pub xkey: XKeyEvent,
+    pub xbutton: XButtonEvent,
+    pub xmotion: XMotionEvent,
     // ...
     pub xconfigure: XConfigureEvent,
     // ...
@@ -88,6 +90,16 @@ impl Default for XEvent {
 
 #[repr(C)]
 #[derive(Copy, Clone)]
+pub struct XAnyEvent {
+    pub ttype: i32,
+    pub serial: u64,
+    pub send_event: Bool,
+    pub display: *mut Display,
+    pub window: Window,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
 pub struct XKeyEvent {
     pub ttype: i32,
     pub serial: u64,
@@ -103,6 +115,46 @@ pub struct XKeyEvent {
     pub y_root: i32,
     pub state: u32,
     pub keycode: u32,
+    pub same_screen: Bool,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct XButtonEvent {
+    pub ttype: i32,
+    pub serial: u64,
+    pub send_event: Bool,
+    pub display: *mut Display,
+    pub window: Window,
+    pub root: Window,
+    pub subwindow: Window,
+    pub time: Time,
+    pub x: i32,
+    pub y: i32,
+    pub x_root: i32,
+    pub y_root: i32,
+    pub state: u32,
+    pub button: u32,
+    pub same_screen: Bool,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Debug)]
+pub struct XMotionEvent {
+    pub ttype: i32,
+    pub serial: u64,
+    pub send_event: Bool,
+    pub display: *mut Display,
+    pub window: Window,
+    pub root: Window,
+    pub subwindow: Window,
+    pub time: Time,
+    pub x: i32,
+    pub y: i32,
+    pub x_root: i32,
+    pub y_root: i32,
+    pub state: u32,
+    pub is_hint: i8,
     pub same_screen: Bool,
 }
 
@@ -139,15 +191,29 @@ pub struct XErrorEvent {
 pub const NoEventMask: i64 = 0;
 pub const KeyPressMask: i64 = 1 << 0;
 pub const KeyReleaseMask: i64 = 1 << 1;
+pub const ButtonPressMask: i64 = 1 << 2;
+pub const ButtonReleaseMask: i64 = 1 << 3;
+pub const EnterWindowMask: i64 = 1 << 4;
+pub const LeaveWindowMask: i64 = 1 << 5;
+pub const PointerMotionMask: i64 = 1 << 6;
 // ...
 pub const ExposureMask: i64 = 1 << 15;
 pub const StructureNotifyMask: i64 = 1 << 17;
 
 pub const KeyPress: i32 = 2;
 pub const KeyRelease: i32 = 3;
+pub const ButtonPress: i32 = 4;
+pub const ButtonRelease: i32 = 5;
+pub const MotionNotify: i32 = 6;
 // ...
 pub const Expose: i32 = 12;
 pub const ConfigureNotify: i32 = 22;
+
+pub const Button1: u32 = 1;
+pub const Button2: u32 = 2;
+pub const Button3: u32 = 3;
+pub const Button4: u32 = 4;
+pub const Button5: u32 = 5;
 
 pub const XK_BackSpace: KeySym = 0xff08;
 pub const XK_Tab: KeySym = 0xff09;
