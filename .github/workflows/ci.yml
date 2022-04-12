@@ -1,4 +1,4 @@
-name: Rust
+name: CI
 
 on:
   push:
@@ -24,14 +24,10 @@ jobs:
         vulkan-components: Vulkan-Headers, Vulkan-Loader
         vulkan-use-cache: true
     
-    - name: Check Vulkan SDK
+    - name: Post Vulkan SDK
       shell: bash
       run: |
-        echo "$VULKAN_SDK"
-        ls $VULKAN_SDK/lib
         cp -a $VULKAN_SDK/lib/* .
-        echo "ls ."
-        ls .
 
     - name: Build
       run: cargo build --verbose
