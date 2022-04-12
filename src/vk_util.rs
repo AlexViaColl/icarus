@@ -242,6 +242,8 @@ pub struct VkContext {
 
     pub binding_desc: VkVertexInputBindingDescription,
     pub attribute_desc: Vec<VkVertexInputAttributeDescription>,
+
+    pub current_frame: usize,
 }
 
 impl VkContext {
@@ -645,13 +647,12 @@ impl VkContext {
         &mut self,
         render_commands: &[RenderCommand],
         //commands_size: usize,
-        current_frame: usize,
         index_count: usize,
     ) {
         unsafe {
             let mut vk_ctx = self;
-            let cmd = vk_ctx.command_buffers[current_frame];
-            let fence = vk_ctx.in_flight_fences[current_frame];
+            let cmd = vk_ctx.command_buffers[vk_ctx.current_frame];
+            let fence = vk_ctx.in_flight_fences[vk_ctx.current_frame];
             check!(vkWaitForFences(vk_ctx.device, 1, &fence, VK_TRUE, u64::MAX));
 
             let mut image_index = 0;
@@ -659,13 +660,14 @@ impl VkContext {
                 vk_ctx.device,
                 vk_ctx.swapchain,
                 u64::MAX,
-                vk_ctx.image_available_semaphores[current_frame],
+                vk_ctx.image_available_semaphores[vk_ctx.current_frame],
                 VkFence::default(),
                 &mut image_index,
             ) {
                 VK_SUCCESS | VK_SUBOPTIMAL_KHR => {}
                 VK_ERROR_OUT_OF_DATE_KHR => {
                     recreate_swapchain(&mut vk_ctx);
+                    vk_ctx.current_frame = (vk_ctx.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
                     return;
                 }
                 res => panic!("{:?}", res),
@@ -720,7 +722,7 @@ impl VkContext {
             vkCmdBindIndexBuffer(cmd, vk_ctx.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
             let layout = vk_ctx.pipeline_layout;
-            let dsc_set = vk_ctx.descriptor_sets[current_frame];
+            let dsc_set = vk_ctx.descriptor_sets[vk_ctx.current_frame];
             vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &dsc_set, 0, ptr::null());
             // vkCmdDraw(command_buffer, vertices.len() as u32, 1, 0, 0);
             vkCmdDrawIndexed(cmd, index_count as u32, render_commands.len() as u32, 0, 0, 0);
@@ -735,12 +737,12 @@ impl VkContext {
                 1,
                 &VkSubmitInfo {
                     waitSemaphoreCount: 1,
-                    pWaitSemaphores: &vk_ctx.image_available_semaphores[current_frame],
+                    pWaitSemaphores: &vk_ctx.image_available_semaphores[vk_ctx.current_frame],
                     pWaitDstStageMask: &VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
                     commandBufferCount: 1,
                     pCommandBuffers: &cmd,
                     signalSemaphoreCount: 1,
-                    pSignalSemaphores: &vk_ctx.render_finished_semaphores[current_frame],
+                    pSignalSemaphores: &vk_ctx.render_finished_semaphores[vk_ctx.current_frame],
                     ..VkSubmitInfo::default()
                 },
                 fence,
@@ -750,7 +752,7 @@ impl VkContext {
                 vk_ctx.graphics_queue,
                 &VkPresentInfoKHR {
                     waitSemaphoreCount: 1,
-                    pWaitSemaphores: &vk_ctx.render_finished_semaphores[current_frame],
+                    pWaitSemaphores: &vk_ctx.render_finished_semaphores[vk_ctx.current_frame],
                     swapchainCount: 1,
                     pSwapchains: &vk_ctx.swapchain,
                     pImageIndices: &image_index,
@@ -761,6 +763,8 @@ impl VkContext {
                 VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => recreate_swapchain(&mut vk_ctx),
                 res => panic!("{:?}", res),
             };
+
+            vk_ctx.current_frame = (vk_ctx.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
     }
 

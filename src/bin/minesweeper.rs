@@ -11,7 +11,6 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 10000;
@@ -156,7 +155,6 @@ fn main() {
     vk_ctx.index_buffer = vk_util::create_index_buffer(&vk_ctx, &indices);
 
     // Main loop
-    let mut current_frame = 0;
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
     while game.running {
@@ -168,8 +166,7 @@ fn main() {
         game.update(&input, seconds_elapsed);
         game.render();
 
-        vk_ctx.render(&game.render_commands, current_frame, indices.len());
-        current_frame = (current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        vk_ctx.render(&game.render_commands, indices.len());
     }
 
     vk_ctx.cleanup(&platform);
