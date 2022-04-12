@@ -129,10 +129,10 @@ fn main() {
     //println!("XK_Escape: {}, XK_Return: {}, XK_Space: {}", XK_Escape, XK_Return, XK_space);
     #[rustfmt::skip]
     let vertices = [                                                            // CCW
-        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Top right
+        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top left
+        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom left
+        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom right
+        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
     ];
     let indices = [0, 1, 2, 2, 3, 0];
 
@@ -369,7 +369,7 @@ fn render_menu(game: &mut Game, option: usize) {
     let h = 100.0;
     let padding = 25.0;
     let texts = ["Beginner", "Intermediate", "Expert"];
-    for i in 0..3 {
+    for (i, text) in texts.iter().enumerate() {
         vk_util::push_rect_color(
             cmd,
             Rect::center_extent((x, y + 40.0), (w, h)),
@@ -382,7 +382,7 @@ fn render_menu(game: &mut Game, option: usize) {
         );
         vk_util::push_str_centered_color(
             cmd,
-            texts[i],
+            text,
             y,
             TEXT_Z,
             GLYPH_PIXEL_SIZE * 1.0,
@@ -428,28 +428,18 @@ fn render_board(game: &mut Game) {
             );
             match game.tiles[idx] {
                 Tile::MineShown | Tile::MineExploded => {
-                    vk_util::push_glyph_color(
-                        cmd,
-                        &MINE_GLYPH,
+                    let offset = (
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
                         start_y + (row as f32) * TILE_SIZE - 18.0,
-                        TILE_FOREGROUND_Z,
-                        6.0,
-                        BLACK,
-                        false,
                     );
+                    vk_util::push_glyph_color(cmd, &MINE_GLYPH, offset, TILE_FOREGROUND_Z, 6.0, BLACK, false);
                 }
                 Tile::Flagged(_) => {
-                    vk_util::push_glyph_color(
-                        cmd,
-                        &FLAG_GLYPH,
+                    let offset = (
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
                         start_y + (row as f32) * TILE_SIZE - 24.0,
-                        TILE_FOREGROUND_Z,
-                        6.0,
-                        BLACK,
-                        false,
                     );
+                    vk_util::push_glyph_color(cmd, &FLAG_GLYPH, offset, TILE_FOREGROUND_Z, 6.0, BLACK, false);
                 }
                 Tile::Neighbors(0) => {}
                 Tile::Neighbors(count) => {
@@ -464,16 +454,11 @@ fn render_board(game: &mut Game) {
                         8 => GREY,
                         _ => WHITE,
                     };
-                    vk_util::push_str_color(
-                        cmd,
-                        &format!("{}", count),
+                    let offset = (
                         start_x + (col as f32) * TILE_SIZE - TILE_SIZE / 4.0,
                         start_y + (row as f32) * TILE_SIZE - 18.0,
-                        TILE_FOREGROUND_Z,
-                        5.0,
-                        color,
-                        false,
                     );
+                    vk_util::push_str_color(cmd, &format!("{}", count), offset, TILE_FOREGROUND_Z, 5.0, color, false);
                 }
                 _ => {}
             }
@@ -487,7 +472,7 @@ fn activate_tile(game: &mut Game, idx: usize) {
     match game.tiles[idx] {
         Tile::Clear => {
             // println!("Activating tile at ({}, {})", col, row);
-            let neighbors = get_neighbors(&game, row as isize, col as isize);
+            let neighbors = get_neighbors(game, row as isize, col as isize);
             let count = neighbors.iter().filter(|t| matches!(t.1, Tile::Mine | Tile::Flagged(true))).count();
             game.tiles[idx] = Tile::Neighbors(count);
             if count == 0 {

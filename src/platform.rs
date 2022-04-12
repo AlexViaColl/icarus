@@ -28,17 +28,8 @@ impl Platform {
             let root = x11::XRootWindow(dpy, screen);
             let window_width = config.width;
             let window_height = config.height;
-            let window = x11::XCreateSimpleWindow(
-                dpy,
-                root,
-                0,
-                0,
-                window_width,
-                window_height,
-                1,
-                0,
-                /*BG_COLOR*/ 0 as u64,
-            );
+            let window =
+                x11::XCreateSimpleWindow(dpy, root, 0, 0, window_width, window_height, 1, 0, /*BG_COLOR*/ 0);
 
             let mut app_name = config.app_name;
             app_name.push(0 as char);

@@ -56,13 +56,12 @@ pub fn push_rect_color<R: Into<Rect>, C: Into<Color>>(cmd: &mut Vec<RenderComman
 }
 pub const GLYPH_OUTLINE_SIZE: f32 = 4.0;
 pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_glyph_color(cmd, glyph, x, y, z, pixel_size, WHITE, false);
+    push_glyph_color(cmd, glyph, (x, y), z, pixel_size, WHITE, false);
 }
 pub fn push_glyph_color<C: Into<Color>>(
     cmd: &mut Vec<RenderCommand>,
     glyph: &Glyph,
-    x: f32,
-    y: f32,
+    offset: (f32, f32),
     z: f32,
     pixel_size: f32,
     color: C,
@@ -75,7 +74,7 @@ pub fn push_glyph_color<C: Into<Color>>(
                 push_rect_color(
                     cmd,
                     Rect::offset_extent(
-                        (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
+                        (offset.0 + pixel_size * (col as f32), offset.1 + pixel_size * (row as f32)),
                         (pixel_size, pixel_size),
                     ),
                     z,
@@ -86,7 +85,7 @@ pub fn push_glyph_color<C: Into<Color>>(
                     push_rect_color(
                         cmd,
                         Rect::offset_extent(
-                            (x + pixel_size * (col as f32), y + pixel_size * (row as f32)),
+                            (offset.0 + pixel_size * (col as f32), offset.1 + pixel_size * (row as f32)),
                             (pixel_size + GLYPH_OUTLINE_SIZE, pixel_size + GLYPH_OUTLINE_SIZE),
                         ),
                         //OUTLINE_Z,
@@ -99,28 +98,28 @@ pub fn push_glyph_color<C: Into<Color>>(
     }
 }
 pub fn push_char(cmd: &mut Vec<RenderCommand>, c: char, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_char_color(cmd, c, x, y, z, pixel_size, WHITE, false);
+    push_char_color(cmd, c, (x, y), z, pixel_size, WHITE, false);
 }
 pub fn push_char_color(
     cmd: &mut Vec<RenderCommand>,
     c: char,
-    x: f32,
-    y: f32,
+    offset: (f32, f32),
     z: f32,
     pixel_size: f32,
     color: Color,
     outline: bool,
 ) {
-    assert!(c >= ' ' && c <= '~');
+    assert!((' '..='~').contains(&c));
     let glyph_idx = c as usize - ' ' as usize;
-    push_glyph_color(cmd, &GLYPHS[glyph_idx], x, y, z, pixel_size, color, outline);
+    push_glyph_color(cmd, &GLYPHS[glyph_idx], offset, z, pixel_size, color, outline);
 }
 pub fn push_str(cmd: &mut Vec<RenderCommand>, s: &str, x: f32, y: f32, z: f32, pixel_size: f32) {
-    push_str_color(cmd, s, x, y, z, pixel_size, WHITE, false);
+    push_str_color(cmd, s, (x, y), z, pixel_size, WHITE, false);
 }
 pub fn push_str_centered<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, s: &str, y: f32, z: f32, pixel_size: f32, r: R) {
     push_str_centered_color(cmd, s, y, z, pixel_size, WHITE, false, r);
 }
+#[allow(clippy::too_many_arguments)]
 pub fn push_str_centered_color<R: Into<Rect>>(
     cmd: &mut Vec<RenderCommand>,
     s: &str,
@@ -135,29 +134,20 @@ pub fn push_str_centered_color<R: Into<Rect>>(
     let text_extent = (s.len() as f32) * 6.0 * pixel_size;
     //let x = WINDOW_WIDTH / 2.0 - text_extent / 2.0;
     let x = r.center().x - text_extent / 2.0;
-    push_str_color(cmd, s, x, y, z, pixel_size, color, outline);
+    push_str_color(cmd, s, (x, y), z, pixel_size, color, outline);
 }
 pub fn push_str_color(
     cmd: &mut Vec<RenderCommand>,
     s: &str,
-    x: f32,
-    y: f32,
+    offset: (f32, f32),
     z: f32,
     pixel_size: f32,
     color: Color,
     outline: bool,
 ) {
     for (idx, c) in s.chars().enumerate() {
-        push_char_color(
-            cmd,
-            c,
-            x + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0),
-            y,
-            z,
-            pixel_size,
-            color,
-            outline,
-        );
+        let offset = (offset.0 + (idx as f32) * pixel_size * (GLYPH_WIDTH as f32 + 1.0), offset.1);
+        push_char_color(cmd, c, offset, z, pixel_size, color, outline);
     }
 }
 
@@ -255,9 +245,11 @@ impl VkContext {
         binding_desc: VkVertexInputBindingDescription,
         attribute_desc: &[VkVertexInputAttributeDescription],
     ) -> Self {
-        let mut vk_ctx = VkContext::default();
-        vk_ctx.binding_desc = binding_desc;
-        vk_ctx.attribute_desc = attribute_desc.to_vec();
+        let mut vk_ctx = VkContext {
+            binding_desc,
+            attribute_desc: attribute_desc.to_vec(),
+            ..VkContext::default()
+        };
 
         //println!("{:#?}", vk_enumerate_instance_layer_properties());
         //println!("{:#?}", vk_enumerate_instance_extension_properties());
@@ -327,8 +319,7 @@ impl VkContext {
                     }
                     score
                 });
-                let device_idx = scores.enumerate().max_by_key(|(_, value)| *value).map(|(idx, _)| idx).unwrap_or(0);
-                device_idx
+                scores.enumerate().max_by_key(|(_, value)| *value).map(|(idx, _)| idx).unwrap_or(0)
             }
         };
         vk_ctx.graphics_family_index = {
@@ -360,8 +351,7 @@ impl VkContext {
                 .physical_device_meta
                 .extensions
                 .iter()
-                .find(|&e| cstr_to_string(e.extensionName.as_ptr()) == cstr_to_string(*extension))
-                .is_some());
+                .any(|e| unsafe { cstr_to_string(e.extensionName.as_ptr()) } == unsafe { cstr_to_string(*extension) }));
         }
         unsafe {
             check!(vkCreateDevice(
@@ -551,8 +541,7 @@ impl VkContext {
             // Create Depth Resources
             vk_ctx.depth_image = create_image(
                 &vk_ctx,
-                vk_ctx.surface_caps.currentExtent.width,
-                vk_ctx.surface_caps.currentExtent.height,
+                (vk_ctx.surface_caps.currentExtent.width, vk_ctx.surface_caps.currentExtent.height),
                 VK_FORMAT_D32_SFLOAT,
                 VK_IMAGE_TILING_OPTIMAL,
                 VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.into(),
@@ -670,7 +659,7 @@ impl VkContext {
             ) {
                 VK_SUCCESS | VK_SUBOPTIMAL_KHR => {}
                 VK_ERROR_OUT_OF_DATE_KHR => {
-                    recreate_swapchain(&mut vk_ctx);
+                    recreate_swapchain(vk_ctx);
                     vk_ctx.current_frame = (vk_ctx.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
                     return;
                 }
@@ -770,7 +759,7 @@ impl VkContext {
                 },
             ) {
                 VK_SUCCESS => {}
-                VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => recreate_swapchain(&mut vk_ctx),
+                VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => recreate_swapchain(vk_ctx),
                 res => panic!("{:?}", res),
             };
 
@@ -851,9 +840,8 @@ fn recreate_swapchain(vk_ctx: &mut VkContext) {
 
         // Create Depth Resources
         let depth_image = create_image(
-            &vk_ctx,
-            surface_caps.currentExtent.width,
-            surface_caps.currentExtent.height,
+            vk_ctx,
+            (surface_caps.currentExtent.width, surface_caps.currentExtent.height),
             VK_FORMAT_D32_SFLOAT,
             VK_IMAGE_TILING_OPTIMAL,
             VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT.into(),
@@ -1291,7 +1279,7 @@ pub fn create_buffer(
             vk_ctx.device,
             &VkMemoryAllocateInfo {
                 allocationSize: mem_requirements.size,
-                memoryTypeIndex: find_memory_type(&vk_ctx, mem_requirements.memoryTypeBits, properties),
+                memoryTypeIndex: find_memory_type(vk_ctx, mem_requirements.memoryTypeBits, properties),
                 ..VkMemoryAllocateInfo::default()
             },
             ptr::null(),
@@ -1310,8 +1298,7 @@ pub fn create_buffer(
 
 pub fn create_image(
     vk_ctx: &VkContext,
-    width: u32,
-    height: u32,
+    dimensions: (u32, u32),
     format: VkFormat,
     tiling: VkImageTiling,
     usage: VkImageUsageFlags,
@@ -1326,8 +1313,8 @@ pub fn create_image(
                 imageType: VK_IMAGE_TYPE_2D,
                 format,
                 extent: VkExtent3D {
-                    width: width,
-                    height: height,
+                    width: dimensions.0,
+                    height: dimensions.1,
                     depth: 1,
                 },
                 mipLevels: 1,
@@ -1351,7 +1338,7 @@ pub fn create_image(
             vk_ctx.device,
             &VkMemoryAllocateInfo {
                 allocationSize: memory_requirements.size,
-                memoryTypeIndex: find_memory_type(&vk_ctx, memory_requirements.memoryTypeBits, mem_props),
+                memoryTypeIndex: find_memory_type(vk_ctx, memory_requirements.memoryTypeBits, mem_props),
                 ..VkMemoryAllocateInfo::default()
             },
             ptr::null(),
@@ -1360,7 +1347,7 @@ pub fn create_image(
 
         check!(vkBindImageMemory(vk_ctx.device, image, memory, 0));
 
-        let view = vk_create_image_view(vk_ctx.device, image, format, aspect.into());
+        let view = vk_create_image_view(vk_ctx.device, image, format, aspect);
 
         Image {
             device: vk_ctx.device,
@@ -1394,8 +1381,7 @@ fn create_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> Image {
 
         let texture_image = create_image(
             vk_ctx,
-            width as u32,
-            height as u32,
+            (width as u32, height as u32),
             VK_FORMAT_R8G8B8A8_SRGB,
             VK_IMAGE_TILING_OPTIMAL,
             (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).into(),
@@ -2130,7 +2116,7 @@ impl fmt::Debug for VkPhysicalDeviceProperties {
             .field("vendorID", &self.vendorID)
             .field("deviceID", &self.deviceID)
             .field("deviceType", &self.deviceType)
-            .field("deviceName", &cstr_to_string(self.deviceName.as_ptr()))
+            .field("deviceName", &unsafe { cstr_to_string(self.deviceName.as_ptr()) })
             .field("pipelineCacheUUID", &format_uuid(self.pipelineCacheUUID))
             .field("limits", &self.limits)
             .field("sparseProperties", &self.sparseProperties)
@@ -2144,8 +2130,8 @@ impl fmt::Debug for VkPhysicalDeviceDriverProperties {
             .field("sType", &self.sType)
             .field("pNext", &self.pNext)
             .field("driverID", &self.driverID)
-            .field("driverName", &cstr_to_string(self.driverName.as_ptr()))
-            .field("driverInfo", &cstr_to_string(self.driverInfo.as_ptr()))
+            .field("driverName", &unsafe { cstr_to_string(self.driverName.as_ptr()) })
+            .field("driverInfo", &unsafe { cstr_to_string(self.driverInfo.as_ptr()) })
             .field("conformanceVersion", &self.conformanceVersion)
             .finish()
     }
@@ -2154,7 +2140,7 @@ impl fmt::Debug for VkPhysicalDeviceDriverProperties {
 impl fmt::Debug for VkExtensionProperties {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VkExtensionProperties")
-            .field("extensionName", &cstr_to_string(self.extensionName.as_ptr()))
+            .field("extensionName", &unsafe { cstr_to_string(self.extensionName.as_ptr()) })
             .field("specVersion", &vk_version_to_string(self.specVersion))
             .finish()
     }
@@ -2163,10 +2149,10 @@ impl fmt::Debug for VkExtensionProperties {
 impl fmt::Debug for VkLayerProperties {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("VkLayerProperties")
-            .field("layerName", &cstr_to_string(self.layerName.as_ptr()))
+            .field("layerName", &unsafe { cstr_to_string(self.layerName.as_ptr()) })
             .field("specVersion", &vk_version_to_string(self.specVersion))
             .field("implementationVersion", &self.implementationVersion)
-            .field("description", &cstr_to_string(self.description.as_ptr()))
+            .field("description", &unsafe { cstr_to_string(self.description.as_ptr()) })
             .finish()
     }
 }
@@ -2802,7 +2788,7 @@ impl Default for VkWriteDescriptorSet {
     }
 }
 
-pub extern "C" fn debug_callback(
+extern "C" fn debug_callback(
     _message_severity: VkDebugUtilsMessageSeverityFlagsEXT,
     _message_type: VkDebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const VkDebugUtilsMessengerCallbackDataEXT,

@@ -30,10 +30,10 @@ fn main() {
     );
     #[rustfmt::skip]
     let vertices = [                                                            // CCW
-        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Top right
+        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top left
+        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom left
+        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom right
+        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
     ];
     vk_ctx.vertex_buffer = vk_util::create_vertex_buffer(&vk_ctx, &vertices);
     vk_ctx.index_buffer = vk_util::create_index_buffer(&vk_ctx, &[0, 1, 2, 2, 3, 0]);
@@ -160,7 +160,7 @@ impl Game {
 
         self.timer += dt;
         if self.timer >= self.speed {
-            let front = self.snake.front().unwrap().clone(); // The snake always grows, so it will always have a front.
+            let front = *self.snake.front().unwrap(); // The snake always grows, so it will always have a front.
             let new_pos = match self.dir {
                 Direction::Left => (front.0, front.1 - 1),
                 Direction::Right => (front.0, front.1 + 1),

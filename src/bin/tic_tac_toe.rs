@@ -92,10 +92,10 @@ impl Vertex {
 fn main() {
     #[rustfmt::skip]
     let vertices = [                                                            // CCW
-        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0), ..Vertex::default() },  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0),..Vertex::default() },  // Top right
+        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top left
+        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom left
+        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom right
+        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
     ];
     let indices = [0, 1, 2, 2, 3, 0];
 
@@ -140,7 +140,6 @@ pub fn create_entity(game: &mut Game, transform: (f32, f32, f32, f32)) {
             pos: Vec2::new(transform.0, transform.1),
             size: Vec2::new(transform.2, transform.3),
         },
-        ..Entity::default()
     });
 }
 
@@ -264,7 +263,7 @@ impl Game {
                 );
                 vk_util::push_str_centered(
                     &mut self.render_commands,
-                    &format!("Press any key to start"),
+                    "Press any key to start",
                     WINDOW_HEIGHT / 2.0 + 100.0,
                     0.0,
                     8.0,
@@ -274,7 +273,7 @@ impl Game {
             GameState::Draw => {
                 vk_util::push_str_centered(
                     &mut self.render_commands,
-                    &format!("Draw!"),
+                    "Draw!",
                     WINDOW_HEIGHT / 2.0 - 150.0,
                     0.0,
                     15.0,
@@ -282,7 +281,7 @@ impl Game {
                 );
                 vk_util::push_str_centered(
                     &mut self.render_commands,
-                    &format!("Press any key to start"),
+                    "Press any key to start",
                     WINDOW_HEIGHT / 2.0 + 100.0,
                     0.0,
                     8.0,
@@ -331,8 +330,8 @@ fn render_board(game: &mut Game) {
     for idx in 0..9 {
         let row = (idx / 3) as f32;
         let col = (idx % 3) as f32;
-        match game.tiles[idx] {
-            Some(player) => vk_util::push_rect_color(
+        if let Some(player) = game.tiles[idx] {
+            vk_util::push_rect_color(
                 cmd,
                 Rect::center_extent(
                     (center_x - square_dim + col * square_dim, center_y - square_dim + row * square_dim),
@@ -340,8 +339,7 @@ fn render_board(game: &mut Game) {
                 ),
                 0.0,
                 PLAYER_COLOR[player],
-            ),
-            _ => {}
+            );
         }
     }
 }
@@ -383,45 +381,36 @@ fn place_blocking(game: &mut Game) {
 fn get_win_tile(game: &Game, player: usize) -> Option<usize> {
     // Rows
     for row in 0..3 {
-        if game.tiles[row * 3 + 0] == Some(player)
+        if game.tiles[row * 3] == Some(player)
             && game.tiles[row * 3 + 1] == Some(player)
             && game.tiles[row * 3 + 2] == None
         {
             return Some(row * 3 + 2);
         }
-        if game.tiles[row * 3 + 0] == Some(player)
+        if game.tiles[row * 3] == Some(player)
             && game.tiles[row * 3 + 1] == None
             && game.tiles[row * 3 + 2] == Some(player)
         {
             return Some(row * 3 + 1);
         }
-        if game.tiles[row * 3 + 0] == None
+        if game.tiles[row * 3] == None
             && game.tiles[row * 3 + 1] == Some(player)
             && game.tiles[row * 3 + 2] == Some(player)
         {
-            return Some(row * 3 + 0);
+            return Some(row * 3);
         }
     }
 
     // Columns
     for col in 0..3 {
-        if game.tiles[0 * 3 + col] == Some(player)
-            && game.tiles[1 * 3 + col] == Some(player)
-            && game.tiles[2 * 3 + col] == None
-        {
+        if game.tiles[col] == Some(player) && game.tiles[3 + col] == Some(player) && game.tiles[2 * 3 + col] == None {
             return Some(2 * 3 + col);
         }
-        if game.tiles[0 * 3 + col] == Some(player)
-            && game.tiles[1 * 3 + col] == None
-            && game.tiles[2 * 3 + col] == Some(player)
-        {
-            return Some(1 * 3 + col);
+        if game.tiles[col] == Some(player) && game.tiles[3 + col] == None && game.tiles[2 * 3 + col] == Some(player) {
+            return Some(3 + col);
         }
-        if game.tiles[0 * 3 + col] == None
-            && game.tiles[1 * 3 + col] == Some(player)
-            && game.tiles[2 * 3 + col] == Some(player)
-        {
-            return Some(0 * 3 + col);
+        if game.tiles[col] == None && game.tiles[3 + col] == Some(player) && game.tiles[2 * 3 + col] == Some(player) {
+            return Some(col);
         }
     }
 

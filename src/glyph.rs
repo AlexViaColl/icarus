@@ -68,7 +68,7 @@ impl std::fmt::Debug for Tag {
             ((self.0 >> 24) & 0xFF) as u8 as char,
             ((self.0 >> 16) & 0xFF) as u8 as char,
             ((self.0 >> 8) & 0xFF) as u8 as char,
-            ((self.0 >> 0) & 0xFF) as u8 as char,
+            (self.0 & 0xFF) as u8 as char,
             self.0,
         )
     }

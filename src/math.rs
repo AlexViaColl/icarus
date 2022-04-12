@@ -82,7 +82,7 @@ impl Rect {
         let extent = extent.into();
         Self {
             offset: center.into() - extent * 0.5,
-            extent: extent.into(),
+            extent,
         }
     }
 
