@@ -1,6 +1,5 @@
 use super::string_util::*;
 use super::vk::*;
-use crate::color::srgb_to_linear;
 use crate::color::*;
 use crate::cstr;
 use crate::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
@@ -226,6 +225,8 @@ pub struct VkContext {
     pub render_pass: VkRenderPass,
 
     pub framebuffers: Vec<VkFramebuffer>,
+    pub frame_width: f32,
+    pub frame_height: f32,
 
     pub pipeline_layout: VkPipelineLayout,
     pub graphics_pipeline: VkPipeline,
@@ -569,6 +570,8 @@ impl VkContext {
                 vk_ctx.depth_image.view,
                 vk_ctx.surface_caps,
             );
+            vk_ctx.frame_width = vk_ctx.surface_caps.currentExtent.width as f32;
+            vk_ctx.frame_height = vk_ctx.surface_caps.currentExtent.height as f32;
 
             // Create Texture Image
             // TODO: Remove this
@@ -648,6 +651,7 @@ impl VkContext {
         render_commands: &[RenderCommand],
         //commands_size: usize,
         index_count: usize,
+        clear_color: Option<Color>,
     ) {
         unsafe {
             let mut vk_ctx = self;
@@ -696,6 +700,12 @@ impl VkContext {
 
             let width = vk_ctx.surface_caps.currentExtent.width;
             let height = vk_ctx.surface_caps.currentExtent.height;
+            let color = if let Some(color) = clear_color {
+                color.as_f32()
+            } else {
+                BLACK.as_f32()
+                // srgb_to_linear(0x000000)
+            };
             vkCmdBeginRenderPass(
                 cmd,
                 &VkRenderPassBeginInfo {
@@ -703,11 +713,7 @@ impl VkContext {
                     framebuffer: vk_ctx.framebuffers[image_index as usize],
                     renderArea: VkRect2D::new(0, 0, width, height),
                     clearValueCount: 2,
-                    pClearValues: [
-                        VkClearColorValue::new(srgb_to_linear(0x000000)),
-                        VkClearDepthStencilValue::new(1.0, 0),
-                    ]
-                    .as_ptr(),
+                    pClearValues: [VkClearColorValue::new(color), VkClearDepthStencilValue::new(1.0, 0)].as_ptr(),
                     ..VkRenderPassBeginInfo::default()
                 },
                 VK_SUBPASS_CONTENTS_INLINE,
@@ -718,8 +724,12 @@ impl VkContext {
             vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
             vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
 
-            vkCmdBindVertexBuffers(cmd, 0, 1, &vk_ctx.vertex_buffer.buffer, &0);
-            vkCmdBindIndexBuffer(cmd, vk_ctx.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+            if vk_ctx.vertex_buffer.buffer != VkBuffer::default() {
+                vkCmdBindVertexBuffers(cmd, 0, 1, &vk_ctx.vertex_buffer.buffer, &0);
+            }
+            if vk_ctx.index_buffer.buffer != VkBuffer::default() {
+                vkCmdBindIndexBuffer(cmd, vk_ctx.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+            }
 
             let layout = vk_ctx.pipeline_layout;
             let dsc_set = vk_ctx.descriptor_sets[vk_ctx.current_frame];
@@ -852,6 +862,8 @@ fn recreate_swapchain(vk_ctx: &mut VkContext) {
         );
 
         let framebuffers = create_framebuffers(device, render_pass, &image_views, depth_image.view, surface_caps);
+        vk_ctx.frame_width = surface_caps.currentExtent.width as f32;
+        vk_ctx.frame_height = surface_caps.currentExtent.height as f32;
 
         vk_ctx.surface_caps = surface_caps;
         vk_ctx.swapchain = swapchain;

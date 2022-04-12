@@ -47,6 +47,8 @@ pub const RED: Color = color!(rgb(1.0, 0.0, 0.0));
 pub const GREEN: Color = color!(rgb(0.0, 1.0, 0.0));
 pub const BLUE: Color = color!(rgb(0.0, 0.0, 1.0));
 
+pub const YELLOW: Color = color!(rgb(1.0, 1.0, 0.0));
+
 pub const DARK_GREEN: Color = color!(rgb(0.0, 0.5, 0.0));
 pub const DARK_BLUE: Color = color!(rgb(0.0, 0.0, 0.5));
 pub const DARK_GREY: Color = color!(rgb(0.2, 0.2, 0.2));
@@ -71,11 +73,24 @@ impl Color {
     pub fn invert(&self) -> Self {
         Self(Vec4::new(1.0 - self.0.x, 1.0 - self.0.y, 1.0 - self.0.z, self.0.w))
     }
+
+    pub fn as_f32(&self) -> [f32; 4] {
+        [self.0.x, self.0.y, self.0.z, self.0.w]
+    }
+
+    pub fn as_u32(&self) -> u32 {
+        color_to_u32([self.0.x, self.0.y, self.0.z, self.0.w])
+    }
 }
 
 impl From<Vec4> for Color {
     fn from(color: Vec4) -> Self {
         Self(color)
+    }
+}
+impl From<[f32; 4]> for Color {
+    fn from(color: [f32; 4]) -> Self {
+        Self(Vec4::new(color[0], color[1], color[2], color[3]))
     }
 }
 
@@ -88,8 +103,13 @@ pub fn color_to_f32(color: u32) -> [f32; 4] {
     [r, g, b, a]
 }
 
-pub fn color_to_u32(_color: [f32; 4]) -> u32 {
-    todo!()
+pub fn color_to_u32(color: [f32; 4]) -> u32 {
+    let r = (color[0] * 255.0).clamp(0.0, 255.0) as u32;
+    let g = (color[1] * 255.0).clamp(0.0, 255.0) as u32;
+    let b = (color[2] * 255.0).clamp(0.0, 255.0) as u32;
+    let a = (color[3] * 255.0).clamp(0.0, 255.0) as u32;
+
+    (a << 24) | (r << 16) | (g << 8) | b
 }
 
 pub fn srgb_to_linear(color: u32) -> [f32; 4] {

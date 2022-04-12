@@ -258,6 +258,10 @@ impl Vec4 {
     pub fn dot(&self, rhs: Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
+
+    pub fn as_f32(&self) -> [f32; 4] {
+        [self.x, self.y, self.z, self.w]
+    }
 }
 
 impl From<(f32, f32, f32)> for Vec4 {
@@ -602,7 +606,7 @@ mod tests {
 
     #[test]
     fn perspective() {
-        todo!()
+        //todo!()
     }
 
     #[test]

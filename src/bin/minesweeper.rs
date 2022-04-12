@@ -166,7 +166,7 @@ fn main() {
         game.update(&input, seconds_elapsed);
         game.render();
 
-        vk_ctx.render(&game.render_commands, indices.len());
+        vk_ctx.render(&game.render_commands, indices.len(), None);
     }
 
     vk_ctx.cleanup(&platform);
