@@ -1,23 +1,6 @@
 use std::fmt;
 use std::ops::{Add, Mul, Neg, Sub};
 
-/// Linear interpolation between A and B by a "normalized percentage" T.
-/// Panics if T is not in the range from 0 to 1.
-pub fn lerp<T>(a: T, b: T, t: f32) -> T
-where
-    T: Mul<f32, Output = T> + Add<Output = T>,
-{
-    assert!((0.0..=1.0).contains(&t));
-    a * (1.0 - t) + b * t
-}
-
-//pub fn inv_lerp<T>(a: T, b: T, value: T) -> f32
-//where
-//    T: Sub<Output = T>,
-pub fn inv_lerp(a: f32, b: f32, value: f32) -> f32 {
-    (value - a) / (b - a)
-}
-
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
 pub struct Rect {
@@ -49,10 +32,43 @@ pub struct Vec4 {
     pub w: f32,
 }
 
+#[repr(C)]
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub struct Quaternion {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub w: f32,
+}
+
+#[repr(C)]
+#[derive(Debug, PartialEq, Clone, Copy, Default)]
+pub struct Ray {
+    pub origin: Vec3,
+    pub dir: Vec3,
+}
+
 // Mat4 stores its elements as row-major
 #[repr(C)]
 #[derive(PartialEq, Clone, Copy, Default)]
 pub struct Mat4([f32; 16]);
+
+/// Linear interpolation between A and B by a "normalized percentage" T.
+/// Panics if T is not in the range from 0 to 1.
+pub fn lerp<T>(a: T, b: T, t: f32) -> T
+where
+    T: Mul<f32, Output = T> + Add<Output = T>,
+{
+    assert!((0.0..=1.0).contains(&t));
+    a * (1.0 - t) + b * t
+}
+
+//pub fn inv_lerp<T>(a: T, b: T, value: T) -> f32
+//where
+//    T: Sub<Output = T>,
+pub fn inv_lerp(a: f32, b: f32, value: f32) -> f32 {
+    (value - a) / (b - a)
+}
 
 impl Rect {
     pub fn offset_extent<T: Into<Vec2>>(offset: T, extent: T) -> Self {
@@ -95,6 +111,10 @@ impl Vec2 {
         let length = (self.x * self.x + self.y * self.y).sqrt();
         Self::new(self.x / length, self.y / length)
     }
+
+    pub fn abs(&self) -> Self {
+        Self::new(self.x.abs(), self.y.abs())
+    }
 }
 
 impl From<(f32, f32)> for Vec2 {
@@ -132,7 +152,6 @@ impl Sub for Vec2 {
 
 impl Mul<f32> for Vec2 {
     type Output = Self;
-
     fn mul(self, rhs: f32) -> Self {
         Self::new(self.x * rhs, self.y * rhs)
     }
@@ -147,12 +166,20 @@ impl Vec3 {
         }
     }
 
-    pub fn zero() -> Self {
-        Self::new(0.0, 0.0, 0.0)
+    pub fn abs(&self) -> Self {
+        Self::new(self.x.abs(), self.y.abs(), self.z.abs())
+    }
+
+    pub fn len_sq(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z
+    }
+
+    pub fn len(&self) -> f32 {
+        self.len_sq().sqrt()
     }
 
     pub fn normalize(&self) -> Self {
-        let length = (self.x * self.x + self.y * self.y + self.z * self.z).sqrt();
+        let length = self.len();
         Self::new(self.x / length, self.y / length, self.z / length)
     }
 
@@ -200,17 +227,8 @@ impl Sub for Vec3 {
 
 impl Mul<f32> for Vec3 {
     type Output = Self;
-
     fn mul(self, rhs: f32) -> Self {
         Vec3::new(self.x * rhs, self.y * rhs, self.z * rhs)
-    }
-}
-
-impl Mul<f32> for Vec4 {
-    type Output = Self;
-
-    fn mul(self, rhs: f32) -> Self {
-        Vec4::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
     }
 }
 
@@ -260,9 +278,20 @@ impl From<[f32; 4]> for Vec4 {
     }
 }
 
+impl Add for Vec4 {
+    type Output = Self;
+    fn add(self, rhs: Self) -> Self {
+        Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+            w: self.w + rhs.w,
+        }
+    }
+}
+
 impl Sub for Vec4 {
     type Output = Self;
-
     fn sub(self, rhs: Self) -> Self {
         Self {
             x: self.x - rhs.x,
@@ -270,6 +299,13 @@ impl Sub for Vec4 {
             z: self.z - rhs.z,
             w: self.w - rhs.w,
         }
+    }
+}
+
+impl Mul<f32> for Vec4 {
+    type Output = Self;
+    fn mul(self, rhs: f32) -> Self {
+        Vec4::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
     }
 }
 
@@ -473,6 +509,12 @@ mod tests {
             assert_eq_f32!($a.z, $b.z);
             assert_eq_f32!($a.w, $b.w);
         };
+    }
+
+    #[test]
+    fn vec2_neg() {
+        let v = Vec2::new(-1.0, 2.0);
+        assert_eq!(-v, Vec2::new(1.0, -2.0));
     }
 
     #[test]
