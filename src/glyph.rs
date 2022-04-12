@@ -129,6 +129,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn parse_ttf() -> std::io::Result<()> {
         let bytes = std::fs::read("/usr/share/fonts/TTF/knewave.ttf").unwrap();
         let mut reader = std::io::Cursor::new(bytes);
