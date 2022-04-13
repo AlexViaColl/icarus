@@ -202,7 +202,7 @@ pub struct VkContext {
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
 
-    pub texture_image: Image,
+    pub default_texture_image: Image,
     pub texture_sampler: VkSampler,
 
     pub global_ubo: Buffer,
@@ -564,13 +564,14 @@ impl VkContext {
 
             // Create Texture Image
             // TODO: Remove this
-            const TEXTURE_PATH: &str = "assets/textures/viking_room.png";
-            vk_ctx.texture_image = create_texture_image(&vk_ctx, TEXTURE_PATH);
+            //const TEXTURE_PATH: &str = "assets/textures/snake.png";
+            //vk_ctx.default_texture_image = load_texture_image(&vk_ctx, TEXTURE_PATH);
+            vk_ctx.default_texture_image = create_texture_image(&vk_ctx, &[0xff, 0xff, 0xff, 0xff], 1, 1);
             check!(vkCreateSampler(
                 vk_ctx.device,
                 &VkSamplerCreateInfo {
-                    magFilter: VK_FILTER_LINEAR,
-                    minFilter: VK_FILTER_LINEAR,
+                    magFilter: VK_FILTER_NEAREST,
+                    minFilter: VK_FILTER_NEAREST,
                     mipmapMode: VK_SAMPLER_MIPMAP_MODE_LINEAR,
                     addressModeU: VK_SAMPLER_ADDRESS_MODE_REPEAT,
                     addressModeV: VK_SAMPLER_ADDRESS_MODE_REPEAT,
@@ -622,7 +623,7 @@ impl VkContext {
                         descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                         pImageInfo: &VkDescriptorImageInfo {
                             sampler: vk_ctx.texture_sampler,
-                            imageView: vk_ctx.texture_image.view,
+                            imageView: vk_ctx.default_texture_image.view,
                             imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                         },
                         ..VkWriteDescriptorSet::default()
@@ -1358,69 +1359,77 @@ pub fn create_image(
     }
 }
 
-fn create_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> Image {
-    unsafe {
-        let mut width = 0;
-        let mut height = 0;
-        let mut channels = 0;
-        let mut path = path.as_ref().to_string();
-        path.push(0 as char);
-        let pixels = stbi_load(path.as_ptr() as *const i8, &mut width, &mut height, &mut channels, 4);
-        assert!(!pixels.is_null());
+pub fn load_texture_image<P: AsRef<str>>(vk_ctx: &VkContext, path: P) -> Image {
+    let mut width = 0;
+    let mut height = 0;
+    let mut channels = 0;
+    let mut path = path.as_ref().to_string();
+    path.push(0 as char);
+    let pixels = unsafe {
+        let raw = stbi_load(path.as_ptr() as *const i8, &mut width, &mut height, &mut channels, 4);
+        assert!(!raw.is_null());
         let image_size = width * height * 4;
 
-        let staging_buffer = create_buffer(
-            vk_ctx,
-            image_size as usize,
-            VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
-            (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
-        );
-        vk_map_memory_copy(vk_ctx.device, staging_buffer.memory, pixels, image_size as usize);
+        let mut pixels: Vec<u8> = vec![0; image_size as usize];
+        ptr::copy(raw, pixels.as_mut_ptr(), image_size as usize);
 
-        stbi_image_free(pixels as *mut c_void);
+        stbi_image_free(raw as *mut c_void);
+        pixels
+    };
+    create_texture_image(vk_ctx, &pixels, width as usize, height as usize)
+}
 
-        let texture_image = create_image(
-            vk_ctx,
-            (width as u32, height as u32),
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_TILING_OPTIMAL,
-            (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).into(),
-            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
-            VK_IMAGE_ASPECT_COLOR_BIT.into(),
-        );
+pub fn create_texture_image(vk_ctx: &VkContext, pixels: &[u8], width: usize, height: usize) -> Image {
+    let image_size = width * height * 4;
+    let staging_buffer = create_buffer(
+        vk_ctx,
+        image_size,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
+        (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
+    );
+    vk_map_memory_copy(vk_ctx.device, staging_buffer.memory, pixels.as_ptr(), image_size as usize);
 
-        transition_image_layout(
-            vk_ctx.device,
-            vk_ctx.graphics_queue,
-            vk_ctx.command_pool,
-            texture_image.image,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        );
+    let texture_image = create_image(
+        vk_ctx,
+        (width as u32, height as u32),
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_TILING_OPTIMAL,
+        (VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT).into(),
+        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into(),
+        VK_IMAGE_ASPECT_COLOR_BIT.into(),
+    );
 
-        copy_buffer_to_image(
-            vk_ctx.device,
-            vk_ctx.graphics_queue,
-            vk_ctx.command_pool,
-            staging_buffer.buffer,
-            texture_image.image,
-            width as u32,
-            height as u32,
-        );
+    transition_image_layout(
+        vk_ctx.device,
+        vk_ctx.graphics_queue,
+        vk_ctx.command_pool,
+        texture_image.image,
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    );
 
-        transition_image_layout(
-            vk_ctx.device,
-            vk_ctx.graphics_queue,
-            vk_ctx.command_pool,
-            texture_image.image,
-            VK_FORMAT_R8G8B8A8_SRGB,
-            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-        );
+    copy_buffer_to_image(
+        vk_ctx.device,
+        vk_ctx.graphics_queue,
+        vk_ctx.command_pool,
+        staging_buffer.buffer,
+        texture_image.image,
+        width as u32,
+        height as u32,
+    );
 
-        texture_image
-    }
+    transition_image_layout(
+        vk_ctx.device,
+        vk_ctx.graphics_queue,
+        vk_ctx.command_pool,
+        texture_image.image,
+        VK_FORMAT_R8G8B8A8_SRGB,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    );
+
+    texture_image
 }
 
 // Utility Functions
