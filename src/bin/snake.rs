@@ -28,15 +28,6 @@ fn main() {
         Vertex::get_binding_description(),
         &Vertex::get_attribute_descriptions(),
     );
-    #[rustfmt::skip]
-    let vertices = [                                                            // CCW
-        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 0.5), color: (1.0, 1.0, 1.0)},  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (0.5, 0.5), color: (1.0, 1.0, 1.0)},  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (0.5, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
-    ];
-    vk_ctx.vertex_buffer = vk_util::create_vertex_buffer(&vk_ctx, &vertices);
-    vk_ctx.index_buffer = vk_util::create_index_buffer(&vk_ctx, &[0, 1, 2, 2, 3, 0]);
 
     // Main loop
     let start_time = Instant::now();
@@ -61,7 +52,7 @@ fn main() {
         //let color = color::srgb_to_linear(0x7400b8).into();
 
         let color = color::srgb_to_linear(0x1d1f21).into();
-        vk_ctx.render(&game.cmd, 6, Some(color));
+        vk_ctx.render(&game.cmd, Some(color));
     }
 
     vk_ctx.cleanup(&platform);

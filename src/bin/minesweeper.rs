@@ -127,15 +127,6 @@ impl Vertex {
 fn main() {
     //println!("Any: {}, Esc: {}, Enter: {}", KeyId::Any as u32, KeyId::Esc as u32, KeyId::Enter as u32);
     //println!("XK_Escape: {}, XK_Return: {}, XK_Space: {}", XK_Escape, XK_Return, XK_space);
-    #[rustfmt::skip]
-    let vertices = [                                                            // CCW
-        Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
-    ];
-    let indices = [0, 1, 2, 2, 3, 0];
-
     let mut platform = Platform::init(Config {
         width: 1600,
         height: 900,
@@ -151,8 +142,6 @@ fn main() {
         Vertex::get_binding_description(),
         &Vertex::get_attribute_descriptions(),
     );
-    vk_ctx.vertex_buffer = vk_util::create_vertex_buffer(&vk_ctx, &vertices);
-    vk_ctx.index_buffer = vk_util::create_index_buffer(&vk_ctx, &indices);
 
     // Main loop
     let start_time = Instant::now();
@@ -166,7 +155,7 @@ fn main() {
         game.update(&input, seconds_elapsed);
         game.render();
 
-        vk_ctx.render(&game.render_commands, indices.len(), None);
+        vk_ctx.render(&game.render_commands, None);
     }
 
     vk_ctx.cleanup(&platform);
