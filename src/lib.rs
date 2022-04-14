@@ -1,7 +1,7 @@
 pub mod color;
 pub mod glyph;
 pub mod input;
-mod macros;
+pub mod macros;
 pub mod math;
 pub mod platform;
 pub mod rand;
