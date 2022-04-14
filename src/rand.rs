@@ -9,6 +9,12 @@ impl Rand {
         }
     }
 
+    pub fn next_usize(&mut self) -> usize {
+        let res = RND_TABLE[self.seed];
+        self.seed = (self.seed + 1) % RND_TABLE.len();
+        res as usize
+    }
+
     pub fn next_u32(&mut self) -> u32 {
         let res = RND_TABLE[self.seed];
         self.seed = (self.seed + 1) % RND_TABLE.len();
