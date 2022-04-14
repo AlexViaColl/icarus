@@ -15,4 +15,20 @@ cargo run --bin minesweeper
 
 # Build everything
 cargo build
+
+# Run tests
+cargo test
 ```
+
+# Examples
+### Pong
+![Pong](/assets/screenshot/pong.png)
+
+### Tic-Tac-Toe
+![Tic-Tac-Toe](/assets/screenshot/tic-tac-toe.png)
+
+### Minesweeper
+![Minesweeper](/assets/screenshot/minesweeper.png)
+
+### Snake
+![Snake](/assets/screenshot/snake.png)
