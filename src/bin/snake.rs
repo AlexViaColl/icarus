@@ -31,9 +31,9 @@ fn main() {
     #[rustfmt::skip]
     let vertices = [                                                            // CCW
         Vertex {pos: (-1.0, -1.0, 0.0), uv: (0.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top left
-        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom left
-        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (1.0, 1.0), color: (1.0, 1.0, 1.0)},  // Bottom right
-        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (1.0, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
+        Vertex {pos: (-1.0,  1.0, 0.0), uv: (0.0, 0.5), color: (1.0, 1.0, 1.0)},  // Bottom left
+        Vertex {pos: ( 1.0,  1.0, 0.0), uv: (0.5, 0.5), color: (1.0, 1.0, 1.0)},  // Bottom right
+        Vertex {pos: ( 1.0, -1.0, 0.0), uv: (0.5, 0.0), color: (1.0, 1.0, 1.0)},  // Top right
     ];
     vk_ctx.vertex_buffer = vk_util::create_vertex_buffer(&vk_ctx, &vertices);
     vk_ctx.index_buffer = vk_util::create_index_buffer(&vk_ctx, &[0, 1, 2, 2, 3, 0]);
@@ -89,7 +89,7 @@ struct Game {
     state: GameState,
     rows: usize,
     cols: usize,
-    snake: VecDeque<(isize, isize)>, // (row, col) Front is the head of the snake
+    snake: VecDeque<(usize, usize)>, // (row, col) Front is the head of the snake
     coin: (usize, usize),            // (row, col)
     dir: Direction,
     timer: f32,
@@ -108,24 +108,22 @@ impl Game {
             .duration_since(std::time::UNIX_EPOCH)
             .expect("Failed to get time since UNIX_EPOCH")
             .as_secs() as usize;
-        let mut rand = Rand::new(seed);
-        let rows = 18;
-        let cols = 32;
-        let coin = ((rand.next_u32() as usize) % rows, (rand.next_u32() as usize) % cols);
-        Self {
+        let mut game = Self {
             running: true,
             paused: false,
             cmd: vec![],
-            rand,
+            rand: Rand::new(seed),
             state: GameState::Playing,
-            rows,
-            cols,
+            rows: 18,
+            cols: 32,
             snake,
-            coin,
+            coin: (0, 0),
             dir: Direction::Left,
             timer: 0.0,
             speed: 0.2,
-        }
+        };
+        game.spawn_coin();
+        game
     }
 
     fn update(&mut self, input: &InputState, dt: f32) {
@@ -161,6 +159,7 @@ impl Game {
         self.timer += dt;
         if self.timer >= self.speed {
             let front = *self.snake.front().unwrap(); // The snake always grows, so it will always have a front.
+            let front = (front.0 as isize, front.1 as isize);
             let new_pos = match self.dir {
                 Direction::Left => (front.0, front.1 - 1),
                 Direction::Right => (front.0, front.1 + 1),
@@ -168,16 +167,15 @@ impl Game {
                 Direction::Up => (front.0 - 1, front.1),
             };
 
-            // TODO: Handle collisions with snake body
-            if is_valid_pos(new_pos, self.rows, self.cols) {
+            if is_valid_pos(new_pos, self.rows, self.cols)
+                && !self.snake.contains(&(new_pos.0 as usize, new_pos.1 as usize))
+            {
                 if (new_pos.0 as usize, new_pos.1 as usize) != self.coin {
                     self.snake.pop_back();
                 } else {
-                    // TODO: Make sure to spawn outside of the snake body
-                    self.coin =
-                        ((self.rand.next_u32() as usize) % self.rows, (self.rand.next_u32() as usize) % self.cols);
+                    self.spawn_coin();
                 }
-                self.snake.push_front(new_pos);
+                self.snake.push_front((new_pos.0 as usize, new_pos.1 as usize));
             } else {
                 self.state = GameState::GameOver;
             }
@@ -214,16 +212,40 @@ impl Game {
                     );
                 }
             }
-            GameState::GameOver => vk_util::push_str_centered_color(
-                &mut self.cmd,
-                "Game Over!",
-                height / 2.0,
-                0.0,
-                10.0,
-                color::LIGHT_GREY,
-                true,
-                Rect::offset_extent((0.0, 0.0), (width, height)),
-            ),
+            GameState::GameOver => {
+                // Draw snake
+                for (row, col) in &self.snake {
+                    vk_util::push_rect_color(
+                        &mut self.cmd,
+                        Rect::offset_extent(
+                            ((*col as f32) * SNAKE_SIZE, (*row as f32) * SNAKE_SIZE),
+                            (SNAKE_SIZE, SNAKE_SIZE),
+                        ),
+                        0.1,
+                        color::GREEN,
+                    );
+                }
+                vk_util::push_str_centered_color(
+                    &mut self.cmd,
+                    "Game Over!",
+                    height / 2.0,
+                    0.0,
+                    10.0,
+                    color::LIGHT_GREY,
+                    true,
+                    Rect::offset_extent((0.0, 0.0), (width, height)),
+                );
+            }
+        }
+    }
+
+    fn spawn_coin(&mut self) {
+        loop {
+            let coin_pos = (self.rand.next_usize() % self.rows, self.rand.next_usize() % self.cols);
+            if !self.snake.contains(&coin_pos) {
+                self.coin = coin_pos;
+                break;
+            }
         }
     }
 }
