@@ -1,3 +1,4 @@
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
 
@@ -6,8 +7,7 @@ fn main() {
 
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=compile.sh");
-    println!("cargo:rerun-if-changed=assets/shaders/shader.vert");
-    println!("cargo:rerun-if-changed=assets/shaders/shader.frag");
+    println!("cargo:rerun-if-changed=assets/shaders/");
 
     if !Path::new("stb_image.h").exists() {
         Command::new("/usr/bin/wget")
@@ -16,28 +16,20 @@ fn main() {
             .unwrap();
     }
 
-    if !Path::new("assets/models/viking_room.obj").exists() {
+    if !Path::new("glslc").exists() {
         Command::new("/usr/bin/wget")
-            .arg("-O")
-            .arg("assets/models/viking_room.obj")
-            .arg("https://vulkan-tutorial.com/resources/viking_room.obj")
+            .arg("https://raw.githubusercontent.com/AlexViaColl/Icarus_deps/main/glslc.tar.gz")
             .status()
             .unwrap();
 
-        Command::new("/usr/bin/wget")
-            .arg("-O")
-            .arg("assets/textures/viking_room.png")
-            .arg("https://vulkan-tutorial.com/resources/viking_room.png")
-            .status()
-            .unwrap();
-
-        Command::new("/usr/bin/wget")
-            .arg("-O")
-            .arg("assets/textures/texture.jpg")
-            .arg("https://vulkan-tutorial.com/images/texture.jpg")
-            .status()
-            .unwrap();
+        Command::new("/usr/bin/tar").arg("-xzvf").arg("glslc.tar.gz").status().unwrap();
+        std::fs::set_permissions("glslc", std::fs::Permissions::from_mode(0o770)).unwrap();
     }
 
-    Command::new("/bin/sh").arg("compile.sh").status().unwrap();
+    let output = Command::new("/bin/sh").arg("compile.sh").output().unwrap();
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(output.status.success(), "stderr: {}\nstdout: {}", stderr, stdout);
+
+    assert!(Path::new("assets/shaders/simple.vert.spv").exists());
 }

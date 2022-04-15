@@ -1,5 +1,8 @@
 /target
 /assets/textures
+/shaderc
+glslc
+*.tar.gz
 
 # compiled artifacts
 *.spv
@@ -15,3 +18,5 @@
 # external source code
 stb_image.h
 *.cpp
+
+
