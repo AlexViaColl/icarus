@@ -73,7 +73,7 @@ pub enum Instruction {
     OpGenericPtrMemSemantics, // 69
     OpInBoundsPtrAccessChain, // 70
 
-    OpDecorate,            // 71
+    OpDecorate{opcode: u32, },            // 71
     OpMemberDecorate,      // 72
     OpDecorationGroup,     // 73
     OpGroupDecorate,       // 74
@@ -629,10 +629,11 @@ impl From<u32> for StorageClass {
 mod tests {
     use super::*;
     // TODO: Move these functions into a separate module
-    use crate::glyph::{read_u16_le, read_u32_le, read_u8};
+    use crate::glyph::read_u32_le;
 
     #[test]
     fn spirv() -> std::io::Result<()> {
+        // TODO: compile shader in compile.sh script
         let bytes = std::fs::read("assets/shaders/simple.vert.spv").unwrap();
         let len = bytes.len();
         assert_eq!(len % 4, 0);
@@ -665,7 +666,7 @@ mod tests {
             let mut inst_words = [0; 32];
 
             inst_words[0] = read_u32_le(&mut r)?;
-            let mut word_count = ((inst_words[0] >> 16) & 0xffff) as usize;
+            let word_count = ((inst_words[0] >> 16) & 0xffff) as usize;
             let opcode = inst_words[0] & 0xffff;
 
             let mut remaining = word_count - 1;
@@ -777,7 +778,7 @@ mod tests {
                     println!("{:?}", inst);
                 }
                 16 => {
-                    let entry_point = inst_words[1];
+                    let _entry_point = inst_words[1];
                     // TODO: Mode
                     println!("OpExecutionMode");
                 }
