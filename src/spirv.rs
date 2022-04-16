@@ -1,53 +1,239 @@
-#[rustfmt::skip]
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
-    OpNop,             // 0
-    OpUndef,           // 1
-    OpSourceContinued, // 2
-    OpSource,          // 3
-    OpSourceExtension, // 4
-    OpName,            // 5
-    OpMemberName,      // 6
-    OpString,          // 7
-    OpLine,            // 8
+    OpNop {
+        opcode: u32,
+    }, // 0
+    OpUndef {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+    }, // 1
+    OpSourceContinued {
+        opcode: u32,
+        continued_source: String,
+    }, // 2
+    OpSource {
+        opcode: u32,
+        source_language: SourceLanguage,
+        version: u32,
+        file: Option<u32>,
+        source: Option<String>,
+    }, // 3
+    OpSourceExtension {
+        opcode: u32,
+        extension: String,
+    }, // 4
+    OpName {
+        opcode: u32,
+        target: u32,
+        name: String,
+    }, // 5
+    OpMemberName {
+        opcode: u32,
+        ttype: u32,
+        member: u32,
+        name: String,
+    }, // 6
+    OpString {
+        opcode: u32,
+        result: u32,
+        string: String,
+    }, // 7
+    OpLine {
+        opcode: u32,
+        file: u32,
+        line: u32,
+        column: u32,
+    }, // 8
 
-    OpExtension,     // 10
-    OpExtInstImport{opcode: u32, result: u32, name: String}, // 11
-    OpExtInst,       // 12
+    OpExtension {
+        opcode: u32,
+        name: String,
+    }, // 10
+    OpExtInstImport {
+        opcode: u32,
+        result: u32,
+        name: String,
+    }, // 11
+    OpExtInst {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        set: u32,
+        instruction: u32,
+        operands: Vec<u32>,
+    }, // 12
 
-    OpMemoryModel{opcode: u32, addressing_model: AddressingModel, memory_model: MemoryModel},                 // 14
-    OpEntryPoint{opcode: u32, execution_model: ExecutionModel, entry_point: u32, name: String, interface: Vec<u32>},                  // 15
-    OpExecutionMode,               // 16
-    OpCapability{opcode: u32, capability: Capability}, // 17
+    OpMemoryModel {
+        opcode: u32,
+        addressing_model: AddressingModel,
+        memory_model: MemoryModel,
+    }, // 14
+    OpEntryPoint {
+        opcode: u32,
+        execution_model: ExecutionModel,
+        entry_point: u32,
+        name: String,
+        interface: Vec<u32>,
+    }, // 15
+    OpExecutionMode {
+        opcode: u32,
+        entry_point: u32,
+        mode: ExecutionMode,
+        literals: Vec<u32>,
+    }, // 16
+    OpCapability {
+        opcode: u32,
+        capability: Capability,
+    }, // 17
 
-    OpTypeVoid,           // 19
-    OpTypeBool,           // 20
-    OpTypeInt,            // 21
-    OpTypeFloat,          // 22
-    OpTypeVector,         // 23
-    OpTypeMatrix,         // 24
-    OpTypeImage,          // 25
-    OpTypeSampler,        // 26
-    OpTypeSampledImage,   // 27
-    OpTypeArray,          // 28
-    OpTypeRuntimeArray,   // 29
-    OpTypeStruct {opcode: u32, result: u32, member_types: Vec<u32>},         // 30
-    OpTypeOpaque,         // 31
-    OpTypePointer {opcode: u32, result: u32, storage_class: StorageClass, ttype: u32},        // 32
-    OpTypeFunction,       // 33
-    OpTypeEvent,          // 34
-    OpTypeDeviceEvent,    // 35
-    OpTypeReserveId,      // 36
-    OpTypeQueue,          // 37
-    OpTypePipe,           // 38
-    OpTypeForwardPointer, // 39
+    OpTypeVoid {
+        opcode: u32,
+        result: u32,
+    }, // 19
+    OpTypeBool {
+        opcode: u32,
+        result: u32,
+    }, // 20
+    OpTypeInt {
+        opcode: u32,
+        result: u32,
+        width: u32,
+        signedness: u32,
+    }, // 21
+    OpTypeFloat {
+        opcode: u32,
+        result: u32,
+        width: u32,
+    }, // 22
+    OpTypeVector {
+        opcode: u32,
+        result: u32,
+        component_type: u32,
+        component_count: u32,
+    }, // 23
+    OpTypeMatrix {
+        opcode: u32,
+        result: u32,
+        column_type: u32,
+        column_count: u32,
+    }, // 24
+    OpTypeImage {
+        opcode: u32,
+        result: u32,
+        sampled_type: u32,
+        dim: Dim,
+        depth: u32,
+        arrayed: u32,
+        ms: u32,
+        sampled: u32,
+        image_format: ImageFormat,
+        access_qualifier: Option<AccessQualifier>,
+    }, // 25
+    OpTypeSampler {
+        opcode: u32,
+        result: u32,
+    }, // 26
+    OpTypeSampledImage {
+        opcode: u32,
+        result: u32,
+        image_type: u32,
+    }, // 27
+    OpTypeArray {
+        opcode: u32,
+        result: u32,
+        element_type: u32,
+        length: u32,
+    }, // 28
+    OpTypeRuntimeArray {
+        opcode: u32,
+        result: u32,
+        element_type: u32,
+    }, // 29
+    OpTypeStruct {
+        opcode: u32,
+        result: u32,
+        member_types: Vec<u32>,
+    }, // 30
+    OpTypeOpaque {
+        opcode: u32,
+        result: u32,
+        name: String,
+    }, // 31
+    OpTypePointer {
+        opcode: u32,
+        result: u32,
+        storage_class: StorageClass,
+        ttype: u32,
+    }, // 32
+    OpTypeFunction {
+        opcode: u32,
+        result: u32,
+        return_type: u32,
+        parameter_types: Vec<u32>,
+    }, // 33
+    OpTypeEvent {
+        opcode: u32,
+        result: u32,
+    }, // 34
+    OpTypeDeviceEvent {
+        opcode: u32,
+        result: u32,
+    }, // 35
+    OpTypeReserveId {
+        opcode: u32,
+        result: u32,
+    }, // 36
+    OpTypeQueue {
+        opcode: u32,
+        result: u32,
+    }, // 37
+    OpTypePipe {
+        opcode: u32,
+        result: u32,
+        qualifier: AccessQualifier,
+    }, // 38
+    OpTypeForwardPointer {
+        opcode: u32,
+        pointer_type: u32,
+        storage_class: StorageClass,
+    }, // 39
 
-    OpConstantTrue,      // 41
-    OpConstantFalse,     // 42
-    OpConstant,          // 43
-    OpConstantComposite, // 44
-    OpConstantSampler,   // 45
-    OpConstantNull,      // 46
+    OpConstantTrue {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+    }, // 41
+    OpConstantFalse {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+    }, // 42
+    OpConstant {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        value: Vec<u32>,
+    }, // 43
+    OpConstantComposite {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        constituents: Vec<u32>,
+    }, // 44
+    OpConstantSampler {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        sampler_addressing_mode: SamplerAddressingMode,
+        param: u32,
+        sampler_filter_mode: SamplerFilterMode,
+    }, // 45
+    OpConstantNull {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+    }, // 46
 
     OpSpecConstantTrue,      // 48
     OpSpecConstantFalse,     // 49
@@ -55,106 +241,206 @@ pub enum Instruction {
     OpSpecConstantComposite, // 51
     OpSpecConstantOp,        // 52
 
-    OpFunction,          // 54
+    OpFunction {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        function_control: FunctionControl,
+        function_type: u32,
+    }, // 54
     OpFunctionParameter, // 55
-    OpFunctionEnd,       // 56
+    OpFunctionEnd {
+        opcode: u32,
+    }, // 56
     OpFunctionCall,      // 57
 
-    OpVariable{opcode: u32, result_type: u32, result: u32, storage_class: StorageClass, initializer: Option<u32>},               // 59
-    OpImageTexelPointer,      // 60
-    OpLoad,                   // 61
-    OpStore,                  // 62
-    OpCopyMemory,             // 63
-    OpCopyMemorySized,        // 64
-    OpAccessChain,            // 65
-    OpInBoundsAccessChain,    // 66
-    OpPtrAccessChain,         // 67
-    OpArrayLength,            // 68
+    OpVariable {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        storage_class: StorageClass,
+        initializer: Option<u32>,
+    }, // 59
+    OpImageTexelPointer, // 60
+    OpLoad {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        pointer: u32,
+        memory_operands: Option<MemoryOperands>,
+    }, // 61
+    OpStore {
+        opcode: u32,
+        pointer: u32,
+        object: u32,
+        memory_operands: Option<MemoryOperands>,
+    }, // 62
+    OpCopyMemory,        // 63
+    OpCopyMemorySized,   // 64
+    OpAccessChain {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        base: u32,
+        indexes: Vec<u32>,
+    }, // 65
+    OpInBoundsAccessChain, // 66
+    OpPtrAccessChain,    // 67
+    OpArrayLength,       // 68
     OpGenericPtrMemSemantics, // 69
     OpInBoundsPtrAccessChain, // 70
 
-    OpDecorate{opcode: u32, },            // 71
-    OpMemberDecorate,      // 72
+    OpDecorate {
+        opcode: u32,
+        target: u32,
+        decoration: Decoration,
+    }, // 71
+    OpMemberDecorate {
+        opcode: u32,
+        structure_type: u32,
+        member: u32,
+        decoration: Decoration,
+    }, // 72
     OpDecorationGroup,     // 73
     OpGroupDecorate,       // 74
     OpGroupMemberDecorate, // 75
 
     OpVectorExtractDynamic, // 77
     OpVectorInsertDynamic,  // 78
-    OpVectorShuffle,        // 79
-    OpCompositeConstruct,   // 80
-    OpCompositeExtract,     // 81
+    OpVectorShuffle {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        vector1: u32,
+        vector2: u32,
+        components: Vec<u32>,
+    }, // 79
+    OpCompositeConstruct {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        constituents: Vec<u32>,
+    }, // 80
+    OpCompositeExtract {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        composite: u32,
+        indexes: Vec<u32>,
+    }, // 81
     OpCompositeInsert,      // 82
     OpCopyObject,           // 83
     OpTranspose,            // 84
 
-    OpSampledImage,                   // 86
-    OpImageSampleImplicitLod,         // 87
-    OpImageSampleExplicitLod,         // 88
-    OpImageSampleDrefImplicitLod,     // 89
-    OpImageSampleDrefExplicitLod,     // 90
-    OpImageSampleProjImplicitLod,     // 91
-    OpImageSampleProjExplicitLod,     // 92
+    OpSampledImage, // 86
+    OpImageSampleImplicitLod {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        sampled_image: u32,
+        coordinate: u32,
+        image_operands: Option<ImageOperands>,
+    }, // 87
+    OpImageSampleExplicitLod, // 88
+    OpImageSampleDrefImplicitLod, // 89
+    OpImageSampleDrefExplicitLod, // 90
+    OpImageSampleProjImplicitLod, // 91
+    OpImageSampleProjExplicitLod, // 92
     OpImageSampleProjDrefImplicitLod, // 93
     OpImageSampleProjDrefExplicitLod, // 94
-    OpImageFetch,                     // 95
-    OpImageGather,                    // 94
-    OpImageDrefGather,                // 97
-    OpImageRead,                      // 98
-    OpImageWrite,                     // 99
-    OpImage,                          // 100
-    OpImageQueryFormat,               // 101
-    OpImageQueryOrder,                // 102
-    OpImageQuerySizeLod,              // 103
-    OpImageQuerySize,                 // 104
-    OpImageQueryLod,                  // 105
-    OpImageQueryLevels,               // 106
-    OpImageQuerySamples,              // 107
+    OpImageFetch,   // 95
+    OpImageGather,  // 94
+    OpImageDrefGather, // 97
+    OpImageRead,    // 98
+    OpImageWrite,   // 99
+    OpImage,        // 100
+    OpImageQueryFormat, // 101
+    OpImageQueryOrder, // 102
+    OpImageQuerySizeLod, // 103
+    OpImageQuerySize, // 104
+    OpImageQueryLod, // 105
+    OpImageQueryLevels, // 106
+    OpImageQuerySamples, // 107
 
-    OpConvertFToU,              // 109
-    OpConvertFToS,              // 110
-    OpConvertSToF,              // 111
-    OpConvertUToF,              // 112
-    OpUConvert,                 // 113
-    OpSConvert,                 // 114
-    OpFConvert,                 // 115
-    OpQuantizeToF16,            // 116
-    OpConvertPtrToU,            // 117
-    OpSatConvertSToU,           // 118
-    OpSatConvertUToS,           // 119
-    OpConvertUToPtr,            // 120
-    OpPtrCastToGeneric,         // 121
-    OpGenericCastToPtr,         // 122
+    OpConvertFToU, // 109
+    OpConvertFToS, // 110
+    OpConvertSToF, // 111
+    OpConvertUToF {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        unsigned_value: u32,
+    }, // 112
+    OpUConvert,    // 113
+    OpSConvert,    // 114
+    OpFConvert,    // 115
+    OpQuantizeToF16, // 116
+    OpConvertPtrToU, // 117
+    OpSatConvertSToU, // 118
+    OpSatConvertUToS, // 119
+    OpConvertUToPtr, // 120
+    OpPtrCastToGeneric, // 121
+    OpGenericCastToPtr, // 122
     OpGenericCastToPtrExplicit, // 123
-    OpBitcast,                  // 124
+    OpBitcast,     // 124
 
-    OpSNegate,           // 126
-    OpFNegate,           // 127
-    OpIAdd,              // 128
-    OpFAdd,              // 129
-    OpISub,              // 130
-    OpFSub,              // 131
-    OpIMul,              // 132
-    OpFMul,              // 133
-    OpUDiv,              // 134
-    OpSDiv,              // 135
-    OpFDiv,              // 136
-    OpUMod,              // 137
-    OpSRem,              // 138
-    OpSMod,              // 139
-    OpFRem,              // 140
-    OpFMod,              // 141
-    OpVectorTimesScalar, // 142
+    OpSNegate, // 126
+    OpFNegate, // 127
+    OpIAdd,    // 128
+    OpFAdd {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        operand1: u32,
+        operand2: u32,
+    }, // 129
+    OpISub,    // 130
+    OpFSub {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        operand1: u32,
+        operand2: u32,
+    }, // 131
+    OpIMul,    // 132
+    OpFMul {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        operand1: u32,
+        operand2: u32,
+    }, // 133
+    OpUDiv,    // 134
+    OpSDiv,    // 135
+    OpFDiv {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        operand1: u32,
+        operand2: u32,
+    }, // 136
+    OpUMod,    // 137
+    OpSRem,    // 138
+    OpSMod,    // 139
+    OpFRem,    // 140
+    OpFMod,    // 141
+    OpVectorTimesScalar {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        vector: u32,
+        scalar: u32,
+    }, // 142
     OpMatrixTimesScalar, // 143
     OpVectorTimesMatrix, // 144
     OpMatrixTimesVector, // 145
     OpMatrixTimesMatrix, // 146
-    OpOuterProduct,      // 147
-    OpDot,               // 148
-    OpIAddCarry,         // 149
-    OpISubBorrow,        // 150
-    OpUMulExtended,      // 151
-    OpSMulExtended,      // 152
+    OpOuterProduct, // 147
+    OpDot,     // 148
+    OpIAddCarry, // 149
+    OpISubBorrow, // 150
+    OpUMulExtended, // 151
+    OpSMulExtended, // 152
 
     OpAny,                    // 154
     OpAll,                    // 155
@@ -243,19 +529,24 @@ pub enum Instruction {
     OpAtomicOr,                  // 241
     OpAtomicXor,                 // 242
 
-    OpPhi,               // 245
-    OpLoopMerge,         // 246
-    OpSelectionMerge,    // 247
-    OpLabel,             // 248
-    OpBranch,            // 249
+    OpPhi,            // 245
+    OpLoopMerge,      // 246
+    OpSelectionMerge, // 247
+    OpLabel {
+        opcode: u32,
+        result: u32,
+    }, // 248
+    OpBranch,         // 249
     OpBranchConditional, // 250
-    OpSwitch,            // 251
-    OpKill,              // 252
-    OpReturn,            // 253
-    OpReturnValue,       // 254
-    OpUnreachable,       // 255
-    OpLifetimeStart,     // 256
-    OpLifetimeStop,      // 257
+    OpSwitch,         // 251
+    OpKill,           // 252
+    OpReturn {
+        opcode: u32,
+    }, // 253
+    OpReturnValue,    // 254
+    OpUnreachable,    // 255
+    OpLifetimeStart,  // 256
+    OpLifetimeStop,   // 257
 
     OpGroupAsyncCopy,  // 259
     OpGroupWaitEvents, // 260
@@ -494,6 +785,266 @@ pub enum StorageClass {
     Input,
     Uniform,
     Output,
+    Workgroup,
+    CrossWorkgroup,
+    Private,
+    Function,
+    Generic,
+    PushConstant,
+    AtomicCounter,
+    Image,
+    StorageBuffer,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum SourceLanguage {
+    Unknown = 0,
+    ESSL,
+    GLSL,
+    OpenCL_C,
+    OpenCL_CPP,
+    HLSL,
+    CPP_for_OpenCL,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum ExecutionMode {
+    Invocations = 0,
+    SpacingEqual,
+    SpacingFractionalEven,
+    SpacingFractionalOdd,
+    VertexOrderCw,
+    VertexOrderCcw,
+    PixelCenterInteger,
+    OriginUpperLeft,
+    OriginLowerLeft,
+    EarlyFragmentTests,
+    PointMode,
+    Xfb,
+    DepthReplacing,
+    DepthGreater,
+    DepthLess,
+    DepthUnchanged,
+    LocalSize,
+    LocalSizeHint,
+    InputPoints,
+    InputLines,
+    InputLinesAdjacency,
+    Triangles,
+    InputTrianglesAdjacency,
+    Quads,
+    Isolines,
+    OutputVertices,
+    OutputPoints,
+    OutputLineStrip,
+    OutputTriangleStrip,
+    VecTypeHint,
+    ContractionOff,
+    Initializer,
+    Finalizer,
+    SubgroupSize,
+    SubgroupsPerWorkgroup,
+    SubgroupsPerWorkgroupId,
+    LocalSizeId,
+    LocalSizeHintId,
+    // TODO: Extensions...
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum Dim {
+    Dim1D = 0,
+    Dim2D,
+    Dim3D,
+    Cube,
+    Rect,
+    Buffer,
+    SubpassData,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum ImageFormat {
+    Unknown = 0,
+    Rgba32f,
+    Rgba16f,
+    R32f,
+    Rgba8,
+    Rgba8Snorm,
+    Rg32f,
+    Rg16f,
+    R11fG11fB10f,
+    R16f,
+    Rgba16,
+    Rgb10A2,
+    Rg16,
+    Rg8,
+    R16,
+    R8,
+    Rgba16Snorm,
+    Rg16Snorm,
+    Rg8Snorm,
+    R16Snorm,
+    R8Snorm,
+    Rgba32i,
+    Rgba16i,
+    Rgba8i,
+    R32i,
+    Rg32i,
+    Rg16i,
+    Rg8i,
+    R16i,
+    R8i,
+    Rgba32ui,
+    Rgba16ui,
+    Rgba8ui,
+    R32ui,
+    Rgb10a2ui,
+    Rg32ui,
+    Rg16ui,
+    Rg8ui,
+    R16ui,
+    R8ui,
+    R64ui,
+    R64i,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum AccessQualifier {
+    ReadOnly = 0,
+    WriteOnly,
+    ReadWrite,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum SamplerAddressingMode {
+    None = 0,
+    ClampToEdge,
+    Clamp,
+    Repeat,
+    RepeatMirrored,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum SamplerFilterMode {
+    Nearest = 0,
+    Linear,
+}
+
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum Decoration {
+    RelaxedPrecision = 0,
+    SpecId,
+    Block,
+    BufferBlock,
+    RowMajor,
+    ColMajor,
+    ArrayStride,
+    MatrixStride,
+    GLSLShared,
+    GLSLPacked,
+    CPacked,
+    BuiltIn,
+    NoPerspective = 13,
+    Flat,
+    Patch,
+    Centroid,
+    Sample,
+    Invariant,
+    Restrict,
+    Aliased,
+    Volatile,
+    Constant,
+    Coherent,
+    NonWritable,
+    NonReadable,
+    Uniform,
+    UniformId,
+    SaturatedConversion,
+    Stream,
+    Location = 30,
+    Component,
+    Index,
+    Binding,
+    DescriptorSet,
+    Offset,
+    XfbBuffer,
+    XfbStride,
+    FuncParamAttr,
+    FPRoundingMode,
+    FPFastMathMode,
+    LinkageAttributes,
+    NoContraction,
+    InputAttachmentIndex,
+    Alignment,
+    MaxByteOffset,
+    AlignmentId,
+    MaxByteOffsetId,
+    // TODO: Extensions
+}
+
+// TODO: Bit flags!!
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum FunctionControl {
+    None = 0,
+    Inline = 1,
+    DontInline = 2,
+    Pure = 4,
+    Const = 8,
+}
+
+// TODO: Bit flags!!
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum MemoryOperands {
+    None = 0,
+    Volatile = 1,
+    Aligned = 2,
+    Nontemporal = 4,
+    MakePointerAvailable = 8,
+    MakePointerVisible = 0x10,
+    NonPrivatePointer = 0x20,
+}
+
+// TODO: Bit flags!
+#[repr(u32)]
+#[derive(Debug, Copy, Clone, PartialEq)]
+#[allow(non_camel_case_types)]
+pub enum ImageOperands {
+    None = 0,
+    Bias = 1,
+    Lod = 2,
+    Grad = 4,
+    ConstOffset = 8,
+    Offset = 0x10,
+    ConstOffsets = 0x20,
+    Sample = 0x40,
+    MinLod = 0x80,
+    MakeTexelAvailable = 0x100,
+    MakeTexelVisible = 0x200,
+    NonPrivateTexel = 0x400,
+    VolatileTexel = 0x800,
+    SignExtend = 0x1000,
+    ZeroExtend = 0x2000,
+    Nontemporal = 0x4000,
+    Offsets = 0x10000,
 }
 
 impl From<u32> for Capability {
@@ -620,7 +1171,259 @@ impl From<u32> for StorageClass {
             x if x == Self::Input as u32 => Self::Input,
             x if x == Self::Uniform as u32 => Self::Uniform,
             x if x == Self::Output as u32 => Self::Output,
+            x if x == Self::Workgroup as u32 => Self::Workgroup,
+            x if x == Self::CrossWorkgroup as u32 => Self::CrossWorkgroup,
+            x if x == Self::Private as u32 => Self::Private,
+            x if x == Self::Function as u32 => Self::Function,
+            x if x == Self::Generic as u32 => Self::Generic,
+            x if x == Self::PushConstant as u32 => Self::PushConstant,
+            x if x == Self::AtomicCounter as u32 => Self::AtomicCounter,
+            x if x == Self::Image as u32 => Self::Image,
+            x if x == Self::StorageBuffer as u32 => Self::StorageBuffer,
             n => panic!("StorageClass {}", n),
+        }
+    }
+}
+
+impl From<u32> for SourceLanguage {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::Unknown as u32 => Self::Unknown,
+            x if x == Self::ESSL as u32 => Self::ESSL,
+            x if x == Self::GLSL as u32 => Self::GLSL,
+            x if x == Self::OpenCL_C as u32 => Self::OpenCL_C,
+            x if x == Self::OpenCL_CPP as u32 => Self::OpenCL_CPP,
+            x if x == Self::HLSL as u32 => Self::HLSL,
+            x if x == Self::CPP_for_OpenCL as u32 => Self::CPP_for_OpenCL,
+            n => panic!("SourceLanguage {}", n),
+        }
+    }
+}
+
+impl From<u32> for ExecutionMode {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::Invocations as u32 => Self::Invocations,
+            x if x == Self::SpacingEqual as u32 => Self::SpacingEqual,
+            x if x == Self::SpacingFractionalEven as u32 => Self::SpacingFractionalEven,
+            x if x == Self::SpacingFractionalOdd as u32 => Self::SpacingFractionalOdd,
+            x if x == Self::VertexOrderCw as u32 => Self::VertexOrderCw,
+            x if x == Self::VertexOrderCcw as u32 => Self::VertexOrderCcw,
+            x if x == Self::PixelCenterInteger as u32 => Self::PixelCenterInteger,
+            x if x == Self::OriginUpperLeft as u32 => Self::OriginUpperLeft,
+            x if x == Self::OriginLowerLeft as u32 => Self::OriginLowerLeft,
+            x if x == Self::EarlyFragmentTests as u32 => Self::EarlyFragmentTests,
+            x if x == Self::PointMode as u32 => Self::PointMode,
+            x if x == Self::Xfb as u32 => Self::Xfb,
+            x if x == Self::DepthReplacing as u32 => Self::DepthReplacing,
+            x if x == Self::DepthGreater as u32 => Self::DepthGreater,
+            x if x == Self::DepthLess as u32 => Self::DepthLess,
+            x if x == Self::DepthUnchanged as u32 => Self::DepthUnchanged,
+            x if x == Self::LocalSize as u32 => Self::LocalSize,
+            x if x == Self::LocalSizeHint as u32 => Self::LocalSizeHint,
+            x if x == Self::InputPoints as u32 => Self::InputPoints,
+            x if x == Self::InputLines as u32 => Self::InputLines,
+            x if x == Self::InputLinesAdjacency as u32 => Self::InputLinesAdjacency,
+            x if x == Self::Triangles as u32 => Self::Triangles,
+            x if x == Self::InputTrianglesAdjacency as u32 => Self::InputTrianglesAdjacency,
+            x if x == Self::Quads as u32 => Self::Quads,
+            x if x == Self::Isolines as u32 => Self::Isolines,
+            x if x == Self::OutputVertices as u32 => Self::OutputVertices,
+            x if x == Self::OutputPoints as u32 => Self::OutputPoints,
+            x if x == Self::OutputLineStrip as u32 => Self::OutputLineStrip,
+            x if x == Self::OutputTriangleStrip as u32 => Self::OutputTriangleStrip,
+            x if x == Self::VecTypeHint as u32 => Self::VecTypeHint,
+            x if x == Self::ContractionOff as u32 => Self::ContractionOff,
+            x if x == Self::Initializer as u32 => Self::Initializer,
+            x if x == Self::Finalizer as u32 => Self::Finalizer,
+            x if x == Self::SubgroupSize as u32 => Self::SubgroupSize,
+            x if x == Self::SubgroupsPerWorkgroup as u32 => Self::SubgroupsPerWorkgroup,
+            x if x == Self::SubgroupsPerWorkgroupId as u32 => Self::SubgroupsPerWorkgroupId,
+            x if x == Self::LocalSizeId as u32 => Self::LocalSizeId,
+            x if x == Self::LocalSizeHintId as u32 => Self::LocalSizeHintId,
+            n => panic!("ExecutionMode {}", n),
+        }
+    }
+}
+
+impl From<u32> for Dim {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::Dim1D as u32 => Self::Dim1D,
+            x if x == Self::Dim2D as u32 => Self::Dim2D,
+            x if x == Self::Dim3D as u32 => Self::Dim3D,
+            x if x == Self::Cube as u32 => Self::Cube,
+            x if x == Self::Rect as u32 => Self::Rect,
+            x if x == Self::Buffer as u32 => Self::Buffer,
+            x if x == Self::SubpassData as u32 => Self::SubpassData,
+            n => panic!("Dim {}", n),
+        }
+    }
+}
+
+impl From<u32> for ImageFormat {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::Unknown as u32 => Self::Unknown,
+            x if x == Self::Rgba32f as u32 => Self::Rgba32f,
+            x if x == Self::Rgba16f as u32 => Self::Rgba16f,
+            x if x == Self::R32f as u32 => Self::R32f,
+            x if x == Self::Rgba8 as u32 => Self::Rgba8,
+            x if x == Self::Rgba8Snorm as u32 => Self::Rgba8Snorm,
+            x if x == Self::Rg32f as u32 => Self::Rg32f,
+            x if x == Self::Rg16f as u32 => Self::Rg16f,
+            x if x == Self::R11fG11fB10f as u32 => Self::R11fG11fB10f,
+            x if x == Self::R16f as u32 => Self::R16f,
+            x if x == Self::Rgba16 as u32 => Self::Rgba16,
+            x if x == Self::Rgb10A2 as u32 => Self::Rgb10A2,
+            x if x == Self::Rg16 as u32 => Self::Rg16,
+            x if x == Self::Rg8 as u32 => Self::Rg8,
+            x if x == Self::R16 as u32 => Self::R16,
+            x if x == Self::R8 as u32 => Self::R8,
+            x if x == Self::Rgba16Snorm as u32 => Self::Rgba16Snorm,
+            x if x == Self::Rg16Snorm as u32 => Self::Rg16Snorm,
+            x if x == Self::Rg8Snorm as u32 => Self::Rg8Snorm,
+            x if x == Self::R16Snorm as u32 => Self::R16Snorm,
+            x if x == Self::R8Snorm as u32 => Self::R8Snorm,
+            x if x == Self::Rgba32i as u32 => Self::Rgba32i,
+            x if x == Self::Rgba16i as u32 => Self::Rgba16i,
+            x if x == Self::Rgba8i as u32 => Self::Rgba8i,
+            x if x == Self::R32i as u32 => Self::R32i,
+            x if x == Self::Rg32i as u32 => Self::Rg32i,
+            x if x == Self::Rg16i as u32 => Self::Rg16i,
+            x if x == Self::Rg8i as u32 => Self::Rg8i,
+            x if x == Self::R16i as u32 => Self::R16i,
+            x if x == Self::R8i as u32 => Self::R8i,
+            x if x == Self::Rgba32ui as u32 => Self::Rgba32ui,
+            x if x == Self::Rgba16ui as u32 => Self::Rgba16ui,
+            x if x == Self::Rgba8ui as u32 => Self::Rgba8ui,
+            x if x == Self::R32ui as u32 => Self::R32ui,
+            x if x == Self::Rgb10a2ui as u32 => Self::Rgb10a2ui,
+            x if x == Self::Rg32ui as u32 => Self::Rg32ui,
+            x if x == Self::Rg16ui as u32 => Self::Rg16ui,
+            x if x == Self::Rg8ui as u32 => Self::Rg8ui,
+            x if x == Self::R16ui as u32 => Self::R16ui,
+            x if x == Self::R8ui as u32 => Self::R8ui,
+            x if x == Self::R64ui as u32 => Self::R64ui,
+            x if x == Self::R64i as u32 => Self::R64i,
+            n => panic!("ImageFormat {}", n),
+        }
+    }
+}
+
+impl From<u32> for AccessQualifier {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::ReadOnly as u32 => Self::ReadOnly,
+            x if x == Self::WriteOnly as u32 => Self::WriteOnly,
+            x if x == Self::ReadWrite as u32 => Self::ReadWrite,
+            n => panic!("AccessQualifier {}", n),
+        }
+    }
+}
+
+impl From<u32> for SamplerAddressingMode {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::None as u32 => Self::None,
+            x if x == Self::ClampToEdge as u32 => Self::ClampToEdge,
+            x if x == Self::Clamp as u32 => Self::Clamp,
+            x if x == Self::Repeat as u32 => Self::Repeat,
+            x if x == Self::RepeatMirrored as u32 => Self::RepeatMirrored,
+            n => panic!("SamplerAddressingMode {}", n),
+        }
+    }
+}
+
+impl From<u32> for SamplerFilterMode {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::Nearest as u32 => Self::Nearest,
+            x if x == Self::Linear as u32 => Self::Linear,
+            n => panic!("SamplerFilterMode {}", n),
+        }
+    }
+}
+
+impl From<u32> for Decoration {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::RelaxedPrecision as u32 => Self::RelaxedPrecision,
+            x if x == Self::SpecId as u32 => Self::SpecId,
+            x if x == Self::Block as u32 => Self::Block,
+            x if x == Self::BufferBlock as u32 => Self::BufferBlock,
+            x if x == Self::RowMajor as u32 => Self::RowMajor,
+            x if x == Self::ColMajor as u32 => Self::ColMajor,
+            x if x == Self::ArrayStride as u32 => Self::ArrayStride,
+            x if x == Self::MatrixStride as u32 => Self::MatrixStride,
+            x if x == Self::GLSLShared as u32 => Self::GLSLShared,
+            x if x == Self::GLSLPacked as u32 => Self::GLSLPacked,
+            x if x == Self::CPacked as u32 => Self::CPacked,
+            x if x == Self::BuiltIn as u32 => Self::BuiltIn,
+            x if x == Self::NoPerspective as u32 => Self::NoPerspective,
+            x if x == Self::Flat as u32 => Self::Flat,
+            x if x == Self::Patch as u32 => Self::Patch,
+            x if x == Self::Centroid as u32 => Self::Centroid,
+            x if x == Self::Sample as u32 => Self::Sample,
+            x if x == Self::Invariant as u32 => Self::Invariant,
+            x if x == Self::Restrict as u32 => Self::Restrict,
+            x if x == Self::Aliased as u32 => Self::Aliased,
+            x if x == Self::Volatile as u32 => Self::Volatile,
+            x if x == Self::Constant as u32 => Self::Constant,
+            x if x == Self::Coherent as u32 => Self::Coherent,
+            x if x == Self::NonWritable as u32 => Self::NonWritable,
+            x if x == Self::NonReadable as u32 => Self::NonReadable,
+            x if x == Self::Uniform as u32 => Self::Uniform,
+            x if x == Self::UniformId as u32 => Self::UniformId,
+            x if x == Self::SaturatedConversion as u32 => Self::SaturatedConversion,
+            x if x == Self::Stream as u32 => Self::Stream,
+            x if x == Self::Location as u32 => Self::Location,
+            x if x == Self::Component as u32 => Self::Component,
+            x if x == Self::Index as u32 => Self::Index,
+            x if x == Self::Binding as u32 => Self::Binding,
+            x if x == Self::DescriptorSet as u32 => Self::DescriptorSet,
+            x if x == Self::Offset as u32 => Self::Offset,
+            x if x == Self::XfbBuffer as u32 => Self::XfbBuffer,
+            x if x == Self::XfbStride as u32 => Self::XfbStride,
+            x if x == Self::FuncParamAttr as u32 => Self::FuncParamAttr,
+            x if x == Self::FPRoundingMode as u32 => Self::FPRoundingMode,
+            x if x == Self::FPFastMathMode as u32 => Self::FPFastMathMode,
+            x if x == Self::LinkageAttributes as u32 => Self::LinkageAttributes,
+            x if x == Self::NoContraction as u32 => Self::NoContraction,
+            x if x == Self::InputAttachmentIndex as u32 => Self::InputAttachmentIndex,
+            x if x == Self::Alignment as u32 => Self::Alignment,
+            x if x == Self::MaxByteOffset as u32 => Self::MaxByteOffset,
+            x if x == Self::AlignmentId as u32 => Self::AlignmentId,
+            x if x == Self::MaxByteOffsetId as u32 => Self::MaxByteOffsetId,
+            n => panic!("Decoration {}", n),
+        }
+    }
+}
+
+impl From<u32> for FunctionControl {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::None as u32 => Self::None,
+            x if x == Self::Inline as u32 => Self::Inline,
+            x if x == Self::DontInline as u32 => Self::DontInline,
+            x if x == Self::Pure as u32 => Self::Pure,
+            x if x == Self::Const as u32 => Self::Const,
+            n => panic!("FunctionControl {}", n),
+        }
+    }
+}
+
+impl From<u32> for MemoryOperands {
+    fn from(x: u32) -> Self {
+        match x {
+            x if x == Self::None as u32 => Self::None,
+            x if x == Self::Volatile as u32 => Self::Volatile,
+            x if x == Self::Aligned as u32 => Self::Aligned,
+            x if x == Self::Nontemporal as u32 => Self::Nontemporal,
+            x if x == Self::MakePointerAvailable as u32 => Self::MakePointerAvailable,
+            x if x == Self::MakePointerVisible as u32 => Self::MakePointerVisible,
+            x if x == Self::NonPrivatePointer as u32 => Self::NonPrivatePointer,
+            n => panic!("MemoryOperands {}", n),
         }
     }
 }
@@ -633,8 +1436,22 @@ mod tests {
 
     #[test]
     fn spirv() -> std::io::Result<()> {
-        // TODO: compile shader in compile.sh script
-        let bytes = std::fs::read("assets/shaders/simple.vert.spv").unwrap();
+        for entry in std::fs::read_dir("assets/shaders/")? {
+            let path = entry?.path();
+            if path.is_dir() {
+            } else {
+                match path.extension().and_then(std::ffi::OsStr::to_str) {
+                    Some("spv") => {
+                        println!("{:?}", path);
+                        let bytes = std::fs::read(path).unwrap();
+                        let len = bytes.len();
+                        assert_eq!(len % 4, 0);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        let bytes = std::fs::read("assets/shaders/shader.frag.spv")?;
         let len = bytes.len();
         assert_eq!(len % 4, 0);
         let mut r = std::io::Cursor::new(bytes);
@@ -676,77 +1493,160 @@ mod tests {
                 remaining -= 1;
                 i += 1;
             }
-
-            //println!(
-            //    "opcode: {} (0x{:x}), word count: {}, raw: {:x?}",
-            //    opcode,
-            //    opcode,
-            //    word_count,
-            //    &inst_words[..word_count]
-            //);
+            let inst_words = &inst_words[..word_count];
 
             match opcode {
-                3 => {
-                    let source_language = inst_words[1];
-                    let source_language = match source_language {
-                        0 => "Unknown",
-                        1 => "ESSL",
-                        2 => "GLSL",
-                        3 => "OpenCL_C",
-                        4 => "OpenCL_CPP",
-                        5 => "HLSL",
-                        6 => "CPP_for_OpenCL",
-                        n => panic!("Source Language {}", n),
-                    };
-                    let version = inst_words[2];
-                    // optional file
-                    // optional source
-                    println!("OpSource: Source Language: {}, version: {}", source_language, version);
-                }
-                4 => {
-                    let slice = &inst_words[1..word_count];
-                    let bytes =
-                        slice.iter().flat_map(|val| val.to_le_bytes()).take_while(|x| *x != 0).collect::<Vec<_>>();
-                    let extension = std::str::from_utf8(&bytes).unwrap();
-                    println!("OpSourceExtension: {}", extension);
-                }
-                5 => {
-                    let target = inst_words[1];
-                    let slice = &inst_words[2..word_count];
-                    let bytes =
-                        slice.iter().flat_map(|val| val.to_le_bytes()).take_while(|x| *x != 0).collect::<Vec<_>>();
-                    let name = std::str::from_utf8(&bytes).unwrap();
-                    println!("OpName: Target: {}, Name: {}", target, name);
-                }
-                6 => {
-                    let ttype = inst_words[1];
-                    let member = inst_words[2];
-                    let slice = &inst_words[3..word_count];
-                    let bytes =
-                        slice.iter().flat_map(|val| val.to_le_bytes()).take_while(|x| *x != 0).collect::<Vec<_>>();
-                    let name = std::str::from_utf8(&bytes).unwrap();
-
-                    println!("OpMemberName: Type: {}, Member: {}, Name: {}", ttype, member, name);
-                }
-                11 => {
-                    let name = std::str::from_utf8(
-                        inst_words[2..word_count]
-                            .iter()
-                            .flat_map(|val| val.to_le_bytes())
-                            .take_while(|x| *x != 0)
-                            .collect::<Vec<_>>()
-                            .as_ref(),
-                    )
-                    .unwrap()
-                    .to_string();
-
-                    let inst = Instruction::OpExtInstImport {
+                0 => {
+                    let inst = Instruction::OpNop {
                         opcode,
-                        result: inst_words[1],
-                        name,
+                    };
+                }
+                1 => {
+                    let inst = Instruction::OpUndef {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                    };
+                }
+                2 => {
+                    let inst = Instruction::OpSourceContinued {
+                        opcode,
+                        continued_source: String::from_utf8(
+                            inst_words[1..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                }
+                3 => {
+                    let file = if word_count >= 4 {
+                        Some(inst_words[3])
+                    } else {
+                        None
+                    };
+                    let source = None; // TODO: Parse source if available
+                    let inst = Instruction::OpSource {
+                        opcode,
+                        source_language: SourceLanguage::from(inst_words[1]),
+                        version: inst_words[2],
+                        file,
+                        source,
                     };
                     println!("{:?}", inst);
                 }
+                4 => {
+                    let inst = Instruction::OpSourceExtension {
+                        opcode,
+                        extension: String::from_utf8(
+                            inst_words[1..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                    println!("{:?}", inst);
+                }
+                5 => {
+                    let inst = Instruction::OpName {
+                        opcode,
+                        target: inst_words[1],
+                        name: String::from_utf8(
+                            inst_words[2..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                    println!("{:?}", inst);
+                }
+                6 => {
+                    let inst = Instruction::OpMemberName {
+                        opcode,
+                        ttype: inst_words[1],
+                        member: inst_words[2],
+                        name: String::from_utf8(
+                            inst_words[3..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                    println!("{:?}", inst);
+                }
+                7 => {
+                    let inst = Instruction::OpString {
+                        opcode,
+                        result: inst_words[1],
+                        string: String::from_utf8(
+                            inst_words[2..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                    println!("{:?}", inst);
+                }
+                8 => {
+                    let inst = Instruction::OpLine {
+                        opcode,
+                        file: inst_words[1],
+                        line: inst_words[2],
+                        column: inst_words[2],
+                    };
+                    println!("{:?}", inst);
+                }
+                10 => {
+                    let inst = Instruction::OpExtension {
+                        opcode,
+                        name: String::from_utf8(
+                            inst_words[1..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                    println!("{:?}", inst);
+                }
+                11 => {
+                    let inst = Instruction::OpExtInstImport {
+                        opcode,
+                        result: inst_words[1],
+                        name: String::from_utf8(
+                            inst_words[2..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                    };
+                    println!("{:?}", inst);
+                }
+                12 => {
+                    let inst = Instruction::OpExtInst {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        set: inst_words[3],
+                        instruction: inst_words[4],
+                        operands: inst_words[5..].to_vec(),
+                    };
+                    println!("{:?}", inst);
+                }
+
                 14 => {
                     let inst = Instruction::OpMemoryModel {
                         opcode,
@@ -756,31 +1656,31 @@ mod tests {
                     println!("{:?}", inst);
                 }
                 15 => {
-                    let name = std::str::from_utf8(
-                        inst_words[3..word_count]
-                            .iter()
-                            .flat_map(|val| val.to_le_bytes())
-                            .take_while(|x| *x != 0)
-                            .collect::<Vec<_>>()
-                            .as_ref(),
-                    )
-                    .unwrap()
-                    .to_string();
                     // TODO: handle case where name is not "main"
-                    let interface = inst_words.into_iter().skip(5).take(word_count - 5).collect();
                     let inst = Instruction::OpEntryPoint {
                         opcode,
                         execution_model: ExecutionModel::from(inst_words[1]),
                         entry_point: inst_words[2],
-                        name,
-                        interface,
+                        name: String::from_utf8(
+                            inst_words[3..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
+                        interface: inst_words[5..].to_vec(),
                     };
                     println!("{:?}", inst);
                 }
                 16 => {
-                    let _entry_point = inst_words[1];
-                    // TODO: Mode
-                    println!("OpExecutionMode");
+                    let inst = Instruction::OpExecutionMode {
+                        opcode,
+                        entry_point: inst_words[1],
+                        mode: ExecutionMode::from(inst_words[2]),
+                        literals: inst_words[3..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 17 => {
                     let inst = Instruction::OpCapability {
@@ -790,82 +1690,125 @@ mod tests {
                     println!("{:?}", inst);
                 }
                 19 => {
-                    let result = inst_words[1];
-                    println!("OpTypeVoid: Result: {}", result);
+                    let inst = Instruction::OpTypeVoid {
+                        opcode,
+                        result: inst_words[1],
+                    };
+                    println!("{:?}", inst);
                 }
                 20 => {
-                    let result = inst_words[1];
-                    println!("OpTypeBool: Result: {}", result);
+                    let inst = Instruction::OpTypeBool {
+                        opcode,
+                        result: inst_words[1],
+                    };
+                    println!("{:?}", inst);
                 }
                 21 => {
-                    let result = inst_words[1];
-                    let width = inst_words[2];
-                    let signedness = inst_words[3];
-                    let signedness = match signedness {
-                        0 => "Unsigned",
-                        1 => "Signed",
-                        n => panic!("Signedness {}", n),
+                    let inst = Instruction::OpTypeInt {
+                        opcode,
+                        result: inst_words[1],
+                        width: inst_words[2],
+                        signedness: inst_words[3],
                     };
-                    println!("OpTypeInt: Result: {}, Width: {}, Signedness: {}", result, width, signedness);
+                    println!("{:?}", inst);
                 }
                 22 => {
-                    let result = inst_words[1];
-                    let width = inst_words[2];
-                    println!("OpTypeFloat: Result: {}, Width: {}", result, width);
+                    let inst = Instruction::OpTypeFloat {
+                        opcode,
+                        result: inst_words[1],
+                        width: inst_words[2],
+                    };
+                    println!("{:?}", inst);
                 }
                 23 => {
-                    let result = inst_words[1];
-                    let component_type = inst_words[2];
-                    let component_count = inst_words[3];
-                    println!(
-                        "OpTypeVector: Result: {}, Component Type: {}, Component Count: {}",
-                        result, component_type, component_count
-                    );
+                    let inst = Instruction::OpTypeVector {
+                        opcode,
+                        result: inst_words[1],
+                        component_type: inst_words[2],
+                        component_count: inst_words[3],
+                    };
+                    println!("{:?}", inst);
                 }
                 24 => {
-                    let result = inst_words[1];
-                    let column_type = inst_words[2];
-                    let column_count = inst_words[3];
-                    println!(
-                        "OpTypeMatrix: Result: {}, Column Type: {}, Column Count: {}",
-                        result, column_type, column_count
-                    );
+                    let inst = Instruction::OpTypeMatrix {
+                        opcode,
+                        result: inst_words[1],
+                        column_type: inst_words[2],
+                        column_count: inst_words[3],
+                    };
+                    println!("{:?}", inst);
                 }
                 25 => {
-                    let result = inst_words[1];
-                    let sampled_type = inst_words[2];
-                    let dim = inst_words[3];
-                    let depth = inst_words[4];
-                    let arrayed = inst_words[5];
-                    let ms = inst_words[6];
-                    let sampled = inst_words[7];
-                    let image_format = inst_words[8];
-                    // let access_qualifier = inst_words[1];
-                    println!("OpTypeImage: Result: {}, Sampled Type: {}, Dim: {}, Depth: {}, Arrayed: {}, MS: {}, Sampled: {}, Image Format: {}", result, sampled_type, dim, depth, arrayed, ms, sampled, image_format);
+                    let inst = Instruction::OpTypeImage {
+                        opcode,
+                        result: inst_words[1],
+                        sampled_type: inst_words[2],
+                        dim: Dim::from(inst_words[3]),
+                        depth: inst_words[4],
+                        arrayed: inst_words[5],
+                        ms: inst_words[6],
+                        sampled: inst_words[7],
+                        image_format: ImageFormat::from(inst_words[8]),
+                        access_qualifier: if word_count >= 10 {
+                            Some(AccessQualifier::from(inst_words[9]))
+                        } else {
+                            None
+                        },
+                    };
+                    println!("{:?}", inst);
                 }
                 26 => {
-                    let result = inst_words[1];
-                    println!("OpTypeSampler: Result: {}", result);
+                    let inst = Instruction::OpTypeSampler {
+                        opcode,
+                        result: inst_words[1],
+                    };
+                    println!("{:?}", inst);
                 }
                 27 => {
-                    println!("OpTypeSampledImage");
+                    let inst = Instruction::OpTypeSampledImage {
+                        opcode,
+                        result: inst_words[1],
+                        image_type: inst_words[2],
+                    };
+                    println!("{:?}", inst);
                 }
                 28 => {
-                    let result = inst_words[1];
-                    let element_type = inst_words[2];
-                    let length = inst_words[3];
-                    println!("OpTypeArray: Result: {}, Element Type: {}, Length: {}", result, element_type, length);
+                    let inst = Instruction::OpTypeArray {
+                        opcode,
+                        result: inst_words[1],
+                        element_type: inst_words[2],
+                        length: inst_words[3],
+                    };
+                    println!("{:?}", inst);
                 }
                 29 => {
-                    let result = inst_words[1];
-                    let element_type = inst_words[2];
-                    println!("OpTypeRuntimeArray: Result: {}, Element Type: {}", result, element_type);
+                    let inst = Instruction::OpTypeRuntimeArray {
+                        opcode,
+                        result: inst_words[1],
+                        element_type: inst_words[2],
+                    };
+                    println!("{:?}", inst);
                 }
                 30 => {
                     let inst = Instruction::OpTypeStruct {
                         opcode,
                         result: inst_words[1],
-                        member_types: inst_words.into_iter().skip(2).take(word_count - 2).collect(),
+                        member_types: inst_words[2..].to_vec(),
+                    };
+                    println!("{:?}", inst);
+                }
+                31 => {
+                    let inst = Instruction::OpTypeOpaque {
+                        opcode,
+                        result: inst_words[1],
+                        name: String::from_utf8(
+                            inst_words[2..word_count]
+                                .iter()
+                                .flat_map(|val| val.to_le_bytes())
+                                .take_while(|x| *x != 0)
+                                .collect::<Vec<_>>(),
+                        )
+                        .unwrap(),
                     };
                     println!("{:?}", inst);
                 }
@@ -879,39 +1822,47 @@ mod tests {
                     println!("{:?}", inst);
                 }
                 33 => {
-                    let result = inst_words[1];
-                    let return_type = inst_words[2];
-                    println!("OpTypeFunction: Result: {}, Return Type: {}", result, return_type);
+                    let inst = Instruction::OpTypeFunction {
+                        opcode,
+                        result: inst_words[1],
+                        return_type: inst_words[2],
+                        parameter_types: inst_words[3..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 43 => {
-                    let return_type = inst_words[1];
-                    let result = inst_words[2];
-                    let value = &inst_words[3..word_count];
-                    println!("OpConstant: Return Type: {}, Result: {}, Value: {:?}", return_type, result, value);
+                    let inst = Instruction::OpConstant {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        value: inst_words[3..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 44 => {
-                    println!("OpConstantComposite");
+                    let inst = Instruction::OpConstantComposite {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        constituents: inst_words[3..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 54 => {
-                    let return_type = inst_words[1];
-                    let result = inst_words[2];
-                    let function_control = inst_words[3];
-                    let function_control = match function_control {
-                        0 => "None",
-                        1 => "Inline",
-                        2 => "DontInline",
-                        4 => "Pure",
-                        8 => "Const",
-                        n => panic!("Function Control {}", n),
+                    let inst = Instruction::OpFunction {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        function_control: FunctionControl::from(inst_words[3]),
+                        function_type: inst_words[4],
                     };
-                    let function_type = inst_words[4];
-                    println!(
-                        "OpFunction: Return Type: {}, Result: {}, Function Control: {}, Function Type: {}",
-                        return_type, result, function_control, function_type
-                    );
+                    println!("{:?}", inst);
                 }
                 56 => {
-                    println!("OpFunctionEnd");
+                    let inst = Instruction::OpFunctionEnd {
+                        opcode,
+                    };
+                    println!("{:?}", inst);
                 }
                 59 => {
                     let initializer = if word_count == 5 {
@@ -926,177 +1877,225 @@ mod tests {
                         storage_class: StorageClass::from(inst_words[3]),
                         initializer,
                     };
-                    println!("{:?} raw: {:x?}", inst, &inst_words[..word_count]);
+                    println!("{:?}", inst);
                 }
                 61 => {
-                    let result_type = inst_words[1];
-                    let result = inst_words[2];
-                    let pointer = inst_words[3];
-                    println!("OpLoad: Result Type: {}, Result: {}, Pointer: {}", result_type, result, pointer);
+                    let inst = Instruction::OpLoad {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        pointer: inst_words[3],
+                        memory_operands: if word_count >= 5 {
+                            Some(MemoryOperands::from(inst_words[4]))
+                        } else {
+                            None
+                        },
+                    };
+                    println!("{:?}", inst);
                 }
                 62 => {
-                    let pointer = inst_words[1];
-                    let object = inst_words[2];
-                    // TODO: Optional Memory Operands
-                    println!("OpStore: Pointer: {}, Object: {}", pointer, object);
+                    let inst = Instruction::OpStore {
+                        opcode,
+                        pointer: inst_words[1],
+                        object: inst_words[2],
+                        memory_operands: if word_count >= 4 {
+                            Some(MemoryOperands::from(inst_words[3]))
+                        } else {
+                            None
+                        },
+                    };
+                    println!("{:?}", inst);
                 }
                 65 => {
-                    let result_type = inst_words[1];
-                    let result = inst_words[2];
-                    let base = inst_words[3];
-                    println!("OpAccessChain: Result Type: {}, Result: {}, Base: {}", result_type, result, base);
+                    let inst = Instruction::OpAccessChain {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        base: inst_words[3],
+                        indexes: inst_words[4..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 71 => {
-                    let target = inst_words[1];
-                    let decoration = inst_words[2];
-                    let decoration = match decoration {
-                        0 => "RelaxedPrecision",
-                        1 => "SpecId",
-                        2 => "Block",
-                        3 => "BufferBlock",
-                        4 => "RowMajor",
-                        5 => "ColMajor",
-                        6 => "ArrayStride",
-                        11 => "BuiltIn",
-                        24 => "NonWritable",
-                        30 => "Location",
-                        33 => "Binding",
-                        34 => "DescriptorSet",
-                        35 => "Offset",
-                        n => panic!("Decoration {}", n),
+                    let inst = Instruction::OpDecorate {
+                        opcode,
+                        target: inst_words[1],
+                        decoration: Decoration::from(inst_words[2]),
                     };
-                    println!(
-                        "OpDecorate: Target: {}, Decoration: {}, raw: {:x?}",
-                        target,
-                        decoration,
-                        &inst_words[..word_count]
-                    );
+                    println!("{:?}", inst);
                 }
                 72 => {
-                    let structure_type = inst_words[1];
-                    let member = inst_words[2];
-                    let decoration = inst_words[3];
-                    let decoration = match decoration {
-                        0 => "RelaxedPrecision",
-                        1 => "SpecId",
-                        2 => "Block",
-                        3 => "BufferBlock",
-                        4 => "RowMajor",
-                        5 => "ColMajor",
-                        11 => "BuiltIn",
-                        24 => "NonWritable",
-                        35 => "Offset",
-                        n => panic!("Decoration {}", n),
+                    let inst = Instruction::OpMemberDecorate {
+                        opcode,
+                        structure_type: inst_words[1],
+                        member: inst_words[2],
+                        decoration: Decoration::from(inst_words[3]),
                     };
-                    println!(
-                        "OpMemberDecorate: Structure Type: {}, Member: {}, Decoration: {}",
-                        structure_type, member, decoration
-                    );
+                    println!("{:?}", inst);
                 }
                 79 => {
-                    let result_type = inst_words[1];
-                    let result = inst_words[2];
-                    let vector1 = inst_words[3];
-                    let vector2 = inst_words[4];
-                    // TODO: Components
-                    println!(
-                        "OpVectorShuffle: Result Type: {}, Result: {}, Vector 1: {}, Vector 2: {}",
-                        result_type, result, vector1, vector2
-                    );
+                    let inst = Instruction::OpVectorShuffle {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        vector1: inst_words[3],
+                        vector2: inst_words[4],
+                        components: inst_words[5..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 80 => {
-                    let result_type = inst_words[1];
-                    let result = inst_words[2];
-                    // TODO: Constituents
-                    println!("OpCompositeConstruct: Result Type: {}, Result: {}", result_type, result);
+                    let inst = Instruction::OpCompositeConstruct {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        constituents: inst_words[3..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 81 => {
-                    let result_type = inst_words[1];
-                    let result = inst_words[2];
-                    let composite = inst_words[3];
-                    println!(
-                        "OpCompositeExtract: Result Type: {}, Result: {}, Composite: {}",
-                        result_type, result, composite
-                    );
+                    let inst = Instruction::OpCompositeExtract {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        composite: inst_words[3],
+                        indexes: inst_words[4..].to_vec(),
+                    };
+                    println!("{:?}", inst);
                 }
                 87 => {
-                    println!("OpImageSampleImplicitLod");
+                    let inst = Instruction::OpImageSampleImplicitLod {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        sampled_image: inst_words[3],
+                        coordinate: inst_words[4],
+                        image_operands: None, // TODO
+                    };
+                    println!("{:?}", inst);
                 }
                 112 => {
-                    println!("OpConvertUToF");
+                    let inst = Instruction::OpConvertUToF {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        unsigned_value: inst_words[3],
+                    };
+                    println!("{:?}", inst);
                 }
                 129 => {
-                    println!("OpFAdd");
+                    let inst = Instruction::OpFAdd {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        operand1: inst_words[3],
+                        operand2: inst_words[4],
+                    };
+                    println!("{:?}", inst);
                 }
                 131 => {
-                    println!("OpFSub");
+                    let inst = Instruction::OpFSub {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        operand1: inst_words[3],
+                        operand2: inst_words[4],
+                    };
+                    println!("{:?}", inst);
                 }
                 132 => {
-                    println!("OpIMul");
+                    todo!("OpIMul");
                 }
                 133 => {
-                    println!("OpFMul");
+                    let inst = Instruction::OpFMul {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        operand1: inst_words[3],
+                        operand2: inst_words[4],
+                    };
+                    println!("{:?}", inst);
                 }
                 134 => {
-                    println!("OpUDiv");
+                    todo!("OpUDiv");
                 }
                 135 => {
-                    println!("OpSDiv");
+                    todo!("OpSDiv");
                 }
                 136 => {
-                    println!("OpFDiv");
+                    let inst = Instruction::OpFDiv {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        operand1: inst_words[3],
+                        operand2: inst_words[4],
+                    };
+                    println!("{:?}", inst);
                 }
                 137 => {
-                    println!("OpUMod");
+                    todo!("OpUMod");
                 }
                 138 => {
-                    println!("OpSRem");
+                    todo!("OpSRem");
                 }
                 139 => {
-                    println!("OpSMod");
+                    todo!("OpSMod");
                 }
                 140 => {
-                    println!("OpFRem");
+                    todo!("OpFRem");
                 }
                 141 => {
-                    println!("OpFMod");
+                    todo!("OpFMod");
                 }
                 142 => {
-                    println!("OpVectorTimesScalar");
+                    let inst = Instruction::OpVectorTimesScalar {
+                        opcode,
+                        result_type: inst_words[1],
+                        result: inst_words[2],
+                        vector: inst_words[3],
+                        scalar: inst_words[4],
+                    };
+                    println!("{:?}", inst);
                 }
                 143 => {
-                    println!("OpMatrixTimesScalar");
+                    todo!("OpMatrixTimesScalar");
                 }
                 144 => {
-                    println!("OpVectorTimesMatrix");
+                    todo!("OpVectorTimesMatrix");
                 }
                 145 => {
-                    println!("OpMatrixTimesVector");
+                    todo!("OpMatrixTimesVector");
                 }
                 146 => {
-                    println!("OpMatrixTimesMatrix");
+                    todo!("OpMatrixTimesMatrix");
                 }
                 147 => {
-                    println!("OpOuterProduct");
+                    todo!("OpOuterProduct");
                 }
                 148 => {
-                    println!("OpDot");
+                    todo!("OpDot");
                 }
                 149 => {
-                    println!("OpIAddCarry");
+                    todo!("OpIAddCarry");
                 }
                 150 => {
-                    println!("OpISubBorrow");
+                    todo!("OpISubBorrow");
                 }
                 248 => {
-                    let result = inst_words[1];
-                    println!("OpLabel: Result: {}", result);
+                    let inst = Instruction::OpLabel {
+                        opcode,
+                        result: inst_words[1],
+                    };
+                    println!("{:?}", inst);
                 }
                 253 => {
-                    println!("OpReturn");
+                    let inst = Instruction::OpReturn {
+                        opcode,
+                    };
+                    println!("{:?}", inst);
                 }
                 400 => {
-                    println!("OpCopyLogical");
+                    todo!("OpCopyLogical");
                 }
                 n => {
                     panic!("{}", n);
