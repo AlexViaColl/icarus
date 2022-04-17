@@ -1,3 +1,261 @@
+// TODO: Use macro to define enum + impl From<u32>
+// TODO: Bitflag enums
+
+// TODO: Move these functions into a separate module
+use crate::glyph::read_u32_le;
+
+use std::fmt;
+
+#[derive(Clone)]
+pub struct ShaderModule {
+    pub magic: u32,
+    pub version: u32,
+    pub generator: u32,
+    pub bound: u32,
+    pub instructions: Vec<Instruction>,
+}
+
+impl ShaderModule {
+    pub fn input_descriptions(&self) -> Vec<usize> {
+        let mut attributes = vec![];
+
+        // 0. Get decorations
+        let locations = self
+            .instructions
+            .iter()
+            .filter(|x| match x {
+                Instruction::OpDecorate {
+                    decoration,
+                    ..
+                } if *decoration == Decoration::Location => true,
+                _ => false,
+            })
+            .collect::<Vec<_>>();
+        //println!("{:#?}", locations);
+
+        // 1. Get the shader interface from OpEntryPoint
+        let entry = self.instructions.iter().find(|x| matches!(x, Instruction::OpEntryPoint { .. })).unwrap();
+        let interface = if let Instruction::OpEntryPoint {
+            interface,
+            ..
+        } = entry
+        {
+            interface
+        } else {
+            panic!()
+        };
+
+        // 2. Get OpVariable from the interface
+        let variables = self
+            .instructions
+            .iter()
+            .filter(|x| match x {
+                Instruction::OpVariable {
+                    result,
+                    storage_class,
+                    ..
+                } if interface.contains(result) && *storage_class == StorageClass::Input => true,
+                _ => false,
+            })
+            .collect::<Vec<_>>();
+
+        let variable_ids = variables
+            .iter()
+            .map(|x| {
+                if let Instruction::OpVariable {
+                    result,
+                    ..
+                } = x
+                {
+                    result
+                } else {
+                    unreachable!()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        let mut locations = locations
+            .iter()
+            .filter(|x| {
+                if let Instruction::OpDecorate {
+                    target,
+                    ..
+                } = x
+                {
+                    variable_ids.contains(&target)
+                } else {
+                    unreachable!()
+                }
+            })
+            .collect::<Vec<_>>();
+        locations.sort_by(|a, b| {
+            let left = if let Instruction::OpDecorate {
+                extra,
+                ..
+            } = a
+            {
+                extra[0]
+            } else {
+                unreachable!()
+            };
+            let right = if let Instruction::OpDecorate {
+                extra,
+                ..
+            } = b
+            {
+                extra[0]
+            } else {
+                unreachable!()
+            };
+            left.partial_cmp(&right).unwrap()
+        });
+        //println!("{:#?}", locations);
+        let location_targets = locations
+            .iter()
+            .map(|x| {
+                if let Instruction::OpDecorate {
+                    target,
+                    ..
+                } = x
+                {
+                    *target
+                } else {
+                    unreachable!()
+                }
+            })
+            .collect::<Vec<_>>();
+
+        for location_target in &location_targets {
+            let variable_type_id = self
+                .instructions
+                .iter()
+                .find_map(|x| match x {
+                    Instruction::OpVariable {
+                        result,
+                        result_type,
+                        ..
+                    } if location_target == result => {
+                        //println!("variable id: {}", result);
+                        Some(result_type)
+                    }
+                    _ => None,
+                })
+                .unwrap();
+            //println!("variable type id: {}", variable_type_id);
+
+            let pointer_type = self
+                .instructions
+                .iter()
+                .find_map(|x| match x {
+                    Instruction::OpTypePointer {
+                        result,
+                        ttype,
+                        ..
+                    } if variable_type_id == result => Some(ttype),
+                    _ => None,
+                })
+                .unwrap();
+            //println!("pointer type: {}", pointer_type);
+
+            let type_size = self
+                .instructions
+                .iter()
+                .find_map(|x| match x {
+                    Instruction::OpTypeVector {
+                        result,
+                        component_count,
+                        ..
+                    } if pointer_type == result => Some(component_count),
+                    _ => None,
+                })
+                .unwrap();
+            //println!("type size: {}", type_size);
+            attributes.push(*type_size as usize);
+        }
+        attributes
+    }
+}
+
+impl fmt::Debug for ShaderModule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "ShaderModule {{")?;
+        writeln!(f, "    magic: 0x{:08x}", self.magic)?;
+        writeln!(f, "    version: 0x{:08x}", self.version)?;
+        writeln!(f, "    generator: 0x{:08x}", self.generator)?;
+        writeln!(f, "    bound: {}", self.bound)?;
+        writeln!(f, "    instructions: {:#?}", self.instructions)?;
+        writeln!(f, "}}")
+    }
+}
+
+impl TryFrom<&[u8]> for ShaderModule {
+    type Error = &'static str;
+
+    fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
+        if bytes.len() % 4 != 0 {
+            return Err("Length should be an even multiple of 4.");
+        }
+        let mut r = std::io::Cursor::new(bytes);
+
+        // Magic number 0x07230203
+        let magic = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+        //println!("Magic Number: 0x{:08x}", magic);
+        if magic != 0x07230203 {
+            return Err("Magic number should be 0x07230203.");
+        }
+
+        // Version number
+        let version = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+        //println!("Version: 0x{:08x}", version);
+        if !(version >= 0x0001_0000 && version <= 0x0001_0600) {
+            // 1.0 <= version <= 1.6
+            return Err("Unexpected version number.");
+        }
+
+        let generator = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+        //println!("Generator Magic: 0x{:08x}", generator);
+        // assert_eq!(generator_magic, 0x000d000a);
+
+        let bound = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+        //println!("Bound: {}", bound); // All "ids" in the module should be smaller than bound
+        //assert_eq!(bound, 0);
+
+        let reserved = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+        if reserved != 0 {
+            return Err("Reserved should be 0.");
+        }
+
+        let instructions_size = bytes.len() - 20;
+        let instruction_count = instructions_size / 4;
+        let mut instructions = Vec::with_capacity(instruction_count);
+        while r.position() < (bytes.len() as u64) {
+            let mut inst_words = [0; 32];
+
+            inst_words[0] = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+            let word_count = ((inst_words[0] >> 16) & 0xffff) as usize;
+
+            let mut remaining = word_count - 1;
+            let mut i = 1;
+            while remaining > 0 {
+                inst_words[i] = read_u32_le(&mut r).map_err(|_| "IO Error")?;
+                remaining -= 1;
+                i += 1;
+            }
+            let inst_words = &inst_words[..word_count];
+
+            instructions.push(Instruction::try_from(inst_words).map_err(|_| "Failed to parse Instruction")?);
+        }
+
+        Ok(Self {
+            magic,
+            version,
+            generator,
+            bound,
+            instructions,
+        })
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
     OpNop {
@@ -294,6 +552,7 @@ pub enum Instruction {
         opcode: u32,
         target: u32,
         decoration: Decoration,
+        extra: Vec<u32>,
     }, // 71
     OpMemberDecorate {
         opcode: u32,
@@ -671,6 +930,474 @@ pub enum Instruction {
     OpPtrEqual,    // 401
     OpPtrNotEqual, // 402
     OpPtrDiff,     // 403
+}
+
+impl TryFrom<&[u32]> for Instruction {
+    type Error = &'static str;
+
+    fn try_from(inst_words: &[u32]) -> Result<Self, Self::Error> {
+        let word_count = ((inst_words[0] >> 16) & 0xffff) as usize;
+        let opcode = inst_words[0] & 0xffff;
+        match opcode {
+            0 => Ok(Instruction::OpNop {
+                opcode,
+            }),
+            1 => Ok(Instruction::OpUndef {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+            }),
+            2 => Ok(Instruction::OpSourceContinued {
+                opcode,
+                continued_source: String::from_utf8(
+                    inst_words[1..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            3 => {
+                let file = if word_count >= 4 {
+                    Some(inst_words[3])
+                } else {
+                    None
+                };
+                let source = None; // TODO: Parse source if available
+                Ok(Instruction::OpSource {
+                    opcode,
+                    source_language: SourceLanguage::from(inst_words[1]),
+                    version: inst_words[2],
+                    file,
+                    source,
+                })
+            }
+            4 => Ok(Instruction::OpSourceExtension {
+                opcode,
+                extension: String::from_utf8(
+                    inst_words[1..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            5 => Ok(Instruction::OpName {
+                opcode,
+                target: inst_words[1],
+                name: String::from_utf8(
+                    inst_words[2..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            6 => Ok(Instruction::OpMemberName {
+                opcode,
+                ttype: inst_words[1],
+                member: inst_words[2],
+                name: String::from_utf8(
+                    inst_words[3..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            7 => Ok(Instruction::OpString {
+                opcode,
+                result: inst_words[1],
+                string: String::from_utf8(
+                    inst_words[2..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            8 => Ok(Instruction::OpLine {
+                opcode,
+                file: inst_words[1],
+                line: inst_words[2],
+                column: inst_words[2],
+            }),
+            10 => Ok(Instruction::OpExtension {
+                opcode,
+                name: String::from_utf8(
+                    inst_words[1..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            11 => Ok(Instruction::OpExtInstImport {
+                opcode,
+                result: inst_words[1],
+                name: String::from_utf8(
+                    inst_words[2..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            12 => Ok(Instruction::OpExtInst {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                set: inst_words[3],
+                instruction: inst_words[4],
+                operands: inst_words[5..].to_vec(),
+            }),
+
+            14 => Ok(Instruction::OpMemoryModel {
+                opcode,
+                addressing_model: AddressingModel::from(inst_words[1]),
+                memory_model: MemoryModel::from(inst_words[2]),
+            }),
+            15 => {
+                // TODO: handle case where name is not "main"
+                Ok(Instruction::OpEntryPoint {
+                    opcode,
+                    execution_model: ExecutionModel::from(inst_words[1]),
+                    entry_point: inst_words[2],
+                    name: String::from_utf8(
+                        inst_words[3..word_count]
+                            .iter()
+                            .flat_map(|val| val.to_le_bytes())
+                            .take_while(|x| *x != 0)
+                            .collect::<Vec<_>>(),
+                    )
+                    .unwrap(),
+                    interface: inst_words[5..].to_vec(),
+                })
+            }
+            16 => Ok(Instruction::OpExecutionMode {
+                opcode,
+                entry_point: inst_words[1],
+                mode: ExecutionMode::from(inst_words[2]),
+                literals: inst_words[3..].to_vec(),
+            }),
+            17 => Ok(Instruction::OpCapability {
+                opcode,
+                capability: Capability::from(inst_words[1]),
+            }),
+            19 => Ok(Instruction::OpTypeVoid {
+                opcode,
+                result: inst_words[1],
+            }),
+            20 => Ok(Instruction::OpTypeBool {
+                opcode,
+                result: inst_words[1],
+            }),
+            21 => Ok(Instruction::OpTypeInt {
+                opcode,
+                result: inst_words[1],
+                width: inst_words[2],
+                signedness: inst_words[3],
+            }),
+            22 => Ok(Instruction::OpTypeFloat {
+                opcode,
+                result: inst_words[1],
+                width: inst_words[2],
+            }),
+            23 => Ok(Instruction::OpTypeVector {
+                opcode,
+                result: inst_words[1],
+                component_type: inst_words[2],
+                component_count: inst_words[3],
+            }),
+            24 => Ok(Instruction::OpTypeMatrix {
+                opcode,
+                result: inst_words[1],
+                column_type: inst_words[2],
+                column_count: inst_words[3],
+            }),
+            25 => Ok(Instruction::OpTypeImage {
+                opcode,
+                result: inst_words[1],
+                sampled_type: inst_words[2],
+                dim: Dim::from(inst_words[3]),
+                depth: inst_words[4],
+                arrayed: inst_words[5],
+                ms: inst_words[6],
+                sampled: inst_words[7],
+                image_format: ImageFormat::from(inst_words[8]),
+                access_qualifier: if word_count >= 10 {
+                    Some(AccessQualifier::from(inst_words[9]))
+                } else {
+                    None
+                },
+            }),
+            26 => Ok(Instruction::OpTypeSampler {
+                opcode,
+                result: inst_words[1],
+            }),
+            27 => Ok(Instruction::OpTypeSampledImage {
+                opcode,
+                result: inst_words[1],
+                image_type: inst_words[2],
+            }),
+            28 => Ok(Instruction::OpTypeArray {
+                opcode,
+                result: inst_words[1],
+                element_type: inst_words[2],
+                length: inst_words[3],
+            }),
+            29 => Ok(Instruction::OpTypeRuntimeArray {
+                opcode,
+                result: inst_words[1],
+                element_type: inst_words[2],
+            }),
+            30 => Ok(Instruction::OpTypeStruct {
+                opcode,
+                result: inst_words[1],
+                member_types: inst_words[2..].to_vec(),
+            }),
+            31 => Ok(Instruction::OpTypeOpaque {
+                opcode,
+                result: inst_words[1],
+                name: String::from_utf8(
+                    inst_words[2..word_count]
+                        .iter()
+                        .flat_map(|val| val.to_le_bytes())
+                        .take_while(|x| *x != 0)
+                        .collect::<Vec<_>>(),
+                )
+                .unwrap(),
+            }),
+            32 => Ok(Instruction::OpTypePointer {
+                opcode,
+                result: inst_words[1],
+                storage_class: StorageClass::from(inst_words[2]),
+                ttype: inst_words[3],
+            }),
+            33 => Ok(Instruction::OpTypeFunction {
+                opcode,
+                result: inst_words[1],
+                return_type: inst_words[2],
+                parameter_types: inst_words[3..].to_vec(),
+            }),
+            43 => Ok(Instruction::OpConstant {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                value: inst_words[3..].to_vec(),
+            }),
+            44 => Ok(Instruction::OpConstantComposite {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                constituents: inst_words[3..].to_vec(),
+            }),
+            54 => Ok(Instruction::OpFunction {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                function_control: FunctionControl::from(inst_words[3]),
+                function_type: inst_words[4],
+            }),
+            56 => Ok(Instruction::OpFunctionEnd {
+                opcode,
+            }),
+            59 => {
+                let initializer = if word_count == 5 {
+                    Some(inst_words[4])
+                } else {
+                    None
+                };
+                Ok(Instruction::OpVariable {
+                    opcode,
+                    result_type: inst_words[1],
+                    result: inst_words[2],
+                    storage_class: StorageClass::from(inst_words[3]),
+                    initializer,
+                })
+            }
+            61 => Ok(Instruction::OpLoad {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                pointer: inst_words[3],
+                memory_operands: if word_count >= 5 {
+                    Some(MemoryOperands::from(inst_words[4]))
+                } else {
+                    None
+                },
+            }),
+            62 => Ok(Instruction::OpStore {
+                opcode,
+                pointer: inst_words[1],
+                object: inst_words[2],
+                memory_operands: if word_count >= 4 {
+                    Some(MemoryOperands::from(inst_words[3]))
+                } else {
+                    None
+                },
+            }),
+            65 => Ok(Instruction::OpAccessChain {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                base: inst_words[3],
+                indexes: inst_words[4..].to_vec(),
+            }),
+            71 => Ok(Instruction::OpDecorate {
+                opcode,
+                target: inst_words[1],
+                decoration: Decoration::from(inst_words[2]),
+                extra: inst_words[3..].to_vec(),
+            }),
+            72 => Ok(Instruction::OpMemberDecorate {
+                opcode,
+                structure_type: inst_words[1],
+                member: inst_words[2],
+                decoration: Decoration::from(inst_words[3]),
+            }),
+            79 => Ok(Instruction::OpVectorShuffle {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                vector1: inst_words[3],
+                vector2: inst_words[4],
+                components: inst_words[5..].to_vec(),
+            }),
+            80 => Ok(Instruction::OpCompositeConstruct {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                constituents: inst_words[3..].to_vec(),
+            }),
+            81 => Ok(Instruction::OpCompositeExtract {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                composite: inst_words[3],
+                indexes: inst_words[4..].to_vec(),
+            }),
+            87 => {
+                Ok(Instruction::OpImageSampleImplicitLod {
+                    opcode,
+                    result_type: inst_words[1],
+                    result: inst_words[2],
+                    sampled_image: inst_words[3],
+                    coordinate: inst_words[4],
+                    image_operands: None, // TODO
+                })
+            }
+            112 => Ok(Instruction::OpConvertUToF {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                unsigned_value: inst_words[3],
+            }),
+            129 => Ok(Instruction::OpFAdd {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                operand1: inst_words[3],
+                operand2: inst_words[4],
+            }),
+            131 => Ok(Instruction::OpFSub {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                operand1: inst_words[3],
+                operand2: inst_words[4],
+            }),
+            132 => {
+                todo!("OpIMul");
+            }
+            133 => Ok(Instruction::OpFMul {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                operand1: inst_words[3],
+                operand2: inst_words[4],
+            }),
+            134 => {
+                todo!("OpUDiv");
+            }
+            135 => {
+                todo!("OpSDiv");
+            }
+            136 => Ok(Instruction::OpFDiv {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                operand1: inst_words[3],
+                operand2: inst_words[4],
+            }),
+            137 => {
+                todo!("OpUMod");
+            }
+            138 => {
+                todo!("OpSRem");
+            }
+            139 => {
+                todo!("OpSMod");
+            }
+            140 => {
+                todo!("OpFRem");
+            }
+            141 => {
+                todo!("OpFMod");
+            }
+            142 => Ok(Instruction::OpVectorTimesScalar {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                vector: inst_words[3],
+                scalar: inst_words[4],
+            }),
+            143 => {
+                todo!("OpMatrixTimesScalar");
+            }
+            144 => {
+                todo!("OpVectorTimesMatrix");
+            }
+            145 => {
+                todo!("OpMatrixTimesVector");
+            }
+            146 => {
+                todo!("OpMatrixTimesMatrix");
+            }
+            147 => {
+                todo!("OpOuterProduct");
+            }
+            148 => {
+                todo!("OpDot");
+            }
+            149 => {
+                todo!("OpIAddCarry");
+            }
+            150 => {
+                todo!("OpISubBorrow");
+            }
+            248 => Ok(Instruction::OpLabel {
+                opcode,
+                result: inst_words[1],
+            }),
+            253 => Ok(Instruction::OpReturn {
+                opcode,
+            }),
+            400 => {
+                todo!("OpCopyLogical");
+            }
+            n => {
+                panic!("{}", n);
+            }
+        }
+    }
 }
 
 #[repr(u32)]
@@ -1431,8 +2158,6 @@ impl From<u32> for MemoryOperands {
 #[cfg(test)]
 mod tests {
     use super::*;
-    // TODO: Move these functions into a separate module
-    use crate::glyph::read_u32_le;
 
     #[test]
     fn spirv() -> std::io::Result<()> {
@@ -1444,661 +2169,14 @@ mod tests {
                     Some("spv") => {
                         println!("{:?}", path);
                         let bytes = std::fs::read(path).unwrap();
-                        let len = bytes.len();
-                        assert_eq!(len % 4, 0);
+                        let module = ShaderModule::try_from(bytes.as_slice()).unwrap();
+                        //println!("{:#?}", module);
+
+                        println!("{:?}", module.input_descriptions());
+
+                        //break;
                     }
                     _ => {}
-                }
-            }
-        }
-        let bytes = std::fs::read("assets/shaders/shader.frag.spv")?;
-        let len = bytes.len();
-        assert_eq!(len % 4, 0);
-        let mut r = std::io::Cursor::new(bytes);
-
-        // Magic number 0x07230203
-        let magic = read_u32_le(&mut r)?;
-        println!("Magic Number: 0x{:08x}", magic);
-        assert_eq!(magic, 0x07230203);
-
-        // Version number
-        let version = read_u32_le(&mut r)?;
-        println!("Version: 0x{:08x}", version);
-        assert!(version >= 0x0001_0000 && version <= 0x0001_0600); // 1.0 <= version <= 1.6
-
-        let generator_magic = read_u32_le(&mut r)?;
-        println!("Generator Magic: 0x{:08x}", generator_magic);
-        assert_eq!(generator_magic, 0x000d000a);
-
-        let bound = read_u32_le(&mut r)?;
-        println!("Bound: {}", bound); // All "ids" in the module should be smaller than bound
-                                      //assert_eq!(bound, 0);
-
-        let reserved = read_u32_le(&mut r)?;
-        assert_eq!(reserved, 0);
-
-        // Instructions
-        println!("\nInstructions:");
-        while r.position() < (len as u64) {
-            let mut inst_words = [0; 32];
-
-            inst_words[0] = read_u32_le(&mut r)?;
-            let word_count = ((inst_words[0] >> 16) & 0xffff) as usize;
-            let opcode = inst_words[0] & 0xffff;
-
-            let mut remaining = word_count - 1;
-            let mut i = 1;
-            while remaining > 0 {
-                inst_words[i] = read_u32_le(&mut r)?;
-                remaining -= 1;
-                i += 1;
-            }
-            let inst_words = &inst_words[..word_count];
-
-            match opcode {
-                0 => {
-                    let inst = Instruction::OpNop {
-                        opcode,
-                    };
-                }
-                1 => {
-                    let inst = Instruction::OpUndef {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                    };
-                }
-                2 => {
-                    let inst = Instruction::OpSourceContinued {
-                        opcode,
-                        continued_source: String::from_utf8(
-                            inst_words[1..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                }
-                3 => {
-                    let file = if word_count >= 4 {
-                        Some(inst_words[3])
-                    } else {
-                        None
-                    };
-                    let source = None; // TODO: Parse source if available
-                    let inst = Instruction::OpSource {
-                        opcode,
-                        source_language: SourceLanguage::from(inst_words[1]),
-                        version: inst_words[2],
-                        file,
-                        source,
-                    };
-                    println!("{:?}", inst);
-                }
-                4 => {
-                    let inst = Instruction::OpSourceExtension {
-                        opcode,
-                        extension: String::from_utf8(
-                            inst_words[1..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                5 => {
-                    let inst = Instruction::OpName {
-                        opcode,
-                        target: inst_words[1],
-                        name: String::from_utf8(
-                            inst_words[2..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                6 => {
-                    let inst = Instruction::OpMemberName {
-                        opcode,
-                        ttype: inst_words[1],
-                        member: inst_words[2],
-                        name: String::from_utf8(
-                            inst_words[3..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                7 => {
-                    let inst = Instruction::OpString {
-                        opcode,
-                        result: inst_words[1],
-                        string: String::from_utf8(
-                            inst_words[2..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                8 => {
-                    let inst = Instruction::OpLine {
-                        opcode,
-                        file: inst_words[1],
-                        line: inst_words[2],
-                        column: inst_words[2],
-                    };
-                    println!("{:?}", inst);
-                }
-                10 => {
-                    let inst = Instruction::OpExtension {
-                        opcode,
-                        name: String::from_utf8(
-                            inst_words[1..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                11 => {
-                    let inst = Instruction::OpExtInstImport {
-                        opcode,
-                        result: inst_words[1],
-                        name: String::from_utf8(
-                            inst_words[2..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                12 => {
-                    let inst = Instruction::OpExtInst {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        set: inst_words[3],
-                        instruction: inst_words[4],
-                        operands: inst_words[5..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-
-                14 => {
-                    let inst = Instruction::OpMemoryModel {
-                        opcode,
-                        addressing_model: AddressingModel::from(inst_words[1]),
-                        memory_model: MemoryModel::from(inst_words[2]),
-                    };
-                    println!("{:?}", inst);
-                }
-                15 => {
-                    // TODO: handle case where name is not "main"
-                    let inst = Instruction::OpEntryPoint {
-                        opcode,
-                        execution_model: ExecutionModel::from(inst_words[1]),
-                        entry_point: inst_words[2],
-                        name: String::from_utf8(
-                            inst_words[3..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                        interface: inst_words[5..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                16 => {
-                    let inst = Instruction::OpExecutionMode {
-                        opcode,
-                        entry_point: inst_words[1],
-                        mode: ExecutionMode::from(inst_words[2]),
-                        literals: inst_words[3..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                17 => {
-                    let inst = Instruction::OpCapability {
-                        opcode,
-                        capability: Capability::from(inst_words[1]),
-                    };
-                    println!("{:?}", inst);
-                }
-                19 => {
-                    let inst = Instruction::OpTypeVoid {
-                        opcode,
-                        result: inst_words[1],
-                    };
-                    println!("{:?}", inst);
-                }
-                20 => {
-                    let inst = Instruction::OpTypeBool {
-                        opcode,
-                        result: inst_words[1],
-                    };
-                    println!("{:?}", inst);
-                }
-                21 => {
-                    let inst = Instruction::OpTypeInt {
-                        opcode,
-                        result: inst_words[1],
-                        width: inst_words[2],
-                        signedness: inst_words[3],
-                    };
-                    println!("{:?}", inst);
-                }
-                22 => {
-                    let inst = Instruction::OpTypeFloat {
-                        opcode,
-                        result: inst_words[1],
-                        width: inst_words[2],
-                    };
-                    println!("{:?}", inst);
-                }
-                23 => {
-                    let inst = Instruction::OpTypeVector {
-                        opcode,
-                        result: inst_words[1],
-                        component_type: inst_words[2],
-                        component_count: inst_words[3],
-                    };
-                    println!("{:?}", inst);
-                }
-                24 => {
-                    let inst = Instruction::OpTypeMatrix {
-                        opcode,
-                        result: inst_words[1],
-                        column_type: inst_words[2],
-                        column_count: inst_words[3],
-                    };
-                    println!("{:?}", inst);
-                }
-                25 => {
-                    let inst = Instruction::OpTypeImage {
-                        opcode,
-                        result: inst_words[1],
-                        sampled_type: inst_words[2],
-                        dim: Dim::from(inst_words[3]),
-                        depth: inst_words[4],
-                        arrayed: inst_words[5],
-                        ms: inst_words[6],
-                        sampled: inst_words[7],
-                        image_format: ImageFormat::from(inst_words[8]),
-                        access_qualifier: if word_count >= 10 {
-                            Some(AccessQualifier::from(inst_words[9]))
-                        } else {
-                            None
-                        },
-                    };
-                    println!("{:?}", inst);
-                }
-                26 => {
-                    let inst = Instruction::OpTypeSampler {
-                        opcode,
-                        result: inst_words[1],
-                    };
-                    println!("{:?}", inst);
-                }
-                27 => {
-                    let inst = Instruction::OpTypeSampledImage {
-                        opcode,
-                        result: inst_words[1],
-                        image_type: inst_words[2],
-                    };
-                    println!("{:?}", inst);
-                }
-                28 => {
-                    let inst = Instruction::OpTypeArray {
-                        opcode,
-                        result: inst_words[1],
-                        element_type: inst_words[2],
-                        length: inst_words[3],
-                    };
-                    println!("{:?}", inst);
-                }
-                29 => {
-                    let inst = Instruction::OpTypeRuntimeArray {
-                        opcode,
-                        result: inst_words[1],
-                        element_type: inst_words[2],
-                    };
-                    println!("{:?}", inst);
-                }
-                30 => {
-                    let inst = Instruction::OpTypeStruct {
-                        opcode,
-                        result: inst_words[1],
-                        member_types: inst_words[2..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                31 => {
-                    let inst = Instruction::OpTypeOpaque {
-                        opcode,
-                        result: inst_words[1],
-                        name: String::from_utf8(
-                            inst_words[2..word_count]
-                                .iter()
-                                .flat_map(|val| val.to_le_bytes())
-                                .take_while(|x| *x != 0)
-                                .collect::<Vec<_>>(),
-                        )
-                        .unwrap(),
-                    };
-                    println!("{:?}", inst);
-                }
-                32 => {
-                    let inst = Instruction::OpTypePointer {
-                        opcode,
-                        result: inst_words[1],
-                        storage_class: StorageClass::from(inst_words[2]),
-                        ttype: inst_words[3],
-                    };
-                    println!("{:?}", inst);
-                }
-                33 => {
-                    let inst = Instruction::OpTypeFunction {
-                        opcode,
-                        result: inst_words[1],
-                        return_type: inst_words[2],
-                        parameter_types: inst_words[3..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                43 => {
-                    let inst = Instruction::OpConstant {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        value: inst_words[3..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                44 => {
-                    let inst = Instruction::OpConstantComposite {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        constituents: inst_words[3..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                54 => {
-                    let inst = Instruction::OpFunction {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        function_control: FunctionControl::from(inst_words[3]),
-                        function_type: inst_words[4],
-                    };
-                    println!("{:?}", inst);
-                }
-                56 => {
-                    let inst = Instruction::OpFunctionEnd {
-                        opcode,
-                    };
-                    println!("{:?}", inst);
-                }
-                59 => {
-                    let initializer = if word_count == 5 {
-                        Some(inst_words[4])
-                    } else {
-                        None
-                    };
-                    let inst = Instruction::OpVariable {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        storage_class: StorageClass::from(inst_words[3]),
-                        initializer,
-                    };
-                    println!("{:?}", inst);
-                }
-                61 => {
-                    let inst = Instruction::OpLoad {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        pointer: inst_words[3],
-                        memory_operands: if word_count >= 5 {
-                            Some(MemoryOperands::from(inst_words[4]))
-                        } else {
-                            None
-                        },
-                    };
-                    println!("{:?}", inst);
-                }
-                62 => {
-                    let inst = Instruction::OpStore {
-                        opcode,
-                        pointer: inst_words[1],
-                        object: inst_words[2],
-                        memory_operands: if word_count >= 4 {
-                            Some(MemoryOperands::from(inst_words[3]))
-                        } else {
-                            None
-                        },
-                    };
-                    println!("{:?}", inst);
-                }
-                65 => {
-                    let inst = Instruction::OpAccessChain {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        base: inst_words[3],
-                        indexes: inst_words[4..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                71 => {
-                    let inst = Instruction::OpDecorate {
-                        opcode,
-                        target: inst_words[1],
-                        decoration: Decoration::from(inst_words[2]),
-                    };
-                    println!("{:?}", inst);
-                }
-                72 => {
-                    let inst = Instruction::OpMemberDecorate {
-                        opcode,
-                        structure_type: inst_words[1],
-                        member: inst_words[2],
-                        decoration: Decoration::from(inst_words[3]),
-                    };
-                    println!("{:?}", inst);
-                }
-                79 => {
-                    let inst = Instruction::OpVectorShuffle {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        vector1: inst_words[3],
-                        vector2: inst_words[4],
-                        components: inst_words[5..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                80 => {
-                    let inst = Instruction::OpCompositeConstruct {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        constituents: inst_words[3..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                81 => {
-                    let inst = Instruction::OpCompositeExtract {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        composite: inst_words[3],
-                        indexes: inst_words[4..].to_vec(),
-                    };
-                    println!("{:?}", inst);
-                }
-                87 => {
-                    let inst = Instruction::OpImageSampleImplicitLod {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        sampled_image: inst_words[3],
-                        coordinate: inst_words[4],
-                        image_operands: None, // TODO
-                    };
-                    println!("{:?}", inst);
-                }
-                112 => {
-                    let inst = Instruction::OpConvertUToF {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        unsigned_value: inst_words[3],
-                    };
-                    println!("{:?}", inst);
-                }
-                129 => {
-                    let inst = Instruction::OpFAdd {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        operand1: inst_words[3],
-                        operand2: inst_words[4],
-                    };
-                    println!("{:?}", inst);
-                }
-                131 => {
-                    let inst = Instruction::OpFSub {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        operand1: inst_words[3],
-                        operand2: inst_words[4],
-                    };
-                    println!("{:?}", inst);
-                }
-                132 => {
-                    todo!("OpIMul");
-                }
-                133 => {
-                    let inst = Instruction::OpFMul {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        operand1: inst_words[3],
-                        operand2: inst_words[4],
-                    };
-                    println!("{:?}", inst);
-                }
-                134 => {
-                    todo!("OpUDiv");
-                }
-                135 => {
-                    todo!("OpSDiv");
-                }
-                136 => {
-                    let inst = Instruction::OpFDiv {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        operand1: inst_words[3],
-                        operand2: inst_words[4],
-                    };
-                    println!("{:?}", inst);
-                }
-                137 => {
-                    todo!("OpUMod");
-                }
-                138 => {
-                    todo!("OpSRem");
-                }
-                139 => {
-                    todo!("OpSMod");
-                }
-                140 => {
-                    todo!("OpFRem");
-                }
-                141 => {
-                    todo!("OpFMod");
-                }
-                142 => {
-                    let inst = Instruction::OpVectorTimesScalar {
-                        opcode,
-                        result_type: inst_words[1],
-                        result: inst_words[2],
-                        vector: inst_words[3],
-                        scalar: inst_words[4],
-                    };
-                    println!("{:?}", inst);
-                }
-                143 => {
-                    todo!("OpMatrixTimesScalar");
-                }
-                144 => {
-                    todo!("OpVectorTimesMatrix");
-                }
-                145 => {
-                    todo!("OpMatrixTimesVector");
-                }
-                146 => {
-                    todo!("OpMatrixTimesMatrix");
-                }
-                147 => {
-                    todo!("OpOuterProduct");
-                }
-                148 => {
-                    todo!("OpDot");
-                }
-                149 => {
-                    todo!("OpIAddCarry");
-                }
-                150 => {
-                    todo!("OpISubBorrow");
-                }
-                248 => {
-                    let inst = Instruction::OpLabel {
-                        opcode,
-                        result: inst_words[1],
-                    };
-                    println!("{:?}", inst);
-                }
-                253 => {
-                    let inst = Instruction::OpReturn {
-                        opcode,
-                    };
-                    println!("{:?}", inst);
-                }
-                400 => {
-                    todo!("OpCopyLogical");
-                }
-                n => {
-                    panic!("{}", n);
                 }
             }
         }
