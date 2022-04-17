@@ -3,7 +3,6 @@ use icarus::input::{InputState, KeyId};
 use icarus::math::Rect;
 use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
-use icarus::vk::*;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::collections::VecDeque;
@@ -25,8 +24,6 @@ fn main() {
         &platform,
         mem::size_of::<RenderCommand>() * MAX_ENTITIES,
         8, //mem::size_of::<GlobalState>(),
-        Vertex::get_binding_description(),
-        &Vertex::get_attribute_descriptions(),
     );
 
     // Main loop
@@ -244,45 +241,4 @@ impl Game {
 fn is_valid_pos(pos: (isize, isize), rows: usize, cols: usize) -> bool {
     let (row, col) = pos;
     (0..cols as isize).contains(&col) && (0..rows as isize).contains(&row)
-}
-
-#[repr(C)]
-#[derive(Default)]
-pub struct Vertex {
-    pos: (f32, f32, f32),   // 12
-    color: (f32, f32, f32), // 12
-    uv: (f32, f32),         // 8
-}
-
-impl Vertex {
-    fn get_binding_description() -> VkVertexInputBindingDescription {
-        VkVertexInputBindingDescription {
-            binding: 0,
-            stride: mem::size_of::<Self>() as u32,
-            inputRate: VK_VERTEX_INPUT_RATE_VERTEX,
-        }
-    }
-
-    fn get_attribute_descriptions() -> [VkVertexInputAttributeDescription; 3] {
-        [
-            VkVertexInputAttributeDescription {
-                binding: 0,
-                location: 0,
-                format: VK_FORMAT_R32G32B32_SFLOAT,
-                offset: 0,
-            },
-            VkVertexInputAttributeDescription {
-                binding: 0,
-                location: 1,
-                format: VK_FORMAT_R32G32B32_SFLOAT,
-                offset: 3 * mem::size_of::<f32>() as u32,
-            },
-            VkVertexInputAttributeDescription {
-                binding: 0,
-                location: 2,
-                format: VK_FORMAT_R32G32_SFLOAT,
-                offset: (3 + 3) * mem::size_of::<f32>() as u32,
-            },
-        ]
-    }
 }

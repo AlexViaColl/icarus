@@ -5,6 +5,7 @@ use crate::cstr;
 use crate::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
 use crate::math::Rect;
 use crate::platform::Platform;
+use crate::spirv::ShaderModule;
 use crate::stb_image::*;
 use crate::x11::XCloseDisplay;
 
@@ -234,9 +235,6 @@ pub struct VkContext {
     // TODO: Enable only on debug builds
     pub debug_messenger: VkDebugUtilsMessengerEXT,
 
-    pub binding_desc: VkVertexInputBindingDescription,
-    pub attribute_desc: Vec<VkVertexInputAttributeDescription>,
-
     pub current_frame: usize,
 }
 
@@ -283,26 +281,14 @@ impl Default for VkContext {
             render_finished_semaphores: [VkSemaphore::default(); MAX_FRAMES_IN_FLIGHT],
             in_flight_fences: [VkFence::default(); MAX_FRAMES_IN_FLIGHT],
             debug_messenger: VkDebugUtilsMessengerEXT::default(),
-            binding_desc: VkVertexInputBindingDescription::default(),
-            attribute_desc: vec![],
             current_frame: 0,
         }
     }
 }
 
 impl VkContext {
-    pub fn init(
-        platform: &Platform,
-        ssbo_size: usize,
-        ubo_size: usize,
-        binding_desc: VkVertexInputBindingDescription,
-        attribute_desc: &[VkVertexInputAttributeDescription],
-    ) -> Self {
-        let mut vk_ctx = VkContext {
-            binding_desc,
-            attribute_desc: attribute_desc.to_vec(),
-            ..VkContext::default()
-        };
+    pub fn init(platform: &Platform, ssbo_size: usize, ubo_size: usize) -> Self {
+        let mut vk_ctx = VkContext::default();
 
         let enabled_layers = [VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME];
         let enabled_extensions =
@@ -926,19 +912,39 @@ impl VkContext {
     }
 
     fn create_graphics_pipeline(&mut self) {
-        //self.graphics_pipeline = create_graphics_pipeline(
-        //    self.device,
-        //    self.pipeline_layout,
-        //    self.render_pass,
-        //    self.surface_caps,
-        //    self.binding_desc,
-        //    &self.attribute_desc,
-        //    self.allocator,
-        //);
-
         unsafe {
             let vs_code = fs::read("assets/shaders/shader.vert.spv").expect("Failed to load vertex shader");
             let fs_code = fs::read("assets/shaders/shader.frag.spv").expect("Failed to load fragment shader");
+
+            let module = ShaderModule::try_from(vs_code.as_slice()).unwrap();
+            let desc = module.input_descriptions();
+            //println!("{:?}", desc);
+
+            let mut binding_desc = VkVertexInputBindingDescription {
+                binding: 0,
+                stride: 0,
+                inputRate: VK_VERTEX_INPUT_RATE_VERTEX,
+            };
+            let mut attribute_desc: Vec<VkVertexInputAttributeDescription> = vec![];
+            for i in 0..desc.len() {
+                binding_desc.stride += (desc[i] as u32) * 4;
+                attribute_desc.push(VkVertexInputAttributeDescription {
+                    binding: 0,
+                    location: i as u32,
+                    format: match desc[i] {
+                        2 => VK_FORMAT_R32G32_SFLOAT,
+                        3 => VK_FORMAT_R32G32B32_SFLOAT,
+                        n => panic!("#components {}", n),
+                    },
+                    offset: if i == 0 {
+                        0
+                    } else {
+                        attribute_desc[i - 1].offset + (desc[i - 1] as u32) * 4
+                    },
+                });
+            }
+            //println!("{:?}", binding_desc);
+            //println!("{:?}", attribute_desc);
 
             let mut vs_shader_module = VkShaderModule::default();
             check!(vkCreateShaderModule(
@@ -986,9 +992,9 @@ impl VkContext {
                     .as_ptr(),
                     pVertexInputState: &VkPipelineVertexInputStateCreateInfo {
                         vertexBindingDescriptionCount: 1,
-                        pVertexBindingDescriptions: &self.binding_desc,
-                        vertexAttributeDescriptionCount: self.attribute_desc.len() as u32,
-                        pVertexAttributeDescriptions: self.attribute_desc.as_ptr(),
+                        pVertexBindingDescriptions: &binding_desc,
+                        vertexAttributeDescriptionCount: attribute_desc.len() as u32,
+                        pVertexAttributeDescriptions: attribute_desc.as_ptr(),
                         ..VkPipelineVertexInputStateCreateInfo::default()
                     },
                     pInputAssemblyState: &VkPipelineInputAssemblyStateCreateInfo {

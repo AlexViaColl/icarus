@@ -5,7 +5,6 @@ use icarus::input::{ButtonId, InputState, KeyId};
 use icarus::math::{Rect, Vec2, Vec4};
 use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
-use icarus::vk::*;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
@@ -83,47 +82,6 @@ pub struct GlobalState {
     height: u32,
 }
 
-#[repr(C)]
-#[derive(Default)]
-pub struct Vertex {
-    pos: (f32, f32, f32),   // 12
-    color: (f32, f32, f32), // 12
-    uv: (f32, f32),         // 8
-}
-
-impl Vertex {
-    fn get_binding_description() -> VkVertexInputBindingDescription {
-        VkVertexInputBindingDescription {
-            binding: 0,
-            stride: mem::size_of::<Self>() as u32,
-            inputRate: VK_VERTEX_INPUT_RATE_VERTEX,
-        }
-    }
-
-    fn get_attribute_descriptions() -> [VkVertexInputAttributeDescription; 3] {
-        [
-            VkVertexInputAttributeDescription {
-                binding: 0,
-                location: 0,
-                format: VK_FORMAT_R32G32B32_SFLOAT,
-                offset: 0,
-            },
-            VkVertexInputAttributeDescription {
-                binding: 0,
-                location: 1,
-                format: VK_FORMAT_R32G32B32_SFLOAT,
-                offset: 3 * mem::size_of::<f32>() as u32,
-            },
-            VkVertexInputAttributeDescription {
-                binding: 0,
-                location: 2,
-                format: VK_FORMAT_R32G32_SFLOAT,
-                offset: (3 + 3) * mem::size_of::<f32>() as u32,
-            },
-        ]
-    }
-}
-
 fn main() {
     //println!("Any: {}, Esc: {}, Enter: {}", KeyId::Any as u32, KeyId::Esc as u32, KeyId::Enter as u32);
     //println!("XK_Escape: {}, XK_Return: {}, XK_Space: {}", XK_Escape, XK_Return, XK_space);
@@ -139,8 +97,6 @@ fn main() {
         &platform,
         mem::size_of::<RenderCommand>() * MAX_ENTITIES,
         8, //mem::size_of::<GlobalState>(),
-        Vertex::get_binding_description(),
-        &Vertex::get_attribute_descriptions(),
     );
 
     // Main loop
