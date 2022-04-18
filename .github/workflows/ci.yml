@@ -15,6 +15,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: Install libasound2
+      run: sudo apt-get install -y libasound2
     
     - name: Setup Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.0
