@@ -1,5 +1,3 @@
-use super::string_util::*;
-use super::vk::*;
 use crate::color::*;
 use crate::cstr;
 use crate::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
@@ -7,6 +5,8 @@ use crate::math::Rect;
 use crate::platform::Platform;
 use crate::spirv::ShaderModule;
 use crate::stb_image::*;
+use crate::string_util::*;
+use crate::vk::*;
 use crate::x11::XCloseDisplay;
 
 use core::ffi::c_void;
