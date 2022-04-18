@@ -2,6 +2,18 @@
 
 #[link(name = "asound")]
 extern "C" {
+    /// card: specifies the card index number, -1 means all cards
+    /// iface: interface identification (like "pcm", "rawmidi", "timer", "seq")
+    pub fn snd_device_name_hint(card: i32, iface: *const i8, hints: *mut *mut *mut std::ffi::c_void) -> i32;
+
+    pub fn snd_device_name_free_hint(hints: *mut *mut std::ffi::c_void) -> i32;
+
+    /// id: hint value to extract, valid IDs are
+    ///     NAME: name of device
+    ///     DESC: description of device
+    ///     IOID: input / output identification (“Input” or “Output”), NULL means both
+    pub fn snd_device_name_get_hint(hint: *const i8, id: *const i8) -> *mut i8;
+
     pub fn snd_pcm_open(pcmp: *mut *mut snd_pcm_t, name: *const i8, stream: snd_pcm_stream_t, mode: i32) -> i32;
     pub fn snd_pcm_close(pcm: *mut snd_pcm_t) -> i32;
 
@@ -160,7 +172,51 @@ pub use snd_pcm_format_t::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::string_util::cstr_to_string;
     use std::ptr;
+
+    extern "C" {
+        pub fn free(p: *mut std::ffi::c_void);
+    }
+
+    #[test]
+    fn device_name_hint() {
+        let mut hints = ptr::null_mut();
+        let res = unsafe { snd_device_name_hint(-1, b"pcm\0".as_ptr() as *const i8, &mut hints) };
+        if res != 0 {
+            return;
+        }
+
+        let mut hint = hints as *mut *mut i8;
+        while !hint.is_null() && unsafe { !(*hint).is_null() } {
+            let name = unsafe { snd_device_name_get_hint(*hint, b"NAME\0".as_ptr() as *const i8) };
+            if !name.is_null() {
+                println!("NAME: {}", unsafe { cstr_to_string(name) });
+                unsafe { free(name as *mut std::ffi::c_void) };
+            }
+
+            let desc = unsafe { snd_device_name_get_hint(*hint, b"DESC\0".as_ptr() as *const i8) };
+            if !desc.is_null() {
+                println!("DESC: {}", unsafe { cstr_to_string(desc) });
+                unsafe { free(desc as *mut std::ffi::c_void) };
+            }
+
+            let ioid = unsafe { snd_device_name_get_hint(*hint, b"IOID\0".as_ptr() as *const i8) };
+            if !ioid.is_null() {
+                println!("IOID: {}", unsafe { cstr_to_string(ioid) });
+                unsafe { free(ioid as *mut std::ffi::c_void) };
+            } else {
+                println!("IOID: Input & Output");
+            }
+
+            println!("");
+
+            hint = unsafe { hint.offset(1) };
+        }
+
+        println!("snd_device_name_free_hint");
+        unsafe { snd_device_name_free_hint(hints) };
+    }
 
     #[test]
     fn alsa() {
