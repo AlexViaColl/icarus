@@ -46,6 +46,9 @@ mod tests {
                 ptr::null_mut(),
             )
         };
+        if s.is_null() {
+            return;
+        }
 
         let mut buffer = [0_i16; 44100 * 2];
         for i in 0..44100 {
