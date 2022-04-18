@@ -95,14 +95,14 @@ impl Default for snd_pcm_hw_params_t {
 
 #[repr(C)]
 pub enum snd_pcm_stream_t {
-    SND_PCM_STREAM_PLAYBACK,
+    SND_PCM_STREAM_PLAYBACK = 0,
     SND_PCM_STREAM_CAPTURE,
 }
 pub use snd_pcm_stream_t::*;
 
 #[repr(C)]
 pub enum snd_pcm_access_t {
-    SND_PCM_ACCESS_MMAP_INTERLEAVED,
+    SND_PCM_ACCESS_MMAP_INTERLEAVED = 0,
     SND_PCM_ACCESS_MMAP_NONINTERLEAVED,
     SND_PCM_ACCESS_MMAP_COMPLEX,
     SND_PCM_ACCESS_RW_INTERLEAVED,
@@ -112,8 +112,8 @@ pub use snd_pcm_access_t::*;
 
 #[repr(C)]
 pub enum snd_pcm_format_t {
-    SND_PCM_FORMAT_UNKNOWN,
-    SND_PCM_FORMAT_S8,
+    SND_PCM_FORMAT_UNKNOWN = -1,
+    SND_PCM_FORMAT_S8 = 0,
     SND_PCM_FORMAT_U8,
     SND_PCM_FORMAT_S16_LE,
     SND_PCM_FORMAT_S16_BE,
@@ -142,8 +142,8 @@ pub enum snd_pcm_format_t {
     SND_PCM_FORMAT_S20_BE,
     SND_PCM_FORMAT_U20_LE,
     SND_PCM_FORMAT_U20_BE,
-    SND_PCM_FORMAT_SPECIAL,
-    SND_PCM_FORMAT_S24_3LE,
+    SND_PCM_FORMAT_SPECIAL = 31,
+    SND_PCM_FORMAT_S24_3LE = 32,
     SND_PCM_FORMAT_S24_3BE,
     SND_PCM_FORMAT_U24_3LE,
     SND_PCM_FORMAT_U24_3BE,
