@@ -165,7 +165,7 @@ mod tests {
     #[test]
     fn alsa() {
         let mut pcm = ptr::null_mut();
-        unsafe { snd_pcm_open(&mut pcm, b"default\0".as_ptr() as *const i8, SND_PCM_STREAM_PLAYBACK, 0) };
+        unsafe { snd_pcm_open(&mut pcm, b"null\0".as_ptr() as *const i8, SND_PCM_STREAM_PLAYBACK, 0) };
 
         let mut hw_params = ptr::null_mut();
         unsafe { snd_pcm_hw_params_malloc(&mut hw_params) };
