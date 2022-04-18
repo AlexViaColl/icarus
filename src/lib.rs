@@ -5,6 +5,7 @@ pub mod input;
 pub mod macros;
 pub mod math;
 pub mod platform;
+pub mod pulseaudio;
 pub mod rand;
 pub mod spirv;
 pub mod stb_image;
