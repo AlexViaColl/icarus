@@ -83,8 +83,6 @@ pub struct GlobalState {
 }
 
 fn main() {
-    //println!("Any: {}, Esc: {}, Enter: {}", KeyId::Any as u32, KeyId::Esc as u32, KeyId::Enter as u32);
-    //println!("XK_Escape: {}, XK_Return: {}, XK_Space: {}", XK_Escape, XK_Return, XK_space);
     let mut platform = Platform::init(Config {
         width: 1600,
         height: 900,
@@ -103,7 +101,6 @@ fn main() {
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
     while game.running {
-        input.reset_transitions();
         platform.process_messages(&mut input);
 
         let seconds_elapsed = prev_frame_time.elapsed().as_secs_f32();

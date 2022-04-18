@@ -63,6 +63,7 @@ impl Platform {
     }
 
     pub fn process_messages(&mut self, input: &mut InputState) {
+        input.reset_transitions();
         unsafe {
             while x11::XPending(self.dpy) > 0 {
                 let mut event = x11::XEvent::default();

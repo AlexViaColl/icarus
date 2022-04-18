@@ -9,6 +9,8 @@ use std::collections::VecDeque;
 use std::mem;
 use std::time::Instant;
 
+// TODO: Don't allow to change direction more than 90 degrees at a time
+
 const MAX_ENTITIES: usize = 1000;
 const SNAKE_SIZE: f32 = 50.0;
 
@@ -30,7 +32,6 @@ fn main() {
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
     while game.running {
-        input.reset_transitions();
         platform.process_messages(&mut input);
 
         let seconds_elapsed = prev_frame_time.elapsed().as_secs_f32();
