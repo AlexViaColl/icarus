@@ -1,3 +1,4 @@
+pub mod alsa;
 pub mod color;
 pub mod glyph;
 pub mod input;
