@@ -363,6 +363,7 @@ impl VkContext {
                 res => panic!("{:?}", res),
             };
 
+            // Update transforms
             vk_map_memory_copy(
                 self.device,
                 self.transform_storage_buffer.memory,
@@ -383,7 +384,6 @@ impl VkContext {
                 color.as_f32()
             } else {
                 BLACK.as_f32()
-                // srgb_to_linear(0x000000)
             };
             vkCmdBeginRenderPass(
                 cmd,
@@ -772,6 +772,7 @@ impl VkContext {
     fn cleanup_swapchain(&mut self) {
         unsafe {
             self.framebuffers.iter().for_each(|fb| vkDestroyFramebuffer(self.device, *fb, self.allocator));
+            self.depth_image.drop();
             vkDestroyPipeline(self.device, self.graphics_pipeline, self.allocator);
             vkDestroyRenderPass(self.device, self.render_pass, self.allocator);
             vkDestroyPipelineLayout(self.device, self.pipeline_layout, self.allocator);
