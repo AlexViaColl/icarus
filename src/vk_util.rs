@@ -206,7 +206,6 @@ pub struct VkContext {
     pub vertex_buffer: Buffer,
     pub index_buffer: Buffer,
 
-    pub default_texture_image: Image,
     pub texture_images: Vec<Image>,
     pub texture_sampler: VkSampler,
 
@@ -263,7 +262,6 @@ impl Default for VkContext {
             depth_image: Image::default(),
             vertex_buffer: Buffer::default(),
             index_buffer: Buffer::default(),
-            default_texture_image: Image::default(),
             texture_images: vec![],
             texture_sampler: VkSampler::default(),
             global_ubo: Buffer::default(),
@@ -307,13 +305,12 @@ impl VkContext {
         vk_ctx.pick_physical_device();
         vk_ctx.create_logical_device(&[VK_KHR_SWAPCHAIN_EXTENSION_NAME]);
         vk_ctx.create_swapchain();
-
-        // TODO: Sync this with the shaders
-        vk_ctx.create_descriptor_set_layout();
+        vk_ctx.create_depth_image();
 
         vk_ctx.create_render_pass();
-        vk_ctx.create_pipeline_layout();
-        vk_ctx.create_graphics_pipeline();
+        vk_ctx.create_framebuffers();
+
+        vk_ctx.create_sync_objects();
 
         vk_ctx.create_command_pool();
         vk_ctx.allocate_command_buffers();
@@ -329,18 +326,16 @@ impl VkContext {
         vk_ctx.create_global_ubo(ubo_size);
         vk_map_memory_copy(vk_ctx.device, vk_ctx.global_ubo.memory, &global_state, ubo_size);
 
+        vk_ctx.create_sampler();
+        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1)); // 0
+
+        // TODO: Sync this with the shaders
+        vk_ctx.create_descriptor_set_layout();
+        vk_ctx.create_pipeline_layout();
+        vk_ctx.create_graphics_pipeline();
+
         vk_ctx.create_descriptor_pool();
         vk_ctx.allocate_descriptor_sets();
-
-        vk_ctx.create_sync_objects();
-
-        vk_ctx.create_depth_image();
-
-        vk_ctx.create_framebuffers();
-
-        vk_ctx.create_sampler();
-        vk_ctx.default_texture_image = vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1);
-        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1)); // 0
         vk_ctx.update_descriptor_sets(global_state);
 
         vk_ctx
@@ -542,28 +537,29 @@ impl VkContext {
             check!(vkDeviceWaitIdle(self.device));
         }
 
-        self.destroy_sampler();
-
-        self.default_texture_image.drop();
-        for texture_image in &mut self.texture_images {
-            texture_image.drop();
-        }
-
-        self.destroy_framebuffers();
-        self.destroy_depth_image();
-        self.destroy_sync_objects();
         //self.free_descriptor_sets();
         self.destroy_descriptor_pool();
-        self.destroy_transform_ssbo();
-        self.destroy_global_ubo();
-        self.destroy_index_buffer();
-        self.destroy_vertex_buffer();
-        //self.free_command_buffers();
-        self.destroy_command_pool();
         self.destroy_pipeline();
         self.destroy_pipeline_layout();
-        self.destroy_render_pass();
         self.destroy_descriptor_set_layout();
+
+        self.texture_images.iter_mut().for_each(|t| t.drop());
+        self.destroy_sampler();
+
+        self.destroy_global_ubo();
+        self.destroy_transform_ssbo();
+
+        self.destroy_index_buffer();
+        self.destroy_vertex_buffer();
+
+        //self.free_command_buffers();
+        self.destroy_command_pool();
+
+        self.destroy_sync_objects();
+
+        self.destroy_framebuffers();
+        self.destroy_render_pass();
+        self.destroy_depth_image();
         self.destroy_swapchain();
         self.destroy_device();
         self.destroy_surface_khr();
