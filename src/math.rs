@@ -115,6 +115,14 @@ impl Vec2 {
     pub fn abs(&self) -> Self {
         Self::new(self.x.abs(), self.y.abs())
     }
+
+    pub fn len_sq(&self) -> f32 {
+        self.x * self.x + self.y * self.y
+    }
+
+    pub fn len(&self) -> f32 {
+        self.len_sq().sqrt()
+    }
 }
 
 impl From<(f32, f32)> for Vec2 {
