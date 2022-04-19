@@ -1,10 +1,33 @@
-// TODO: Use macro to define enum + impl From<u32>
+#![allow(non_camel_case_types)]
+
 // TODO: Bitflag enums
 
 // TODO: Move these functions into a separate module
 use crate::glyph::read_u32_le;
 
 use std::fmt;
+
+macro_rules! bitflag_enum {
+    (
+        $enum_name:ident {
+            $($variant:ident = $value:expr,)*
+        }
+    ) => {
+        #[repr(u32)]
+        #[derive(Debug, Copy, Clone, PartialEq)]
+        pub enum $enum_name {
+            $($variant = $value,)*
+        }
+        impl From<u32> for $enum_name {
+            fn from(flag: u32) -> Self {
+                match flag {
+                    $($value => $enum_name::$variant,)*
+                    n => panic!("Invalid flag: {}", n),
+                }
+            }
+        }
+    };
+}
 
 #[derive(Clone)]
 pub struct ShaderModule {
@@ -1421,347 +1444,307 @@ impl TryFrom<&[u32]> for Instruction {
     }
 }
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Capability {
+bitflag_enum!(Capability {
     Matrix = 0,
-    Shader,
-    Geometry,
-    Tessellation,
-    Addresses,
-    Linkage,
-    Kernel,
-    Vector16,
-    Float16Buffer,
-    Float16,
-    Float64,
-    Int64,
-    Int64Atomics,
-    ImageBasic,
-    ImageReadWrite,
-    ImageMipmap,
-    Pipes,
-    Groups,
-    DeviceEnqueue,
-    LiteralSampler,
-    AtomicStorage,
-    Int16,
-    TessellationPointSize,
-    GeometryPointSize,
-    ImageGatherExtended,
-    StorageImageMultisample,
-    UniformBufferArrayDynamicIndexing,
-    SampledImageArrayDynamicIndexing,
-    StorageBufferArrayDynamicIndexing,
-    StorageImageArrayDynamicIndexing,
-    ClipDistance,
-    CullDistance,
-    ImageCubeArray,
-    SampleRateShading,
-    ImageRect,
-    SampledRect,
-    GenericPointer,
-    Int8,
-    InputAttachment,
-    SparseResidency,
-    MinLod,
-    Sampled1D,
-    Image1D,
-    SampledCubeArray,
-    SampledBuffer,
-    ImageBuffer,
-    ImageMSArray,
-    StorageImageExtendedFormats,
-    ImageQuery,
-    DerivativeControl,
-    InterpolationFunction,
-    TransformFeedback,
-    GeometryStreams,
-    StorageImageReadWithoutFormat,
-    StorageImageWriteWithoutFormat,
-    MultiViewport,
-    SubgroupDispatch,
-    NamedBarrier,
-    PipeStorage,
-    GroupNonUniform,
-    GroupNonUniformVote,
-    GroupNonUniformArithmetic,
-    GroupNonUniformBallot,
-    GroupNonUniformShuffle,
-    GroupNonUniformShuffleRelative,
-    GroupNonUniformClustered,
-    GroupNonUniformQuad,
-    ShaderLayer,
-    ShaderViewportIndex,
-    UniformDecoration,
-}
+    Shader = 1,
+    Geometry = 2,
+    Tessellation = 3,
+    Addresses = 4,
+    Linkage = 5,
+    Kernel = 6,
+    Vector16 = 7,
+    Float16Buffer = 8,
+    Float16 = 9,
+    Float64 = 10,
+    Int64 = 11,
+    Int64Atomics = 12,
+    ImageBasic = 13,
+    ImageReadWrite = 14,
+    ImageMipmap = 15,
+    Pipes = 16,
+    Groups = 17,
+    DeviceEnqueue = 18,
+    LiteralSampler = 19,
+    AtomicStorage = 20,
+    Int16 = 21,
+    TessellationPointSize = 22,
+    GeometryPointSize = 23,
+    ImageGatherExtended = 24,
+    StorageImageMultisample = 25,
+    UniformBufferArrayDynamicIndexing = 26,
+    SampledImageArrayDynamicIndexing = 27,
+    StorageBufferArrayDynamicIndexing = 28,
+    StorageImageArrayDynamicIndexing = 29,
+    ClipDistance = 30,
+    CullDistance = 31,
+    ImageCubeArray = 32,
+    SampleRateShading = 33,
+    ImageRect = 34,
+    SampledRect = 35,
+    GenericPointer = 36,
+    Int8 = 37,
+    InputAttachment = 38,
+    SparseResidency = 39,
+    MinLod = 40,
+    Sampled1D = 41,
+    Image1D = 42,
+    SampledCubeArray = 43,
+    SampledBuffer = 44,
+    ImageBuffer = 45,
+    ImageMSArray = 46,
+    StorageImageExtendedFormats = 47,
+    ImageQuery = 48,
+    DerivativeControl = 49,
+    InterpolationFunction = 50,
+    TransformFeedback = 51,
+    GeometryStreams = 52,
+    StorageImageReadWithoutFormat = 53,
+    StorageImageWriteWithoutFormat = 54,
+    MultiViewport = 55,
+    SubgroupDispatch = 56,
+    NamedBarrier = 57,
+    PipeStorage = 58,
+    GroupNonUniform = 59,
+    GroupNonUniformVote = 60,
+    GroupNonUniformArithmetic = 61,
+    GroupNonUniformBallot = 62,
+    GroupNonUniformShuffle = 63,
+    GroupNonUniformShuffleRelative = 64,
+    GroupNonUniformClustered = 65,
+    GroupNonUniformQuad = 66,
+    ShaderLayer = 67,
+    ShaderViewportIndex = 68,
+    UniformDecoration = 69,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum AddressingModel {
+bitflag_enum!(AddressingModel {
     Logical = 0,
-    Physical32,
-    Physical64,
+    Physical32 = 1,
+    Physical64 = 2,
     PhysicalStorageBuffer64 = 5348,
-}
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum MemoryModel {
+bitflag_enum!(MemoryModel {
     Simple = 0,
-    GLSL450,
-    OpenCL,
-    Vulkan,
-}
+    GLSL450 = 1,
+    OpenCL = 2,
+    Vulkan = 3,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum ExecutionModel {
+bitflag_enum!(ExecutionModel {
     Vertex = 0,
-    TessellationControl,
-    TessellationEvaluation,
-    Geometry,
-    Fragment,
-    GLCompute,
-    Kernel,
-}
+    TessellationControl = 1,
+    TessellationEvaluation = 2,
+    Geometry = 3,
+    Fragment = 4,
+    GLCompute = 5,
+    Kernel = 6,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-pub enum StorageClass {
+bitflag_enum!(StorageClass {
     UniformConstant = 0,
-    Input,
-    Uniform,
-    Output,
-    Workgroup,
-    CrossWorkgroup,
-    Private,
-    Function,
-    Generic,
-    PushConstant,
-    AtomicCounter,
-    Image,
-    StorageBuffer,
-}
+    Input = 1,
+    Uniform = 2,
+    Output = 3,
+    Workgroup = 4,
+    CrossWorkgroup = 5,
+    Private = 6,
+    Function = 7,
+    Generic = 8,
+    PushConstant = 9,
+    AtomicCounter = 10,
+    Image = 11,
+    StorageBuffer = 12,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum SourceLanguage {
+bitflag_enum!(SourceLanguage {
     Unknown = 0,
-    ESSL,
-    GLSL,
-    OpenCL_C,
-    OpenCL_CPP,
-    HLSL,
-    CPP_for_OpenCL,
-}
+    ESSL = 1,
+    GLSL = 2,
+    OpenCL_C = 3,
+    OpenCL_CPP = 4,
+    HLSL = 5,
+    CPP_for_OpenCL = 6,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum ExecutionMode {
+bitflag_enum!(ExecutionMode {
     Invocations = 0,
-    SpacingEqual,
-    SpacingFractionalEven,
-    SpacingFractionalOdd,
-    VertexOrderCw,
-    VertexOrderCcw,
-    PixelCenterInteger,
-    OriginUpperLeft,
-    OriginLowerLeft,
-    EarlyFragmentTests,
-    PointMode,
-    Xfb,
-    DepthReplacing,
-    DepthGreater,
-    DepthLess,
-    DepthUnchanged,
-    LocalSize,
-    LocalSizeHint,
-    InputPoints,
-    InputLines,
-    InputLinesAdjacency,
-    Triangles,
-    InputTrianglesAdjacency,
-    Quads,
-    Isolines,
-    OutputVertices,
-    OutputPoints,
-    OutputLineStrip,
-    OutputTriangleStrip,
-    VecTypeHint,
-    ContractionOff,
-    Initializer,
-    Finalizer,
-    SubgroupSize,
-    SubgroupsPerWorkgroup,
-    SubgroupsPerWorkgroupId,
-    LocalSizeId,
-    LocalSizeHintId,
+    SpacingEqual = 1,
+    SpacingFractionalEven = 2,
+    SpacingFractionalOdd = 3,
+    VertexOrderCw = 4,
+    VertexOrderCcw = 5,
+    PixelCenterInteger = 6,
+    OriginUpperLeft = 7,
+    OriginLowerLeft = 8,
+    EarlyFragmentTests = 9,
+    PointMode = 10,
+    Xfb = 11,
+    DepthReplacing = 12,
+    DepthGreater = 13,
+    DepthLess = 14,
+    DepthUnchanged = 15,
+    LocalSize = 16,
+    LocalSizeHint = 17,
+    InputPoints = 18,
+    InputLines = 19,
+    InputLinesAdjacency = 20,
+    Triangles = 21,
+    InputTrianglesAdjacency = 22,
+    Quads = 23,
+    Isolines = 24,
+    OutputVertices = 25,
+    OutputPoints = 26,
+    OutputLineStrip = 27,
+    OutputTriangleStrip = 28,
+    VecTypeHint = 29,
+    ContractionOff = 30,
+    Initializer = 31,
+    Finalizer = 32,
+    SubgroupSize = 33,
+    SubgroupsPerWorkgroup = 34,
+    SubgroupsPerWorkgroupId = 35,
+    LocalSizeId = 36,
+    LocalSizeHintId = 37,
     // TODO: Extensions...
-}
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum Dim {
+bitflag_enum!(Dim {
     Dim1D = 0,
-    Dim2D,
-    Dim3D,
-    Cube,
-    Rect,
-    Buffer,
-    SubpassData,
-}
+    Dim2D = 1,
+    Dim3D = 2,
+    Cube = 3,
+    Rect = 4,
+    Buffer = 5,
+    SubpassData = 6,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum ImageFormat {
+bitflag_enum!(ImageFormat {
     Unknown = 0,
-    Rgba32f,
-    Rgba16f,
-    R32f,
-    Rgba8,
-    Rgba8Snorm,
-    Rg32f,
-    Rg16f,
-    R11fG11fB10f,
-    R16f,
-    Rgba16,
-    Rgb10A2,
-    Rg16,
-    Rg8,
-    R16,
-    R8,
-    Rgba16Snorm,
-    Rg16Snorm,
-    Rg8Snorm,
-    R16Snorm,
-    R8Snorm,
-    Rgba32i,
-    Rgba16i,
-    Rgba8i,
-    R32i,
-    Rg32i,
-    Rg16i,
-    Rg8i,
-    R16i,
-    R8i,
-    Rgba32ui,
-    Rgba16ui,
-    Rgba8ui,
-    R32ui,
-    Rgb10a2ui,
-    Rg32ui,
-    Rg16ui,
-    Rg8ui,
-    R16ui,
-    R8ui,
-    R64ui,
-    R64i,
-}
+    Rgba32f = 1,
+    Rgba16f = 2,
+    R32f = 3,
+    Rgba8 = 4,
+    Rgba8Snorm = 5,
+    Rg32f = 6,
+    Rg16f = 7,
+    R11fG11fB10f = 8,
+    R16f = 9,
+    Rgba16 = 10,
+    Rgb10A2 = 11,
+    Rg16 = 12,
+    Rg8 = 13,
+    R16 = 14,
+    R8 = 15,
+    Rgba16Snorm = 16,
+    Rg16Snorm = 17,
+    Rg8Snorm = 18,
+    R16Snorm = 19,
+    R8Snorm = 20,
+    Rgba32i = 21,
+    Rgba16i = 22,
+    Rgba8i = 23,
+    R32i = 24,
+    Rg32i = 25,
+    Rg16i = 26,
+    Rg8i = 27,
+    R16i = 28,
+    R8i = 29,
+    Rgba32ui = 30,
+    Rgba16ui = 31,
+    Rgba8ui = 32,
+    R32ui = 33,
+    Rgb10a2ui = 34,
+    Rg32ui = 35,
+    Rg16ui = 36,
+    Rg8ui = 37,
+    R16ui = 38,
+    R8ui = 39,
+    R64ui = 40,
+    R64i = 41,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum AccessQualifier {
+bitflag_enum!(AccessQualifier {
     ReadOnly = 0,
-    WriteOnly,
-    ReadWrite,
-}
+    WriteOnly = 1,
+    ReadWrite = 2,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum SamplerAddressingMode {
+bitflag_enum!(SamplerAddressingMode {
     None = 0,
-    ClampToEdge,
-    Clamp,
-    Repeat,
-    RepeatMirrored,
-}
+    ClampToEdge = 1,
+    Clamp = 2,
+    Repeat = 3,
+    RepeatMirrored = 4,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum SamplerFilterMode {
+bitflag_enum!(SamplerFilterMode {
     Nearest = 0,
-    Linear,
-}
+    Linear = 1,
+});
 
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum Decoration {
+bitflag_enum!(Decoration {
     RelaxedPrecision = 0,
-    SpecId,
-    Block,
-    BufferBlock,
-    RowMajor,
-    ColMajor,
-    ArrayStride,
-    MatrixStride,
-    GLSLShared,
-    GLSLPacked,
-    CPacked,
-    BuiltIn,
+    SpecId = 1,
+    Block = 2,
+    BufferBlock = 3,
+    RowMajor = 4,
+    ColMajor = 5,
+    ArrayStride = 6,
+    MatrixStride = 7,
+    GLSLShared = 8,
+    GLSLPacked = 9,
+    CPacked = 10,
+    BuiltIn = 11,
     NoPerspective = 13,
-    Flat,
-    Patch,
-    Centroid,
-    Sample,
-    Invariant,
-    Restrict,
-    Aliased,
-    Volatile,
-    Constant,
-    Coherent,
-    NonWritable,
-    NonReadable,
-    Uniform,
-    UniformId,
-    SaturatedConversion,
-    Stream,
+    Flat = 14,
+    Patch = 15,
+    Centroid = 16,
+    Sample = 17,
+    Invariant = 18,
+    Restrict = 19,
+    Aliased = 20,
+    Volatile = 21,
+    Constant = 22,
+    Coherent = 23,
+    NonWritable = 24,
+    NonReadable = 25,
+    Uniform = 26,
+    UniformId = 27,
+    SaturatedConversion = 28,
+    Stream = 29,
     Location = 30,
-    Component,
-    Index,
-    Binding,
-    DescriptorSet,
-    Offset,
-    XfbBuffer,
-    XfbStride,
-    FuncParamAttr,
-    FPRoundingMode,
-    FPFastMathMode,
-    LinkageAttributes,
-    NoContraction,
-    InputAttachmentIndex,
-    Alignment,
-    MaxByteOffset,
-    AlignmentId,
-    MaxByteOffsetId,
+    Component = 31,
+    Index = 32,
+    Binding = 33,
+    DescriptorSet = 34,
+    Offset = 35,
+    XfbBuffer = 36,
+    XfbStride = 37,
+    FuncParamAttr = 38,
+    FPRoundingMode = 39,
+    FPFastMathMode = 40,
+    LinkageAttributes = 41,
+    NoContraction = 42,
+    InputAttachmentIndex = 43,
+    Alignment = 44,
+    MaxByteOffset = 45,
+    AlignmentId = 46,
+    MaxByteOffsetId = 47,
     // TODO: Extensions
-}
+});
 
 // TODO: Bit flags!!
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum FunctionControl {
+bitflag_enum!(FunctionControl {
     None = 0,
     Inline = 1,
     DontInline = 2,
     Pure = 4,
     Const = 8,
-}
+});
 
 // TODO: Bit flags!!
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum MemoryOperands {
+bitflag_enum!(MemoryOperands {
     None = 0,
     Volatile = 1,
     Aligned = 2,
@@ -1769,13 +1752,10 @@ pub enum MemoryOperands {
     MakePointerAvailable = 8,
     MakePointerVisible = 0x10,
     NonPrivatePointer = 0x20,
-}
+});
 
 // TODO: Bit flags!
-#[repr(u32)]
-#[derive(Debug, Copy, Clone, PartialEq)]
-#[allow(non_camel_case_types)]
-pub enum ImageOperands {
+bitflag_enum!(ImageOperands {
     None = 0,
     Bias = 1,
     Lod = 2,
@@ -1793,388 +1773,7 @@ pub enum ImageOperands {
     ZeroExtend = 0x2000,
     Nontemporal = 0x4000,
     Offsets = 0x10000,
-}
-
-impl From<u32> for Capability {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Matrix as u32 => Self::Matrix,
-            x if x == Self::Shader as u32 => Self::Shader,
-            x if x == Self::Geometry as u32 => Self::Geometry,
-            x if x == Self::Tessellation as u32 => Self::Tessellation,
-            x if x == Self::Addresses as u32 => Self::Addresses,
-            x if x == Self::Linkage as u32 => Self::Linkage,
-            x if x == Self::Kernel as u32 => Self::Kernel,
-            x if x == Self::Vector16 as u32 => Self::Vector16,
-            x if x == Self::Float16Buffer as u32 => Self::Float16Buffer,
-            x if x == Self::Float16 as u32 => Self::Float16,
-            x if x == Self::Float64 as u32 => Self::Float64,
-            x if x == Self::Int64 as u32 => Self::Int64,
-            x if x == Self::Int64Atomics as u32 => Self::Int64Atomics,
-            x if x == Self::ImageBasic as u32 => Self::ImageBasic,
-            x if x == Self::ImageReadWrite as u32 => Self::ImageReadWrite,
-            x if x == Self::ImageMipmap as u32 => Self::ImageMipmap,
-            x if x == Self::Pipes as u32 => Self::Pipes,
-            x if x == Self::Groups as u32 => Self::Groups,
-            x if x == Self::DeviceEnqueue as u32 => Self::DeviceEnqueue,
-            x if x == Self::LiteralSampler as u32 => Self::LiteralSampler,
-            x if x == Self::AtomicStorage as u32 => Self::AtomicStorage,
-            x if x == Self::Int16 as u32 => Self::Int16,
-            x if x == Self::TessellationPointSize as u32 => Self::TessellationPointSize,
-            x if x == Self::GeometryPointSize as u32 => Self::GeometryPointSize,
-            x if x == Self::ImageGatherExtended as u32 => Self::ImageGatherExtended,
-            x if x == Self::StorageImageMultisample as u32 => Self::StorageImageMultisample,
-            x if x == Self::UniformBufferArrayDynamicIndexing as u32 => Self::UniformBufferArrayDynamicIndexing,
-            x if x == Self::SampledImageArrayDynamicIndexing as u32 => Self::SampledImageArrayDynamicIndexing,
-            x if x == Self::StorageBufferArrayDynamicIndexing as u32 => Self::StorageBufferArrayDynamicIndexing,
-            x if x == Self::StorageImageArrayDynamicIndexing as u32 => Self::StorageImageArrayDynamicIndexing,
-            x if x == Self::ClipDistance as u32 => Self::ClipDistance,
-            x if x == Self::CullDistance as u32 => Self::CullDistance,
-            x if x == Self::ImageCubeArray as u32 => Self::ImageCubeArray,
-            x if x == Self::SampleRateShading as u32 => Self::SampleRateShading,
-            x if x == Self::ImageRect as u32 => Self::ImageRect,
-            x if x == Self::SampledRect as u32 => Self::SampledRect,
-            x if x == Self::GenericPointer as u32 => Self::GenericPointer,
-            x if x == Self::Int8 as u32 => Self::Int8,
-            x if x == Self::InputAttachment as u32 => Self::InputAttachment,
-            x if x == Self::SparseResidency as u32 => Self::SparseResidency,
-            x if x == Self::MinLod as u32 => Self::MinLod,
-            x if x == Self::Sampled1D as u32 => Self::Sampled1D,
-            x if x == Self::Image1D as u32 => Self::Image1D,
-            x if x == Self::SampledCubeArray as u32 => Self::SampledCubeArray,
-            x if x == Self::SampledBuffer as u32 => Self::SampledBuffer,
-            x if x == Self::ImageBuffer as u32 => Self::ImageBuffer,
-            x if x == Self::ImageMSArray as u32 => Self::ImageMSArray,
-            x if x == Self::StorageImageExtendedFormats as u32 => Self::StorageImageExtendedFormats,
-            x if x == Self::ImageQuery as u32 => Self::ImageQuery,
-            x if x == Self::DerivativeControl as u32 => Self::DerivativeControl,
-            x if x == Self::InterpolationFunction as u32 => Self::InterpolationFunction,
-            x if x == Self::TransformFeedback as u32 => Self::TransformFeedback,
-            x if x == Self::GeometryStreams as u32 => Self::GeometryStreams,
-            x if x == Self::StorageImageReadWithoutFormat as u32 => Self::StorageImageReadWithoutFormat,
-            x if x == Self::StorageImageWriteWithoutFormat as u32 => Self::StorageImageWriteWithoutFormat,
-            x if x == Self::MultiViewport as u32 => Self::MultiViewport,
-            x if x == Self::SubgroupDispatch as u32 => Self::SubgroupDispatch,
-            x if x == Self::NamedBarrier as u32 => Self::NamedBarrier,
-            x if x == Self::PipeStorage as u32 => Self::PipeStorage,
-            x if x == Self::GroupNonUniform as u32 => Self::GroupNonUniform,
-            x if x == Self::GroupNonUniformVote as u32 => Self::GroupNonUniformVote,
-            x if x == Self::GroupNonUniformArithmetic as u32 => Self::GroupNonUniformArithmetic,
-            x if x == Self::GroupNonUniformBallot as u32 => Self::GroupNonUniformBallot,
-            x if x == Self::GroupNonUniformShuffle as u32 => Self::GroupNonUniformShuffle,
-            x if x == Self::GroupNonUniformShuffleRelative as u32 => Self::GroupNonUniformShuffleRelative,
-            x if x == Self::GroupNonUniformClustered as u32 => Self::GroupNonUniformClustered,
-            x if x == Self::GroupNonUniformQuad as u32 => Self::GroupNonUniformQuad,
-            x if x == Self::ShaderLayer as u32 => Self::ShaderLayer,
-            x if x == Self::ShaderViewportIndex as u32 => Self::ShaderViewportIndex,
-            x if x == Self::UniformDecoration as u32 => Self::UniformDecoration,
-            n => panic!("Capability {}", n),
-        }
-    }
-}
-
-impl From<u32> for AddressingModel {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Logical as u32 => Self::Logical,
-            x if x == Self::Physical32 as u32 => Self::Physical32,
-            x if x == Self::Physical64 as u32 => Self::Physical64,
-            x if x == Self::PhysicalStorageBuffer64 as u32 => Self::PhysicalStorageBuffer64,
-            n => panic!("AddressingModel {}", n),
-        }
-    }
-}
-
-impl From<u32> for MemoryModel {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Simple as u32 => Self::Simple,
-            x if x == Self::GLSL450 as u32 => Self::GLSL450,
-            x if x == Self::OpenCL as u32 => Self::OpenCL,
-            x if x == Self::Vulkan as u32 => Self::Vulkan,
-            n => panic!("MemoryModel {}", n),
-        }
-    }
-}
-
-impl From<u32> for ExecutionModel {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Vertex as u32 => Self::Vertex,
-            x if x == Self::TessellationControl as u32 => Self::TessellationControl,
-            x if x == Self::TessellationEvaluation as u32 => Self::TessellationEvaluation,
-            x if x == Self::Geometry as u32 => Self::Geometry,
-            x if x == Self::Fragment as u32 => Self::Fragment,
-            x if x == Self::GLCompute as u32 => Self::GLCompute,
-            x if x == Self::Kernel as u32 => Self::Kernel,
-            n => panic!("ExecutionModel {}", n),
-        }
-    }
-}
-
-impl From<u32> for StorageClass {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::UniformConstant as u32 => Self::UniformConstant,
-            x if x == Self::Input as u32 => Self::Input,
-            x if x == Self::Uniform as u32 => Self::Uniform,
-            x if x == Self::Output as u32 => Self::Output,
-            x if x == Self::Workgroup as u32 => Self::Workgroup,
-            x if x == Self::CrossWorkgroup as u32 => Self::CrossWorkgroup,
-            x if x == Self::Private as u32 => Self::Private,
-            x if x == Self::Function as u32 => Self::Function,
-            x if x == Self::Generic as u32 => Self::Generic,
-            x if x == Self::PushConstant as u32 => Self::PushConstant,
-            x if x == Self::AtomicCounter as u32 => Self::AtomicCounter,
-            x if x == Self::Image as u32 => Self::Image,
-            x if x == Self::StorageBuffer as u32 => Self::StorageBuffer,
-            n => panic!("StorageClass {}", n),
-        }
-    }
-}
-
-impl From<u32> for SourceLanguage {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Unknown as u32 => Self::Unknown,
-            x if x == Self::ESSL as u32 => Self::ESSL,
-            x if x == Self::GLSL as u32 => Self::GLSL,
-            x if x == Self::OpenCL_C as u32 => Self::OpenCL_C,
-            x if x == Self::OpenCL_CPP as u32 => Self::OpenCL_CPP,
-            x if x == Self::HLSL as u32 => Self::HLSL,
-            x if x == Self::CPP_for_OpenCL as u32 => Self::CPP_for_OpenCL,
-            n => panic!("SourceLanguage {}", n),
-        }
-    }
-}
-
-impl From<u32> for ExecutionMode {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Invocations as u32 => Self::Invocations,
-            x if x == Self::SpacingEqual as u32 => Self::SpacingEqual,
-            x if x == Self::SpacingFractionalEven as u32 => Self::SpacingFractionalEven,
-            x if x == Self::SpacingFractionalOdd as u32 => Self::SpacingFractionalOdd,
-            x if x == Self::VertexOrderCw as u32 => Self::VertexOrderCw,
-            x if x == Self::VertexOrderCcw as u32 => Self::VertexOrderCcw,
-            x if x == Self::PixelCenterInteger as u32 => Self::PixelCenterInteger,
-            x if x == Self::OriginUpperLeft as u32 => Self::OriginUpperLeft,
-            x if x == Self::OriginLowerLeft as u32 => Self::OriginLowerLeft,
-            x if x == Self::EarlyFragmentTests as u32 => Self::EarlyFragmentTests,
-            x if x == Self::PointMode as u32 => Self::PointMode,
-            x if x == Self::Xfb as u32 => Self::Xfb,
-            x if x == Self::DepthReplacing as u32 => Self::DepthReplacing,
-            x if x == Self::DepthGreater as u32 => Self::DepthGreater,
-            x if x == Self::DepthLess as u32 => Self::DepthLess,
-            x if x == Self::DepthUnchanged as u32 => Self::DepthUnchanged,
-            x if x == Self::LocalSize as u32 => Self::LocalSize,
-            x if x == Self::LocalSizeHint as u32 => Self::LocalSizeHint,
-            x if x == Self::InputPoints as u32 => Self::InputPoints,
-            x if x == Self::InputLines as u32 => Self::InputLines,
-            x if x == Self::InputLinesAdjacency as u32 => Self::InputLinesAdjacency,
-            x if x == Self::Triangles as u32 => Self::Triangles,
-            x if x == Self::InputTrianglesAdjacency as u32 => Self::InputTrianglesAdjacency,
-            x if x == Self::Quads as u32 => Self::Quads,
-            x if x == Self::Isolines as u32 => Self::Isolines,
-            x if x == Self::OutputVertices as u32 => Self::OutputVertices,
-            x if x == Self::OutputPoints as u32 => Self::OutputPoints,
-            x if x == Self::OutputLineStrip as u32 => Self::OutputLineStrip,
-            x if x == Self::OutputTriangleStrip as u32 => Self::OutputTriangleStrip,
-            x if x == Self::VecTypeHint as u32 => Self::VecTypeHint,
-            x if x == Self::ContractionOff as u32 => Self::ContractionOff,
-            x if x == Self::Initializer as u32 => Self::Initializer,
-            x if x == Self::Finalizer as u32 => Self::Finalizer,
-            x if x == Self::SubgroupSize as u32 => Self::SubgroupSize,
-            x if x == Self::SubgroupsPerWorkgroup as u32 => Self::SubgroupsPerWorkgroup,
-            x if x == Self::SubgroupsPerWorkgroupId as u32 => Self::SubgroupsPerWorkgroupId,
-            x if x == Self::LocalSizeId as u32 => Self::LocalSizeId,
-            x if x == Self::LocalSizeHintId as u32 => Self::LocalSizeHintId,
-            n => panic!("ExecutionMode {}", n),
-        }
-    }
-}
-
-impl From<u32> for Dim {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Dim1D as u32 => Self::Dim1D,
-            x if x == Self::Dim2D as u32 => Self::Dim2D,
-            x if x == Self::Dim3D as u32 => Self::Dim3D,
-            x if x == Self::Cube as u32 => Self::Cube,
-            x if x == Self::Rect as u32 => Self::Rect,
-            x if x == Self::Buffer as u32 => Self::Buffer,
-            x if x == Self::SubpassData as u32 => Self::SubpassData,
-            n => panic!("Dim {}", n),
-        }
-    }
-}
-
-impl From<u32> for ImageFormat {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Unknown as u32 => Self::Unknown,
-            x if x == Self::Rgba32f as u32 => Self::Rgba32f,
-            x if x == Self::Rgba16f as u32 => Self::Rgba16f,
-            x if x == Self::R32f as u32 => Self::R32f,
-            x if x == Self::Rgba8 as u32 => Self::Rgba8,
-            x if x == Self::Rgba8Snorm as u32 => Self::Rgba8Snorm,
-            x if x == Self::Rg32f as u32 => Self::Rg32f,
-            x if x == Self::Rg16f as u32 => Self::Rg16f,
-            x if x == Self::R11fG11fB10f as u32 => Self::R11fG11fB10f,
-            x if x == Self::R16f as u32 => Self::R16f,
-            x if x == Self::Rgba16 as u32 => Self::Rgba16,
-            x if x == Self::Rgb10A2 as u32 => Self::Rgb10A2,
-            x if x == Self::Rg16 as u32 => Self::Rg16,
-            x if x == Self::Rg8 as u32 => Self::Rg8,
-            x if x == Self::R16 as u32 => Self::R16,
-            x if x == Self::R8 as u32 => Self::R8,
-            x if x == Self::Rgba16Snorm as u32 => Self::Rgba16Snorm,
-            x if x == Self::Rg16Snorm as u32 => Self::Rg16Snorm,
-            x if x == Self::Rg8Snorm as u32 => Self::Rg8Snorm,
-            x if x == Self::R16Snorm as u32 => Self::R16Snorm,
-            x if x == Self::R8Snorm as u32 => Self::R8Snorm,
-            x if x == Self::Rgba32i as u32 => Self::Rgba32i,
-            x if x == Self::Rgba16i as u32 => Self::Rgba16i,
-            x if x == Self::Rgba8i as u32 => Self::Rgba8i,
-            x if x == Self::R32i as u32 => Self::R32i,
-            x if x == Self::Rg32i as u32 => Self::Rg32i,
-            x if x == Self::Rg16i as u32 => Self::Rg16i,
-            x if x == Self::Rg8i as u32 => Self::Rg8i,
-            x if x == Self::R16i as u32 => Self::R16i,
-            x if x == Self::R8i as u32 => Self::R8i,
-            x if x == Self::Rgba32ui as u32 => Self::Rgba32ui,
-            x if x == Self::Rgba16ui as u32 => Self::Rgba16ui,
-            x if x == Self::Rgba8ui as u32 => Self::Rgba8ui,
-            x if x == Self::R32ui as u32 => Self::R32ui,
-            x if x == Self::Rgb10a2ui as u32 => Self::Rgb10a2ui,
-            x if x == Self::Rg32ui as u32 => Self::Rg32ui,
-            x if x == Self::Rg16ui as u32 => Self::Rg16ui,
-            x if x == Self::Rg8ui as u32 => Self::Rg8ui,
-            x if x == Self::R16ui as u32 => Self::R16ui,
-            x if x == Self::R8ui as u32 => Self::R8ui,
-            x if x == Self::R64ui as u32 => Self::R64ui,
-            x if x == Self::R64i as u32 => Self::R64i,
-            n => panic!("ImageFormat {}", n),
-        }
-    }
-}
-
-impl From<u32> for AccessQualifier {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::ReadOnly as u32 => Self::ReadOnly,
-            x if x == Self::WriteOnly as u32 => Self::WriteOnly,
-            x if x == Self::ReadWrite as u32 => Self::ReadWrite,
-            n => panic!("AccessQualifier {}", n),
-        }
-    }
-}
-
-impl From<u32> for SamplerAddressingMode {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::None as u32 => Self::None,
-            x if x == Self::ClampToEdge as u32 => Self::ClampToEdge,
-            x if x == Self::Clamp as u32 => Self::Clamp,
-            x if x == Self::Repeat as u32 => Self::Repeat,
-            x if x == Self::RepeatMirrored as u32 => Self::RepeatMirrored,
-            n => panic!("SamplerAddressingMode {}", n),
-        }
-    }
-}
-
-impl From<u32> for SamplerFilterMode {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::Nearest as u32 => Self::Nearest,
-            x if x == Self::Linear as u32 => Self::Linear,
-            n => panic!("SamplerFilterMode {}", n),
-        }
-    }
-}
-
-impl From<u32> for Decoration {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::RelaxedPrecision as u32 => Self::RelaxedPrecision,
-            x if x == Self::SpecId as u32 => Self::SpecId,
-            x if x == Self::Block as u32 => Self::Block,
-            x if x == Self::BufferBlock as u32 => Self::BufferBlock,
-            x if x == Self::RowMajor as u32 => Self::RowMajor,
-            x if x == Self::ColMajor as u32 => Self::ColMajor,
-            x if x == Self::ArrayStride as u32 => Self::ArrayStride,
-            x if x == Self::MatrixStride as u32 => Self::MatrixStride,
-            x if x == Self::GLSLShared as u32 => Self::GLSLShared,
-            x if x == Self::GLSLPacked as u32 => Self::GLSLPacked,
-            x if x == Self::CPacked as u32 => Self::CPacked,
-            x if x == Self::BuiltIn as u32 => Self::BuiltIn,
-            x if x == Self::NoPerspective as u32 => Self::NoPerspective,
-            x if x == Self::Flat as u32 => Self::Flat,
-            x if x == Self::Patch as u32 => Self::Patch,
-            x if x == Self::Centroid as u32 => Self::Centroid,
-            x if x == Self::Sample as u32 => Self::Sample,
-            x if x == Self::Invariant as u32 => Self::Invariant,
-            x if x == Self::Restrict as u32 => Self::Restrict,
-            x if x == Self::Aliased as u32 => Self::Aliased,
-            x if x == Self::Volatile as u32 => Self::Volatile,
-            x if x == Self::Constant as u32 => Self::Constant,
-            x if x == Self::Coherent as u32 => Self::Coherent,
-            x if x == Self::NonWritable as u32 => Self::NonWritable,
-            x if x == Self::NonReadable as u32 => Self::NonReadable,
-            x if x == Self::Uniform as u32 => Self::Uniform,
-            x if x == Self::UniformId as u32 => Self::UniformId,
-            x if x == Self::SaturatedConversion as u32 => Self::SaturatedConversion,
-            x if x == Self::Stream as u32 => Self::Stream,
-            x if x == Self::Location as u32 => Self::Location,
-            x if x == Self::Component as u32 => Self::Component,
-            x if x == Self::Index as u32 => Self::Index,
-            x if x == Self::Binding as u32 => Self::Binding,
-            x if x == Self::DescriptorSet as u32 => Self::DescriptorSet,
-            x if x == Self::Offset as u32 => Self::Offset,
-            x if x == Self::XfbBuffer as u32 => Self::XfbBuffer,
-            x if x == Self::XfbStride as u32 => Self::XfbStride,
-            x if x == Self::FuncParamAttr as u32 => Self::FuncParamAttr,
-            x if x == Self::FPRoundingMode as u32 => Self::FPRoundingMode,
-            x if x == Self::FPFastMathMode as u32 => Self::FPFastMathMode,
-            x if x == Self::LinkageAttributes as u32 => Self::LinkageAttributes,
-            x if x == Self::NoContraction as u32 => Self::NoContraction,
-            x if x == Self::InputAttachmentIndex as u32 => Self::InputAttachmentIndex,
-            x if x == Self::Alignment as u32 => Self::Alignment,
-            x if x == Self::MaxByteOffset as u32 => Self::MaxByteOffset,
-            x if x == Self::AlignmentId as u32 => Self::AlignmentId,
-            x if x == Self::MaxByteOffsetId as u32 => Self::MaxByteOffsetId,
-            n => panic!("Decoration {}", n),
-        }
-    }
-}
-
-impl From<u32> for FunctionControl {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::None as u32 => Self::None,
-            x if x == Self::Inline as u32 => Self::Inline,
-            x if x == Self::DontInline as u32 => Self::DontInline,
-            x if x == Self::Pure as u32 => Self::Pure,
-            x if x == Self::Const as u32 => Self::Const,
-            n => panic!("FunctionControl {}", n),
-        }
-    }
-}
-
-impl From<u32> for MemoryOperands {
-    fn from(x: u32) -> Self {
-        match x {
-            x if x == Self::None as u32 => Self::None,
-            x if x == Self::Volatile as u32 => Self::Volatile,
-            x if x == Self::Aligned as u32 => Self::Aligned,
-            x if x == Self::Nontemporal as u32 => Self::Nontemporal,
-            x if x == Self::MakePointerAvailable as u32 => Self::MakePointerAvailable,
-            x if x == Self::MakePointerVisible as u32 => Self::MakePointerVisible,
-            x if x == Self::NonPrivatePointer as u32 => Self::NonPrivatePointer,
-            n => panic!("MemoryOperands {}", n),
-        }
-    }
-}
+});
 
 #[cfg(test)]
 mod tests {
