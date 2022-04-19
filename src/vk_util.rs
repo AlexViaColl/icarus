@@ -168,6 +168,7 @@ pub struct VkPhysicalDeviceMeta {
 }
 
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
+const MAX_TEXTURES: usize = 10;
 //#[derive(Default)]
 pub struct VkContext {
     pub allocator: *const VkAllocationCallbacks,
@@ -214,7 +215,7 @@ pub struct VkContext {
 
     pub descriptor_set_layout: VkDescriptorSetLayout,
     pub descriptor_pool: VkDescriptorPool,
-    pub descriptor_sets: [VkDescriptorSet; MAX_FRAMES_IN_FLIGHT],
+    pub descriptor_sets: [VkDescriptorSet; MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT],
 
     pub render_pass: VkRenderPass,
 
@@ -224,6 +225,7 @@ pub struct VkContext {
 
     pub pipeline_layout: VkPipelineLayout,
     pub graphics_pipeline: VkPipeline,
+    pub shader_id: String,
 
     pub command_pool: VkCommandPool,
     pub command_buffers: [VkCommandBuffer; MAX_FRAMES_IN_FLIGHT],
@@ -268,13 +270,14 @@ impl Default for VkContext {
             transform_storage_buffer: Buffer::default(),
             descriptor_set_layout: VkDescriptorSetLayout::default(),
             descriptor_pool: VkDescriptorPool::default(),
-            descriptor_sets: [VkDescriptorSet::default(); MAX_FRAMES_IN_FLIGHT],
+            descriptor_sets: [VkDescriptorSet::default(); MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT],
             render_pass: VkRenderPass::default(),
             framebuffers: vec![],
             frame_width: 0.0,
             frame_height: 0.0,
             pipeline_layout: VkPipelineLayout::default(),
             graphics_pipeline: VkPipeline::default(),
+            shader_id: String::from("shader"),
             command_pool: VkCommandPool::default(),
             command_buffers: [VkCommandBuffer::default(); MAX_FRAMES_IN_FLIGHT],
             image_available_semaphores: [VkSemaphore::default(); MAX_FRAMES_IN_FLIGHT],
@@ -287,8 +290,12 @@ impl Default for VkContext {
 }
 
 impl VkContext {
-    pub fn init(platform: &Platform, ssbo_size: usize, ubo_size: usize) -> Self {
+    // TODO: Create VkCtxOptions struct to provide arguments
+    pub fn init(platform: &Platform, ssbo_size: usize, ubo_size: usize, shader_id: Option<String>) -> Self {
         let mut vk_ctx = VkContext::default();
+        if let Some(shader_id) = shader_id {
+            vk_ctx.shader_id = shader_id;
+        }
 
         let enabled_layers = [VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME];
         let enabled_extensions =
@@ -311,7 +318,7 @@ impl VkContext {
         vk_ctx.create_command_pool();
         vk_ctx.allocate_command_buffers();
 
-        vk_ctx.create_vertex_buffer();
+        vk_ctx.create_vertex_buffer_default();
         vk_ctx.create_index_buffer();
 
         // Shader Storage Buffer Object
@@ -331,15 +338,22 @@ impl VkContext {
 
         vk_ctx.create_framebuffers();
 
-        vk_ctx.default_texture_image = vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1);
         vk_ctx.create_sampler();
-
+        vk_ctx.default_texture_image = vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1);
+        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1)); // 0
         vk_ctx.update_descriptor_sets(global_state);
 
         vk_ctx
     }
 
-    pub fn render<RenderCommand>(&mut self, render_commands: &[RenderCommand], clear_color: Option<Color>) {
+    // TODO: Figure out a better way to pass data from CPU -> GPU depending on the Shader.
+    pub fn render<RenderCommand>(
+        &mut self,
+        render_commands: &[RenderCommand],
+        clear_color: Option<Color>,
+        material_ids: &[u32],
+        rotations: &[u32],
+    ) {
         unsafe {
             let cmd = self.command_buffers[self.current_frame];
             let fence = self.in_flight_fences[self.current_frame];
@@ -372,6 +386,28 @@ impl VkContext {
             );
 
             check!(vkResetFences(self.device, 1, &fence));
+
+            for img_idx in 0..self.texture_images.len() {
+                vkUpdateDescriptorSets(
+                    self.device,
+                    1,
+                    &VkWriteDescriptorSet {
+                        dstSet: self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame],
+                        dstBinding: 2,
+                        dstArrayElement: 0,
+                        descriptorCount: 1,
+                        descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                        pImageInfo: &VkDescriptorImageInfo {
+                            sampler: self.texture_sampler,
+                            imageView: self.texture_images[img_idx].view,
+                            imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        },
+                        ..VkWriteDescriptorSet::default()
+                    },
+                    0,
+                    ptr::null(),
+                );
+            }
 
             vkResetCommandBuffer(cmd, 0.into());
 
@@ -411,11 +447,54 @@ impl VkContext {
             }
 
             let layout = self.pipeline_layout;
-            //for i in 0..render_commands.len() {
-            let dsc_set = self.descriptor_sets[self.current_frame];
-            vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &dsc_set, 0, ptr::null());
-            vkCmdDrawIndexed(cmd, 6 /*index_count as u32*/, render_commands.len() as u32, 0, 0, 0);
-            //}
+            //println!("#Render commands: {}", render_commands.len());
+            match self.shader_id.as_str() {
+                "snake" => {
+                    for i in 0..render_commands.len() {
+                        let rotation_id = rotations[i];
+                        let mut v = (0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 1_u32, rotation_id);
+                        ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 5);
+                        if i == 0 {
+                            v.5 = 0;
+                        } else {
+                            v.5 = 1;
+                        }
+                        let v = &v as *const _ as *const c_void;
+                        vkCmdPushConstants(cmd, self.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT.into(), 0, 7 * 4, v);
+
+                        let img_idx = material_ids[i] as usize;
+                        let dsc_set = self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame];
+                        if i == render_commands.len() - 1 {}
+
+                        vkCmdBindDescriptorSets(
+                            cmd,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            layout,
+                            0,
+                            1,
+                            &dsc_set,
+                            0,
+                            ptr::null(),
+                        );
+                        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+                    }
+                }
+                "shader" => {
+                    let dsc_set = self.descriptor_sets[0 * MAX_FRAMES_IN_FLIGHT + self.current_frame];
+                    vkCmdBindDescriptorSets(
+                        cmd,
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        layout,
+                        0,
+                        1,
+                        &dsc_set,
+                        0,
+                        ptr::null(),
+                    );
+                    vkCmdDrawIndexed(cmd, 6 /*index_count as u32*/, render_commands.len() as u32, 0, 0, 0);
+                }
+                _ => {}
+            }
 
             vkCmdEndRenderPass(cmd);
 
@@ -466,6 +545,9 @@ impl VkContext {
         self.destroy_sampler();
 
         self.default_texture_image.drop();
+        for texture_image in &mut self.texture_images {
+            texture_image.drop();
+        }
 
         self.destroy_framebuffers();
         self.destroy_depth_image();
@@ -900,6 +982,12 @@ impl VkContext {
                 &VkPipelineLayoutCreateInfo {
                     setLayoutCount: 1,
                     pSetLayouts: &self.descriptor_set_layout,
+                    pushConstantRangeCount: 1,
+                    pPushConstantRanges: &VkPushConstantRange {
+                        stageFlags: VK_SHADER_STAGE_VERTEX_BIT.into(),
+                        offset: 0,
+                        size: 7 * 4, // vec2 offset + vec2 size + z + materialId + rotationId
+                    },
                     ..VkPipelineLayoutCreateInfo::default()
                 },
                 self.allocator,
@@ -914,8 +1002,12 @@ impl VkContext {
 
     fn create_graphics_pipeline(&mut self) {
         unsafe {
-            let vs_code = fs::read("assets/shaders/shader.vert.spv").expect("Failed to load vertex shader");
-            let fs_code = fs::read("assets/shaders/shader.frag.spv").expect("Failed to load fragment shader");
+            //let vs_code = fs::read("assets/shaders/shader.vert.spv").expect("Failed to load vertex shader");
+            //let fs_code = fs::read("assets/shaders/shader.frag.spv").expect("Failed to load fragment shader");
+            let vs_path = format!("assets/shaders/{}.vert.spv", self.shader_id);
+            let fs_path = format!("assets/shaders/{}.frag.spv", self.shader_id);
+            let vs_code = fs::read(vs_path).expect("Failed to load vertex shader");
+            let fs_code = fs::read(fs_path).expect("Failed to load fragment shader");
 
             let module = ShaderModule::try_from(vs_code.as_slice()).unwrap();
             let desc = module.input_descriptions();
@@ -1114,14 +1206,17 @@ impl VkContext {
     fn create_descriptor_pool(&mut self) {
         unsafe {
             let pool_sizes = [
-                VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_FRAMES_IN_FLIGHT),
-                VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_FRAMES_IN_FLIGHT),
-                VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, MAX_FRAMES_IN_FLIGHT),
+                VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT),
+                VkDescriptorPoolSize::new(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT),
+                VkDescriptorPoolSize::new(
+                    VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                    MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT,
+                ),
             ];
             check!(vkCreateDescriptorPool(
                 self.device,
                 &VkDescriptorPoolCreateInfo {
-                    maxSets: MAX_FRAMES_IN_FLIGHT as u32,
+                    maxSets: 30 * (MAX_FRAMES_IN_FLIGHT as u32),
                     poolSizeCount: pool_sizes.len() as u32,
                     pPoolSizes: pool_sizes.as_ptr(),
                     ..VkDescriptorPoolCreateInfo::default()
@@ -1138,12 +1233,13 @@ impl VkContext {
 
     fn allocate_descriptor_sets(&mut self) {
         unsafe {
+            let set_layouts = vec![self.descriptor_set_layout; MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT];
             check!(vkAllocateDescriptorSets(
                 self.device,
                 &VkDescriptorSetAllocateInfo {
                     descriptorPool: self.descriptor_pool,
-                    descriptorSetCount: MAX_FRAMES_IN_FLIGHT as u32,
-                    pSetLayouts: vec![self.descriptor_set_layout; MAX_FRAMES_IN_FLIGHT].as_ptr(),
+                    descriptorSetCount: (MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT) as u32,
+                    pSetLayouts: set_layouts.as_ptr(),
                     ..VkDescriptorSetAllocateInfo::default()
                 },
                 self.descriptor_sets.as_mut_ptr()
@@ -1153,14 +1249,14 @@ impl VkContext {
 
     #[allow(dead_code)]
     fn free_descriptor_sets(&mut self) {
-        unsafe {
-            check!(vkFreeDescriptorSets(
-                self.device,
-                self.descriptor_pool,
-                self.descriptor_sets.len() as u32,
-                self.descriptor_sets.as_ptr()
-            ));
-        }
+        //unsafe {
+        //    check!(vkFreeDescriptorSets(
+        //        self.device,
+        //        self.descriptor_pool,
+        //        self.descriptor_sets.len() as u32,
+        //        self.descriptor_sets.as_ptr()
+        //    ));
+        //}
     }
 
     fn create_command_pool(&mut self) {
@@ -1382,16 +1478,7 @@ impl VkContext {
         }
     }
 
-    fn create_vertex_buffer(&mut self) {
-        #[rustfmt::skip]
-        // CCW order
-        let vertices = [
-            //       pos            uv           color
-            ((-1.0, -1.0, 0.0), (0.0, 0.0), (1.0, 1.0, 1.0)), // Top left
-            ((-1.0,  1.0, 0.0), (0.0, 0.5), (1.0, 1.0, 1.0)), // Bottom left
-            (( 1.0,  1.0, 0.0), (0.5, 0.5), (1.0, 1.0, 1.0)), // Bottom right
-            (( 1.0, -1.0, 0.0), (0.5, 0.0), (1.0, 1.0, 1.0)), // Top right
-        ];
+    pub fn create_vertex_buffer<T>(&mut self, vertices: &[T]) {
         let buffer_size = mem::size_of_val(&vertices[0]) * vertices.len();
         let mut staging_buffer = self.create_buffer(
             buffer_size,
@@ -1410,6 +1497,19 @@ impl VkContext {
         self.copy_buffer(staging_buffer.buffer, self.vertex_buffer.buffer, buffer_size);
 
         staging_buffer.drop();
+    }
+
+    fn create_vertex_buffer_default(&mut self) {
+        #[rustfmt::skip]
+        // CCW order
+        let vertices = [
+            //       pos            uv           color
+            ((-1.0, -1.0, 0.0), (0.0, 0.0), (1.0, 1.0, 1.0)), // Top left
+            ((-1.0,  1.0, 0.0), (0.0, 0.5), (1.0, 1.0, 1.0)), // Bottom left
+            (( 1.0,  1.0, 0.0), (0.5, 0.5), (1.0, 1.0, 1.0)), // Bottom right
+            (( 1.0, -1.0, 0.0), (0.5, 0.0), (1.0, 1.0, 1.0)), // Top right
+        ];
+        self.create_vertex_buffer(&vertices);
     }
 
     fn destroy_vertex_buffer(&mut self) {
@@ -1442,52 +1542,56 @@ impl VkContext {
         self.index_buffer.drop();
     }
 
-    fn update_descriptor_sets<G>(&mut self, global_state: G) {
+    pub fn update_descriptor_sets<G>(&mut self, global_state: G) {
         unsafe {
-            for i in 0..MAX_FRAMES_IN_FLIGHT {
-                let writes = [
-                    VkWriteDescriptorSet {
-                        dstSet: self.descriptor_sets[i],
-                        dstBinding: 0,
-                        dstArrayElement: 0,
-                        descriptorCount: 1,
-                        descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-                        pBufferInfo: &VkDescriptorBufferInfo {
-                            buffer: self.global_ubo.buffer,
-                            offset: 0,
-                            range: mem::size_of_val(&global_state) as VkDeviceSize,
-                        },
-                        ..VkWriteDescriptorSet::default()
-                    },
-                    VkWriteDescriptorSet {
-                        dstSet: self.descriptor_sets[i],
-                        dstBinding: 1,
-                        dstArrayElement: 0,
-                        descriptorCount: 1,
-                        descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                        pBufferInfo: &VkDescriptorBufferInfo {
-                            buffer: self.transform_storage_buffer.buffer,
-                            offset: 0,
-                            range: VK_WHOLE_SIZE,
-                        },
-                        ..VkWriteDescriptorSet::default()
-                    },
-                    VkWriteDescriptorSet {
-                        dstSet: self.descriptor_sets[i],
-                        dstBinding: 2,
-                        dstArrayElement: 0,
-                        descriptorCount: 1,
-                        descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        pImageInfo: &VkDescriptorImageInfo {
-                            sampler: self.texture_sampler,
-                            imageView: self.default_texture_image.view,
-                            imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        },
-                        ..VkWriteDescriptorSet::default()
-                    },
-                ];
+            for img_idx in 0..self.texture_images.len() {
+                let texture_image = &self.texture_images[img_idx];
 
-                vkUpdateDescriptorSets(self.device, writes.len() as u32, writes.as_ptr(), 0, ptr::null());
+                for i in 0..MAX_FRAMES_IN_FLIGHT {
+                    let writes = [
+                        VkWriteDescriptorSet {
+                            dstSet: self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + i],
+                            dstBinding: 0,
+                            dstArrayElement: 0,
+                            descriptorCount: 1,
+                            descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                            pBufferInfo: &VkDescriptorBufferInfo {
+                                buffer: self.global_ubo.buffer,
+                                offset: 0,
+                                range: mem::size_of_val(&global_state) as VkDeviceSize,
+                            },
+                            ..VkWriteDescriptorSet::default()
+                        },
+                        VkWriteDescriptorSet {
+                            dstSet: self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + i],
+                            dstBinding: 1,
+                            dstArrayElement: 0,
+                            descriptorCount: 1,
+                            descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                            pBufferInfo: &VkDescriptorBufferInfo {
+                                buffer: self.transform_storage_buffer.buffer,
+                                offset: 0,
+                                range: VK_WHOLE_SIZE,
+                            },
+                            ..VkWriteDescriptorSet::default()
+                        },
+                        VkWriteDescriptorSet {
+                            dstSet: self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + i],
+                            dstBinding: 2,
+                            dstArrayElement: 0,
+                            descriptorCount: 1,
+                            descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                            pImageInfo: &VkDescriptorImageInfo {
+                                sampler: self.texture_sampler,
+                                imageView: texture_image.view,
+                                imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            },
+                            ..VkWriteDescriptorSet::default()
+                        },
+                    ];
+
+                    vkUpdateDescriptorSets(self.device, writes.len() as u32, writes.as_ptr(), 0, ptr::null());
+                }
             }
         }
     }
@@ -1948,7 +2052,7 @@ pub struct Buffer {
     pub memory: VkDeviceMemory,
 }
 impl Buffer {
-    fn drop(&mut self) {
+    pub fn drop(&mut self) {
         if self.device != VkDevice::default() {
             unsafe { vkFreeMemory(self.device, self.memory, ptr::null()) };
             unsafe { vkDestroyBuffer(self.device, self.buffer, ptr::null()) };
@@ -2837,7 +2941,7 @@ extern "C" fn debug_callback(
             -1615083365 => {}
             -1280461305 => {}
             _ => {
-                println!("{}", CStr::from_ptr((*p_callback_data).pMessage).to_string_lossy());
+                panic!("{}", CStr::from_ptr((*p_callback_data).pMessage).to_string_lossy());
             }
         }
         VK_FALSE
