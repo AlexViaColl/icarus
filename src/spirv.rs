@@ -644,7 +644,12 @@ pub enum Instruction {
     OpBitcast,     // 124
 
     OpSNegate, // 126
-    OpFNegate, // 127
+    OpFNegate {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        operand: u32,
+    }, // 127
     OpIAdd,    // 128
     OpFAdd {
         opcode: u32,
@@ -692,7 +697,13 @@ pub enum Instruction {
     }, // 142
     OpMatrixTimesScalar, // 143
     OpVectorTimesMatrix, // 144
-    OpMatrixTimesVector, // 145
+    OpMatrixTimesVector {
+        opcode: u32,
+        result_type: u32,
+        result: u32,
+        matrix: u32,
+        vector: u32,
+    }, // 145
     OpMatrixTimesMatrix, // 146
     OpOuterProduct, // 147
     OpDot,     // 148
@@ -1300,6 +1311,12 @@ impl TryFrom<&[u32]> for Instruction {
                 result: inst_words[2],
                 unsigned_value: inst_words[3],
             }),
+            127 => Ok(Instruction::OpFNegate {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                operand: inst_words[3],
+            }),
             129 => Ok(Instruction::OpFAdd {
                 opcode,
                 result_type: inst_words[1],
@@ -1365,9 +1382,13 @@ impl TryFrom<&[u32]> for Instruction {
             144 => {
                 todo!("OpVectorTimesMatrix");
             }
-            145 => {
-                todo!("OpMatrixTimesVector");
-            }
+            145 => Ok(Instruction::OpMatrixTimesVector {
+                opcode,
+                result_type: inst_words[1],
+                result: inst_words[2],
+                matrix: inst_words[3],
+                vector: inst_words[4],
+            }),
             146 => {
                 todo!("OpMatrixTimesMatrix");
             }
