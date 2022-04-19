@@ -3,6 +3,7 @@
 /shaderc
 glslc
 *.tar.gz
+src/bin/*_test.rs
 
 # compiled artifacts
 *.spv
