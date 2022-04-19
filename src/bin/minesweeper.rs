@@ -95,6 +95,7 @@ fn main() {
         &platform,
         mem::size_of::<RenderCommand>() * MAX_ENTITIES,
         8, //mem::size_of::<GlobalState>(),
+        None,
     );
 
     // Main loop
@@ -108,7 +109,7 @@ fn main() {
         game.update(&input, seconds_elapsed);
         game.render();
 
-        vk_ctx.render(&game.render_commands, None);
+        vk_ctx.render(&game.render_commands, None, &[], &[]);
     }
 
     vk_ctx.cleanup(&platform);
