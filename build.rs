@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::fmt::Debug;
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
@@ -40,10 +41,10 @@ fn main() {
     assert!(output.status.success(), "stderr: {}\nstdout: {}", stderr, stdout);
 }
 
-fn download_if_not_present<P: AsRef<OsStr>>(path: P, url: P) {
+fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
     let path_to_check = Path::new(&path);
     if !path_to_check.exists() {
-        Command::new("/usr/bin/wget").arg("-O").arg(&path).arg(url).status().unwrap();
-        assert!(Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0);
+        Command::new("/usr/bin/wget").arg("-O").arg(&path).arg(&url).status().unwrap();
+        assert!(Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0, "{:?}, {:?}", path, url);
     }
 }
