@@ -1624,7 +1624,7 @@ impl VkContext {
         path.push(0 as char);
         let pixels = unsafe {
             let raw = stbi_load(path.as_ptr() as *const i8, &mut width, &mut height, &mut channels, 4);
-            assert!(!raw.is_null());
+            assert!(!raw.is_null(), "{}", path);
             let image_size = width * height * 4;
 
             let mut pixels: Vec<u8> = vec![0; image_size as usize];
