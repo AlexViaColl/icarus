@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
@@ -12,7 +13,7 @@ fn main() {
 
     // Download flappy bird assets
     let path = "assets/textures/flappy";
-    let url = "https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/sprites";
+    let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
     download_if_not_present(format!("{}/background-day.png", path), format!("{}/background-day.png", url));
     download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
     download_if_not_present(format!("{}/bluebird-downflap.png", path), format!("{}/bluebird-downflap.png", url));
@@ -21,11 +22,11 @@ fn main() {
     download_if_not_present(format!("{}/pipe-green.png", path), format!("{}/pipe-green.png", url));
 
     // Download stb_image
-    download_if_not_present("stb_image.h", "https://raw.githubusercontent.com/nothings/stb/master/stb_image.h");
+    download_if_not_present("stb_image.h", "https://github.com/nothings/stb/raw/master/stb_image.h");
 
     if !Path::new("glslc").exists() {
         Command::new("/usr/bin/wget")
-            .arg("https://raw.githubusercontent.com/AlexViaColl/Icarus_deps/main/glslc.tar.gz")
+            .arg("https://github.com/AlexViaColl/Icarus_deps/raw/main/glslc.tar.gz")
             .status()
             .unwrap();
 
@@ -40,7 +41,9 @@ fn main() {
 }
 
 fn download_if_not_present<P: AsRef<OsStr>>(path: P, url: P) {
-    if !Path::new(&path).exists() {
-        Command::new("/usr/bin/wget").arg("-O").arg(path).arg(url).status().unwrap();
+    let path_to_check = Path::new(&path);
+    if !path_to_check.exists() {
+        Command::new("/usr/bin/wget").arg("-O").arg(&path).arg(url).status().unwrap();
+        assert!(Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0);
     }
 }
