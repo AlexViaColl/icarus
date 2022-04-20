@@ -49,10 +49,11 @@ fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
         cmd.status().unwrap();
         assert!(
             Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0,
-            "{:?}, {:?}, {:?}",
+            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}",
             path,
             url,
-            cmd
+            cmd,
+            std::env::current_dir().unwrap(),
         );
     }
 }
