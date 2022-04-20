@@ -13,7 +13,7 @@ fn main() {
     println!("cargo:rerun-if-changed=assets/shaders/");
 
     // Download flappy bird assets
-    let path = "assets/textures/flappy";
+    let path = "./assets/textures/flappy";
     let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
     download_if_not_present(format!("{}/background-day.png", path), format!("{}/background-day.png", url));
     download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
