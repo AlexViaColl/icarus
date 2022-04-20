@@ -187,7 +187,7 @@ pub struct VkPhysicalDeviceMeta {
 }
 
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
-const MAX_TEXTURES: usize = 10;
+const MAX_TEXTURES: usize = 20;
 //#[derive(Default)]
 pub struct VkContext {
     pub allocator: *const VkAllocationCallbacks,
