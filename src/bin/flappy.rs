@@ -6,15 +6,14 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: Animate bird sprite so that the texture changes over time
 // TODO: Implement collision detection
-// TODO: Display score
 // TODO: Change pipe height randomly
+// TODO: Animate bird tilt during jump
 
 const WIDTH: f32 = 1200.0;
 const HEIGHT: f32 = 675.0;
 
-const MAX_ENTITIES: usize = 100;
+const MAX_ENTITIES: usize = 200;
 
 fn main() {
     let mut platform = Platform::init(Config {
@@ -41,6 +40,11 @@ fn main() {
     vk_ctx.load_texture_image("assets/textures/flappy/bluebird-downflap.png");
     vk_ctx.load_texture_image("assets/textures/flappy/bluebird-midflap.png");
     vk_ctx.load_texture_image("assets/textures/flappy/bluebird-upflap.png");
+
+    for i in 0..10 {
+        vk_ctx.load_texture_image(format!("assets/textures/flappy/{}.png", i));
+    }
+
     vk_ctx.update_descriptor_sets((platform.window_width, platform.window_height));
 
     // Main loop
@@ -69,6 +73,8 @@ struct Game {
     sprites: Vec<Sprite>,
 
     bird_vel: Vec2,
+    timer: f32,
+    score: u32,
 }
 
 const BG_WIDTH: f32 = 288.0;
@@ -116,9 +122,6 @@ impl Game {
             2,
         ));
         // Bird
-        //sprites.push(Sprite::new(Material::BirdUp, (100.0, 100.0), (BIRD_WIDTH, BIRD_HEIGHT), 0.1));
-        //sprites.push(Sprite::new(Material::BirdDown, (100.0, 200.0), (BIRD_WIDTH, BIRD_HEIGHT), 0.1));
-
         let bird_pos = (WIDTH / 2.0, HEIGHT / 2.0);
         sprites.push(Sprite::new(Material::BirdMid, bird_pos, (BIRD_WIDTH, BIRD_HEIGHT), 0.1));
         Self {
@@ -146,6 +149,11 @@ impl Game {
             return;
         }
 
+        self.timer += dt;
+        if self.timer >= 1.0 {
+            self.timer -= 1.0;
+        }
+
         if input.was_key_pressed(KeyId::Space) {
             self.bird_vel = Vec2::new(0.0, -400.0);
         }
@@ -156,6 +164,14 @@ impl Game {
         let bird_pos = &mut self.sprites[bird_idx].pos;
         *bird_pos = *bird_pos + self.bird_vel * dt;
 
+        if self.timer < 0.33 {
+            self.sprites[bird_idx].material = Material::BirdDown;
+        } else if self.timer < 0.66 {
+            self.sprites[bird_idx].material = Material::BirdMid;
+        } else {
+            self.sprites[bird_idx].material = Material::BirdUp;
+        }
+
         // Update base
         for i in 0..6 {
             self.sprites[2 * i + 1].pos.x = self.sprites[2 * i + 1].pos.x - 200.0 * dt;
@@ -164,11 +180,18 @@ impl Game {
             }
         }
 
+        // Update pipes
         for i in 12..14 {
             self.sprites[i].pos.x = self.sprites[i].pos.x - 200.0 * dt;
             if self.sprites[i].pos.x < -PIPE_WIDTH {
                 self.sprites[i].pos.x = WIDTH;
             }
+        }
+
+        if self.sprites[bird_idx].pos.x > self.sprites[12].pos.x
+            && self.sprites[bird_idx].pos.x < self.sprites[12].pos.x + 200.0 * dt
+        {
+            self.score += 1;
         }
     }
 
@@ -181,6 +204,9 @@ impl Game {
             self.render_sprite(self.sprites[i]);
         }
 
+        // render score
+        self.render_number(self.score);
+
         vk_ctx.render(&self.cmd, None, &self.materials, &self.rotations);
     }
 
@@ -188,6 +214,33 @@ impl Game {
         vk_util::push_rect(&mut self.cmd, Rect::center_extent(sprite.pos, sprite.size), sprite.depth);
         self.materials.push(sprite.material as u32);
         self.rotations.push(sprite.rotation);
+    }
+
+    fn render_number(&mut self, mut number: u32) {
+        let mut start_x = WIDTH / 2.0;
+        if number == 0 {
+            self.render_digit(number, start_x);
+        } else {
+            while number > 0 {
+                let digit = number % 10;
+                number /= 10;
+                self.render_digit(digit, start_x);
+                start_x -= 24.0 * 1.5;
+            }
+        }
+    }
+
+    fn render_digit(&mut self, digit: u32, x: f32) {
+        assert!(digit <= 9);
+        let w = if digit == 1 {
+            16.0
+        } else {
+            24.0
+        };
+        let h = 36.0;
+        vk_util::push_rect(&mut self.cmd, Rect::center_extent((x, HEIGHT / 6.0), (w * 1.5, h * 1.5)), 0.0);
+        self.materials.push(7 + digit);
+        self.rotations.push(0);
     }
 }
 
