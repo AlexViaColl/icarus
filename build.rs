@@ -51,11 +51,12 @@ fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
         let stderr = String::from_utf8(output.stderr).unwrap();
         assert!(
             output.status.success() && Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0,
-            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}, stderr: {}, stdout: {}",
+            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}, cmd.get_current_dir(): {:?}, stderr: {}, stdout: {}",
             path,
             url,
             cmd,
             std::env::current_dir().unwrap(),
+            cmd.get_current_dir().unwrap(),
             stderr,
             stdout,
         );
