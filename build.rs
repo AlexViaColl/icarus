@@ -1,6 +1,5 @@
 use std::ffi::OsStr;
 use std::fmt::Debug;
-use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::process::Command;
@@ -32,8 +31,7 @@ fn main() {
 
     // Download flappy bird assets
     let path = "assets/textures/flappy";
-    let url = "https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/sprites";
-    //let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
+    let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
     download_if_not_present(format!("{}/background-day.png", path), format!("{}/background-day.png", url));
     download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
     download_if_not_present(format!("{}/bluebird-downflap.png", path), format!("{}/bluebird-downflap.png", url));
@@ -43,23 +41,7 @@ fn main() {
 }
 
 fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
-    let path_to_check = Path::new(&path);
-    if !path_to_check.exists() {
-        let mut cmd = Command::new("/usr/bin/wget");
-        cmd.arg("-c").arg("-O").arg("z").arg(&url);
-        let output = cmd.output().unwrap();
-        let stdout = String::from_utf8(output.stdout).unwrap();
-        let stderr = String::from_utf8(output.stderr).unwrap();
-        Command::new("mv").arg("z").arg(&path).status().unwrap();
-        assert!(
-            output.status.success() && Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0,
-            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}, stderr: {}, stdout: {}",
-            path,
-            url,
-            cmd,
-            std::env::current_dir().unwrap(),
-            stderr,
-            stdout,
-        );
+    if !Path::new(&path).exists() {
+        Command::new("/usr/bin/wget").arg("-c").arg("-O").arg(&path).arg(&url).status().unwrap();
     }
 }
