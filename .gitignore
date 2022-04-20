@@ -1,5 +1,4 @@
 /target
-/assets/textures
 /shaderc
 glslc
 *.tar.gz
@@ -15,6 +14,7 @@ src/bin/*_test.rs
 
 # images/textures
 *.jpg
+*.png
 
 # external source code
 stb_image.h
