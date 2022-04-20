@@ -46,14 +46,19 @@ fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
     if !path_to_check.exists() {
         let mut cmd = Command::new("/usr/bin/wget");
         cmd.arg("-O").arg(&path).arg(&url);
-        cmd.status().unwrap();
+        let output = cmd.output().unwrap();
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        let stderr = String::from_utf8(output.stderr).unwrap();
+        assert!(output.status.success(), "stderr: {}\nstdout: {}", stderr, stdout);
         assert!(
             Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0,
-            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}",
+            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}, stderr: {}, stdout: {}",
             path,
             url,
             cmd,
             std::env::current_dir().unwrap(),
+            stderr,
+            stdout,
         );
     }
 }
