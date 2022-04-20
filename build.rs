@@ -32,7 +32,7 @@ fn main() {
 
     // Download flappy bird assets
     let path = "./assets/textures/flappy";
-    let url "https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/sprites";
+    let url = "https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/sprites";
     //let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
     download_if_not_present(format!("{}/background-day.png", path), format!("{}/background-day.png", url));
     download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
