@@ -16,6 +16,25 @@ use std::fs;
 use std::mem;
 use std::ptr;
 
+// Shader Interface:
+// - in attribute:              pos, uvs, normals, ...
+//      via VkVertexInputAttributeDescription in VkPipelineVertexInputStateCreateInfo
+//      in vkCreateGraphicsPipelines
+// - push constant:             small data
+//      via VkPushConstantRange in vkCreatePipelineLayout
+//      and vkCmdPushConstants
+// - uniform (ubo):             transform, width, height, texture sampler (fs) ...
+//      via vkCreateBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT)
+//      copy to buffer's memory
+//      vkUpdateDescriptorSets VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER
+// - readonly buffer (ssbo):    transforms for all entities
+//      via vkCreateBuffer(VK_BUFFER_USAGE_STORAGE_BUFFER_BIT)
+//      copy to buffer's memory
+//      vkUpdateDescriptorSets: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER
+// - texture sampler:
+//      via vkCreateImage + View
+//      vkUpdateDescriptorSets: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER
+
 #[macro_export]
 macro_rules! check(
     ($expression:expr) => {
@@ -209,8 +228,8 @@ pub struct VkContext {
     pub texture_images: Vec<Image>,
     pub texture_sampler: VkSampler,
 
-    pub global_ubo: Buffer,
-    pub transform_storage_buffer: Buffer,
+    pub ubo: Buffer,  // Uniform Buffer Object
+    pub ssbo: Buffer, // Shader Storage Buffer Object
 
     pub descriptor_set_layout: VkDescriptorSetLayout,
     pub descriptor_pool: VkDescriptorPool,
@@ -264,8 +283,8 @@ impl Default for VkContext {
             index_buffer: Buffer::default(),
             texture_images: vec![],
             texture_sampler: VkSampler::default(),
-            global_ubo: Buffer::default(),
-            transform_storage_buffer: Buffer::default(),
+            ubo: Buffer::default(),
+            ssbo: Buffer::default(),
             descriptor_set_layout: VkDescriptorSetLayout::default(),
             descriptor_pool: VkDescriptorPool::default(),
             descriptor_sets: [VkDescriptorSet::default(); MAX_TEXTURES * MAX_FRAMES_IN_FLIGHT],
@@ -318,16 +337,16 @@ impl VkContext {
         vk_ctx.create_vertex_buffer_default();
         vk_ctx.create_index_buffer();
 
+        vk_ctx.create_sampler();
+        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1)); // 0
+
         // Shader Storage Buffer Object
-        vk_ctx.create_transform_ssbo(ssbo_size);
+        vk_ctx.create_ssbo(ssbo_size);
 
         // Uniform Buffer Object
         let global_state = (platform.window_width, platform.window_height);
-        vk_ctx.create_global_ubo(ubo_size);
-        vk_map_memory_copy(vk_ctx.device, vk_ctx.global_ubo.memory, &global_state, ubo_size);
-
-        vk_ctx.create_sampler();
-        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1)); // 0
+        vk_ctx.create_ubo(ubo_size);
+        vk_map_memory_copy(vk_ctx.device, vk_ctx.ubo.memory, &global_state, ubo_size);
 
         // TODO: Sync this with the shaders
         vk_ctx.create_descriptor_set_layout();
@@ -349,6 +368,7 @@ impl VkContext {
         material_ids: &[u32],
         rotations: &[u32],
     ) {
+        //println!("{} {} {}", render_commands.len(), material_ids.len(), rotations.len());
         unsafe {
             let cmd = self.command_buffers[self.current_frame];
             let fence = self.in_flight_fences[self.current_frame];
@@ -375,7 +395,7 @@ impl VkContext {
             // Update transforms
             vk_map_memory_copy(
                 self.device,
-                self.transform_storage_buffer.memory,
+                self.ssbo.memory,
                 render_commands.as_ptr(),
                 mem::size_of::<RenderCommand>() * render_commands.len(),
             );
@@ -546,8 +566,8 @@ impl VkContext {
         self.texture_images.iter_mut().for_each(|t| t.drop());
         self.destroy_sampler();
 
-        self.destroy_global_ubo();
-        self.destroy_transform_ssbo();
+        self.destroy_ubo();
+        self.destroy_ssbo();
 
         self.destroy_index_buffer();
         self.destroy_vertex_buffer();
@@ -1175,28 +1195,28 @@ impl VkContext {
         unsafe { vkDestroyPipeline(self.device, self.graphics_pipeline, self.allocator) };
     }
 
-    fn create_transform_ssbo(&mut self, size: usize) {
-        self.transform_storage_buffer = self.create_buffer(
+    fn create_ssbo(&mut self, size: usize) {
+        self.ssbo = self.create_buffer(
             size,
             VK_BUFFER_USAGE_STORAGE_BUFFER_BIT.into(),
             (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
         );
     }
 
-    fn destroy_transform_ssbo(&mut self) {
-        self.transform_storage_buffer.drop();
+    fn destroy_ssbo(&mut self) {
+        self.ssbo.drop();
     }
 
-    fn create_global_ubo(&mut self, size: usize) {
-        self.global_ubo = self.create_buffer(
+    fn create_ubo(&mut self, size: usize) {
+        self.ubo = self.create_buffer(
             size,
             VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT.into(),
             (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into(),
         );
     }
 
-    fn destroy_global_ubo(&mut self) {
-        self.global_ubo.drop();
+    fn destroy_ubo(&mut self) {
+        self.ubo.drop();
     }
 
     fn create_descriptor_pool(&mut self) {
@@ -1552,7 +1572,7 @@ impl VkContext {
                             descriptorCount: 1,
                             descriptorType: VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
                             pBufferInfo: &VkDescriptorBufferInfo {
-                                buffer: self.global_ubo.buffer,
+                                buffer: self.ubo.buffer,
                                 offset: 0,
                                 range: mem::size_of_val(&global_state) as VkDeviceSize,
                             },
@@ -1565,7 +1585,7 @@ impl VkContext {
                             descriptorCount: 1,
                             descriptorType: VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                             pBufferInfo: &VkDescriptorBufferInfo {
-                                buffer: self.transform_storage_buffer.buffer,
+                                buffer: self.ssbo.buffer,
                                 offset: 0,
                                 range: VK_WHOLE_SIZE,
                             },
@@ -1592,7 +1612,11 @@ impl VkContext {
         }
     }
 
-    pub fn load_texture_image<P: AsRef<str>>(&self, path: P) -> Image {
+    pub fn load_texture_image<P: AsRef<str>>(&mut self, path: P) {
+        self.texture_images.push(self.load_texture_image_internal(path));
+    }
+
+    fn load_texture_image_internal<P: AsRef<str>>(&self, path: P) -> Image {
         let mut width = 0;
         let mut height = 0;
         let mut channels = 0;

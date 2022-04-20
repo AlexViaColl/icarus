@@ -17,7 +17,9 @@ const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
 const MAX_ENTITIES: usize = 1000;
-const SNAKE_SIZE: f32 = 50.0;
+const SNAKE_AI: bool = true;
+const SNAKE_SIZE: f32 = 100.0;
+const SNAKE_SPEED: f32 = 0.0001;
 
 fn main() {
     let mut platform = Platform::init(Config {
@@ -37,11 +39,11 @@ fn main() {
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
 
-    vk_ctx.texture_images.push(vk_ctx.load_texture_image("assets/textures/snake_head.png")); // 1
-    vk_ctx.texture_images.push(vk_ctx.load_texture_image("assets/textures/snake_body_0.png")); // 2
-    vk_ctx.texture_images.push(vk_ctx.load_texture_image("assets/textures/snake_body_1.png")); // 3
-    vk_ctx.texture_images.push(vk_ctx.load_texture_image("assets/textures/snake_tail.png")); // 4
-    vk_ctx.texture_images.push(vk_ctx.load_texture_image("assets/textures/coin.png")); // 5
+    vk_ctx.load_texture_image("assets/textures/snake_head.png");
+    vk_ctx.load_texture_image("assets/textures/snake_body_0.png");
+    vk_ctx.load_texture_image("assets/textures/snake_body_1.png");
+    vk_ctx.load_texture_image("assets/textures/snake_tail.png");
+    vk_ctx.load_texture_image("assets/textures/coin.png");
     let global_state = (platform.window_width, platform.window_height);
     vk_ctx.update_descriptor_sets(global_state);
 
@@ -127,7 +129,6 @@ struct Game {
 
 impl Game {
     fn init() -> Self {
-        let speed = 0.1;
         let cols = WIDTH / SNAKE_SIZE;
         let rows = HEIGHT / SNAKE_SIZE;
 
@@ -146,7 +147,7 @@ impl Game {
             running: true,
             paused: false,
             debug_mode: false,
-            ai: false,
+            ai: SNAKE_AI,
             towards_border: false,
             cmd: vec![],
             material_ids: vec![],
@@ -159,7 +160,7 @@ impl Game {
             coin: (0, 0),
             dir: Direction::Left,
             timer: 0.0,
-            speed,
+            speed: SNAKE_SPEED,
         };
         game.spawn_coin();
         game
@@ -184,8 +185,9 @@ impl Game {
             self.debug_mode = !self.debug_mode;
             if self.debug_mode {
                 self.speed = 0.8;
+                self.ai = false;
             } else {
-                self.speed = 0.2;
+                self.speed = SNAKE_SPEED;
             }
         }
 
@@ -303,7 +305,11 @@ impl Game {
                 }
                 self.snake.push_front(((new_pos.0 as usize, new_pos.1 as usize), self.dir));
             } else {
-                self.state = GameState::GameOver;
+                //self.state = GameState::GameOver;
+                if is_valid_pos(new_pos, self.rows, self.cols) {
+                    self.snake.pop_back();
+                    self.snake.push_front(((new_pos.0 as usize, new_pos.1 as usize), self.dir));
+                }
             }
             self.timer -= self.speed;
         }
@@ -411,7 +417,7 @@ impl Game {
                             (Direction::Left, Direction::Down) => self.rotations.push(Direction::Up),  //
                             (Direction::Down, Direction::Right) => self.rotations.push(Direction::Left),
                             (Direction::Right, Direction::Up) => self.rotations.push(Direction::Down),
-                            _ => unreachable!(),
+                            _ => self.rotations.push(*d), //unreachable!(),
                         }
                     }
                 }
