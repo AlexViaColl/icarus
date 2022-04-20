@@ -33,8 +33,8 @@ fn main() {
     // Download flappy bird assets
     let path = "./assets/textures/flappy";
     let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
-    download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
     download_if_not_present(format!("{}/background-day.png", path), format!("{}/background-day.png", url));
+    download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
     download_if_not_present(format!("{}/bluebird-downflap.png", path), format!("{}/bluebird-downflap.png", url));
     download_if_not_present(format!("{}/bluebird-midflap.png", path), format!("{}/bluebird-midflap.png", url));
     download_if_not_present(format!("{}/bluebird-upflap.png", path), format!("{}/bluebird-upflap.png", url));
@@ -44,7 +44,15 @@ fn main() {
 fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
     let path_to_check = Path::new(&path);
     if !path_to_check.exists() {
-        Command::new("/usr/bin/wget").arg("-O").arg(&path).arg(&url).status().unwrap();
-        assert!(Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0, "{:?}, {:?}", path, url);
+        let mut cmd = Command::new("/usr/bin/wget");
+        cmd.arg("-O").arg(&path).arg(&url);
+        cmd.status().unwrap();
+        assert!(
+            Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0,
+            "{:?}, {:?}, {:?}",
+            path,
+            url,
+            cmd
+        );
     }
 }
