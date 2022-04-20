@@ -32,7 +32,8 @@ fn main() {
 
     // Download flappy bird assets
     let path = "./assets/textures/flappy";
-    let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
+    let url "https://raw.githubusercontent.com/samuelcust/flappy-bird-assets/master/sprites";
+    //let url = "https://github.com/samuelcust/flappy-bird-assets/raw/master/sprites";
     download_if_not_present(format!("{}/background-day.png", path), format!("{}/background-day.png", url));
     download_if_not_present(format!("{}/base.png", path), format!("{}/base.png", url));
     download_if_not_present(format!("{}/bluebird-downflap.png", path), format!("{}/bluebird-downflap.png", url));
@@ -51,12 +52,11 @@ fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
         let stderr = String::from_utf8(output.stderr).unwrap();
         assert!(
             output.status.success() && Path::new(&path).exists() && fs::metadata(&path_to_check).unwrap().len() > 0,
-            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}, cmd.get_current_dir(): {:?}, stderr: {}, stdout: {}",
+            "path: {:?}, url: {:?}, command: {:?}, cwd: {:?}, stderr: {}, stdout: {}",
             path,
             url,
             cmd,
             std::env::current_dir().unwrap(),
-            cmd.get_current_dir().unwrap(),
             stderr,
             stdout,
         );
