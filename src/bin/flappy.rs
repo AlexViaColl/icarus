@@ -1,34 +1,20 @@
-use icarus::color;
 use icarus::input::{InputState, KeyId};
 use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
-use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
 use std::time::Instant;
 
+// TODO: Animate bird sprite so that the texture changes over time
+// TODO: Implement collision detection
+// TODO: Display score
+// TODO: Change pipe height randomly
+
 const WIDTH: f32 = 1200.0;
 const HEIGHT: f32 = 675.0;
 
 const MAX_ENTITIES: usize = 100;
-
-#[repr(u32)]
-#[derive(Copy, Clone)]
-enum Material {
-    Default = 0,
-    Background = 1,
-    Base = 2,
-    Pipe = 3,
-    BirdDown = 4,
-    BirdMid = 5,
-    BirdUp = 6,
-}
-impl Default for Material {
-    fn default() -> Self {
-        Self::Default
-    }
-}
 
 fn main() {
     let mut platform = Platform::init(Config {
@@ -75,6 +61,7 @@ fn main() {
 #[derive(Default)]
 struct Game {
     running: bool,
+    paused: bool,
     cmd: Vec<RenderCommand>,
     materials: Vec<u32>,
     rotations: Vec<u32>,
@@ -98,40 +85,42 @@ const BG_Y_OFFSET: f32 = (HEIGHT - BG_HEIGHT) / 2.0;
 impl Game {
     fn init() -> Self {
         let mut sprites = vec![];
-        for i in 0..5 {
+        for i in 0..6 {
             // Background
-            sprites.push(Sprite {
-                material: Material::Background,
-                pos: Vec2::new((i as f32) * BG_WIDTH, HEIGHT / 2.0),
-                size: Vec2::new(BG_WIDTH, /*BG_HEIGHT*/ HEIGHT),
-                depth: 0.9,
-            });
+            sprites.push(Sprite::new(
+                Material::Background,
+                ((i as f32) * BG_WIDTH, HEIGHT / 2.0),
+                (BG_WIDTH, /*BG_HEIGHT*/ HEIGHT),
+                0.9,
+            ));
             // Base
-            sprites.push(Sprite {
-                material: Material::Base,
-                pos: Vec2::new(
-                    (i as f32) * BASE_WIDTH,
-                    HEIGHT - (BASE_HEIGHT / 2.0), /*BG_Y_OFFSET + BG_HEIGHT - BASE_HEIGHT + BASE_HEIGHT / 2.0*/
-                ),
-                size: Vec2::new(BASE_WIDTH, BASE_HEIGHT),
-                depth: 0.8,
-            });
+            sprites.push(Sprite::new(
+                Material::Base,
+                ((i as f32) * BASE_WIDTH, HEIGHT - (BASE_HEIGHT / 2.0)),
+                (BASE_WIDTH, BASE_HEIGHT),
+                0.8,
+            ));
         }
-        // Pipe
-        sprites.push(Sprite {
-            material: Material::Pipe,
-            pos: Vec2::new(WIDTH / 2.0 + BG_WIDTH, HEIGHT - BASE_HEIGHT - (PIPE_HEIGHT / 2.0)),
-            size: Vec2::new(PIPE_WIDTH, PIPE_HEIGHT),
-            depth: 0.2,
-        });
+        // Pipes
+        sprites.push(Sprite::new(
+            Material::Pipe,
+            (WIDTH / 2.0 + BG_WIDTH, HEIGHT - BASE_HEIGHT - (PIPE_HEIGHT / 2.0)),
+            (PIPE_WIDTH, PIPE_HEIGHT),
+            0.2,
+        ));
+        sprites.push(Sprite::with_rot(
+            Material::Pipe,
+            (WIDTH / 2.0 + BG_WIDTH, 0.0),
+            (PIPE_WIDTH, PIPE_HEIGHT),
+            0.2,
+            2,
+        ));
         // Bird
-        let bird_pos = Vec2::new(WIDTH / 2.0, HEIGHT / 2.0);
-        sprites.push(Sprite {
-            material: Material::BirdMid,
-            pos: bird_pos,
-            size: Vec2::new(BIRD_WIDTH, BIRD_HEIGHT),
-            depth: 0.1,
-        });
+        //sprites.push(Sprite::new(Material::BirdUp, (100.0, 100.0), (BIRD_WIDTH, BIRD_HEIGHT), 0.1));
+        //sprites.push(Sprite::new(Material::BirdDown, (100.0, 200.0), (BIRD_WIDTH, BIRD_HEIGHT), 0.1));
+
+        let bird_pos = (WIDTH / 2.0, HEIGHT / 2.0);
+        sprites.push(Sprite::new(Material::BirdMid, bird_pos, (BIRD_WIDTH, BIRD_HEIGHT), 0.1));
         Self {
             running: true,
             sprites,
@@ -145,15 +134,42 @@ impl Game {
             self.running = false;
         }
 
-        if input.was_key_pressed(KeyId::Space) {
-            self.bird_vel = Vec2::new(0.0, -200.0);
+        if input.was_key_pressed(KeyId::R) {
+            *self = Self::init();
+            return;
         }
 
-        self.bird_vel = self.bird_vel + Vec2::new(0.0, 600.0 * dt);
+        if input.was_key_pressed(KeyId::P) {
+            self.paused = !self.paused;
+        }
+        if self.paused {
+            return;
+        }
+
+        if input.was_key_pressed(KeyId::Space) {
+            self.bird_vel = Vec2::new(0.0, -400.0);
+        }
+
+        self.bird_vel = self.bird_vel + Vec2::new(0.0, 800.0 * dt);
 
         let bird_idx = self.sprites.len() - 1;
-        let mut bird_pos = &mut self.sprites[bird_idx].pos;
+        let bird_pos = &mut self.sprites[bird_idx].pos;
         *bird_pos = *bird_pos + self.bird_vel * dt;
+
+        // Update base
+        for i in 0..6 {
+            self.sprites[2 * i + 1].pos.x = self.sprites[2 * i + 1].pos.x - 200.0 * dt;
+            if self.sprites[2 * i + 1].pos.x < -BASE_WIDTH {
+                self.sprites[2 * i + 1].pos.x += 6.0 * BASE_WIDTH;
+            }
+        }
+
+        for i in 12..14 {
+            self.sprites[i].pos.x = self.sprites[i].pos.x - 200.0 * dt;
+            if self.sprites[i].pos.x < -PIPE_WIDTH {
+                self.sprites[i].pos.x = WIDTH;
+            }
+        }
     }
 
     fn render(&mut self, vk_ctx: &mut VkContext) {
@@ -171,7 +187,7 @@ impl Game {
     fn render_sprite(&mut self, sprite: Sprite) {
         vk_util::push_rect(&mut self.cmd, Rect::center_extent(sprite.pos, sprite.size), sprite.depth);
         self.materials.push(sprite.material as u32);
-        self.rotations.push(0);
+        self.rotations.push(sprite.rotation);
     }
 }
 
@@ -181,4 +197,37 @@ struct Sprite {
     pos: Vec2,
     size: Vec2,
     depth: f32,
+    rotation: u32,
+}
+
+impl Sprite {
+    fn new<V: Into<Vec2>>(material: Material, pos: V, size: V, depth: f32) -> Self {
+        Self::with_rot(material, pos, size, depth, 0)
+    }
+    fn with_rot<V: Into<Vec2>>(material: Material, pos: V, size: V, depth: f32, rotation: u32) -> Self {
+        Self {
+            material,
+            pos: pos.into(),
+            size: size.into(),
+            depth,
+            rotation,
+        }
+    }
+}
+
+#[repr(u32)]
+#[derive(Copy, Clone)]
+enum Material {
+    Default = 0,
+    Background = 1,
+    Base = 2,
+    Pipe = 3,
+    BirdDown = 4,
+    BirdMid = 5,
+    BirdUp = 6,
+}
+impl Default for Material {
+    fn default() -> Self {
+        Self::Default
+    }
 }
