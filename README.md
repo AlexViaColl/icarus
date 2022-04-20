@@ -32,3 +32,7 @@ cargo test
 
 ### Snake
 ![Snake](/assets/screenshot/snake.png)
+
+### Flappy Bird
+Assets from: [github.com/samuelcust/flappy-bird-assets](https://github.com/samuelcust/flappy-bird-assets)
+![Flappy Bird](/assets/screenshot/flappy.png)
