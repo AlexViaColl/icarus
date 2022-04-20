@@ -46,7 +46,7 @@ fn download_if_not_present<P: AsRef<OsStr> + Debug>(path: P, url: P) {
     let path_to_check = Path::new(&path);
     if !path_to_check.exists() {
         let mut cmd = Command::new("/usr/bin/wget");
-        cmd.arg("-O").arg("z").arg(&url);
+        cmd.arg("-c").arg("-O").arg("z").arg(&url);
         let output = cmd.output().unwrap();
         let stdout = String::from_utf8(output.stdout).unwrap();
         let stderr = String::from_utf8(output.stderr).unwrap();
