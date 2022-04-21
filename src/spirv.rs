@@ -1,9 +1,7 @@
 #![allow(non_camel_case_types)]
 
 // TODO: Bitflag enums
-
-// TODO: Move these functions into a separate module
-use crate::glyph::read_u32_le;
+use crate::parsing::read_u32_le;
 
 use std::fmt;
 

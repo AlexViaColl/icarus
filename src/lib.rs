@@ -4,6 +4,7 @@ pub mod glyph;
 pub mod input;
 pub mod macros;
 pub mod math;
+pub mod parsing;
 pub mod platform;
 pub mod pulseaudio;
 pub mod rand;
