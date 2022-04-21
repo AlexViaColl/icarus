@@ -11,11 +11,13 @@ layout(push_constant) uniform PushConstants {
 	vec2 offset;
 	vec2 size;
     float z;
+    float r, g, b, a;
     uint materialId;
     uint rotationId;
 };
 
 layout(location = 0) out vec2 fragTexCoord;
+layout(location = 1) out vec4 fragColor;
 
 float rotation[4] = {
     0.0,
@@ -37,9 +39,11 @@ void main() {
     vec2 s = vec2(size.x / globalUBO.width, size.y / globalUBO.height);
     vec2 transformed = normalized * s + tx;
     normalized = 2.0 * transformed - vec2(1.0, 1.0);
-    gl_Position = vec4(normalized, z, 1.0);
 
     float angle = radians(rotation[rotationId]);
     mat2 rot = mat2(cos(angle), sin(angle), -sin(angle), cos(angle));
+
+    gl_Position = vec4(normalized, z, 1.0);
     fragTexCoord = rot * texCoords[gl_VertexIndex];
+    fragColor = vec4(r, g, b, a);
 }
