@@ -194,7 +194,7 @@ impl Game {
 
         // Update base
         for i in 0..6 {
-            self.sprites[2 * i + 1].pos.x -= -200.0 * dt;
+            self.sprites[2 * i + 1].pos.x -= 200.0 * dt;
             if self.sprites[2 * i + 1].pos.x < -BASE_WIDTH {
                 self.sprites[2 * i + 1].pos.x += 6.0 * BASE_WIDTH;
             }
@@ -202,7 +202,7 @@ impl Game {
 
         // Update pipes
         for i in 12..14 {
-            self.sprites[i].pos.x -= -200.0 * dt;
+            self.sprites[i].pos.x -= 200.0 * dt;
             if self.sprites[i].pos.x < -PIPE_WIDTH {
                 self.sprites[i].pos.x = WIDTH;
             }
@@ -245,7 +245,7 @@ impl Game {
         } else {
             self.render_sprite(Sprite::new(
                 Material::GameOver,
-                (WIDTH / 2.0, HEIGHT / 2.0 - 200.0),
+                (WIDTH / 2.0, HEIGHT / 2.0 - 100.0),
                 (192.0 * 2.0, 42.0 * 2.0),
                 0.0,
             ));
