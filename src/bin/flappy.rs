@@ -52,6 +52,9 @@ fn main() {
     let mut prev_frame_time = start_time;
     while game.running {
         platform.process_messages(&mut input);
+        if input.was_key_pressed(KeyId::A) {
+            vk_ctx.recreate_swapchain();
+        }
 
         let seconds_elapsed = prev_frame_time.elapsed().as_secs_f32();
         prev_frame_time = Instant::now();
