@@ -516,7 +516,7 @@ impl VkContext {
                     }
                 }
                 "shader" => {
-                    let dsc_set = self.descriptor_sets[0 * MAX_FRAMES_IN_FLIGHT + self.current_frame];
+                    let dsc_set = self.descriptor_sets[/*0 * MAX_FRAMES_IN_FLIGHT + */self.current_frame];
                     vkCmdBindDescriptorSets(
                         cmd,
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -584,7 +584,7 @@ impl VkContext {
         self.destroy_pipeline_layout();
         self.destroy_descriptor_set_layout();
 
-        self.texture_images.iter_mut().for_each(|t| t.drop());
+        self.texture_images.iter_mut().for_each(|t| t.destroy());
         self.destroy_sampler();
 
         self.destroy_ubo();
@@ -891,7 +891,7 @@ impl VkContext {
     fn cleanup_swapchain(&mut self) {
         unsafe {
             self.framebuffers.iter().for_each(|fb| vkDestroyFramebuffer(self.device, *fb, self.allocator));
-            self.depth_image.drop();
+            self.depth_image.destroy();
             vkDestroyPipeline(self.device, self.graphics_pipeline, self.allocator);
             vkDestroyRenderPass(self.device, self.render_pass, self.allocator);
             vkDestroyPipelineLayout(self.device, self.pipeline_layout, self.allocator);
@@ -1225,7 +1225,7 @@ impl VkContext {
     }
 
     fn destroy_ssbo(&mut self) {
-        self.ssbo.drop();
+        self.ssbo.destroy();
     }
 
     fn create_ubo(&mut self, size: usize) {
@@ -1237,7 +1237,7 @@ impl VkContext {
     }
 
     fn destroy_ubo(&mut self) {
-        self.ubo.drop();
+        self.ubo.destroy();
     }
 
     fn create_descriptor_pool(&mut self) {
@@ -1392,7 +1392,7 @@ impl VkContext {
     }
 
     fn destroy_depth_image(&mut self) {
-        self.depth_image.drop();
+        self.depth_image.destroy();
     }
 
     fn create_framebuffers(&mut self) {
@@ -1533,7 +1533,7 @@ impl VkContext {
 
         self.copy_buffer(staging_buffer.buffer, self.vertex_buffer.buffer, buffer_size);
 
-        staging_buffer.drop();
+        staging_buffer.destroy();
     }
 
     fn create_vertex_buffer_default(&mut self) {
@@ -1550,7 +1550,7 @@ impl VkContext {
     }
 
     fn destroy_vertex_buffer(&mut self) {
-        self.vertex_buffer.drop();
+        self.vertex_buffer.destroy();
     }
 
     fn create_index_buffer(&mut self) {
@@ -1572,11 +1572,11 @@ impl VkContext {
 
         self.copy_buffer(staging_buffer.buffer, self.index_buffer.buffer, buffer_size);
 
-        staging_buffer.drop();
+        staging_buffer.destroy();
     }
 
     fn destroy_index_buffer(&mut self) {
-        self.index_buffer.drop();
+        self.index_buffer.destroy();
     }
 
     pub fn update_descriptor_sets<G>(&mut self, global_state: G) {
@@ -1691,7 +1691,7 @@ impl VkContext {
             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         );
 
-        staging_buffer.drop();
+        staging_buffer.destroy();
 
         texture_image
     }
@@ -2093,7 +2093,7 @@ pub struct Buffer {
     pub memory: VkDeviceMemory,
 }
 impl Buffer {
-    pub fn drop(&mut self) {
+    pub fn destroy(&mut self) {
         if self.device != VkDevice::default() {
             unsafe { vkFreeMemory(self.device, self.memory, ptr::null()) };
             unsafe { vkDestroyBuffer(self.device, self.buffer, ptr::null()) };
@@ -2109,7 +2109,7 @@ pub struct Image {
     pub view: VkImageView,
 }
 impl Image {
-    fn drop(&mut self) {
+    fn destroy(&mut self) {
         if self.device != VkDevice::default() {
             unsafe { vkDestroyImageView(self.device, self.view, ptr::null()) };
             unsafe { vkFreeMemory(self.device, self.memory, ptr::null()) };

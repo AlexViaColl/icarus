@@ -29,7 +29,7 @@ fn main() {
         Some(String::from("snake")),
     );
 
-    vk_ctx.vertex_buffer.drop();
+    vk_ctx.vertex_buffer.destroy();
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
 
@@ -81,7 +81,7 @@ struct Game {
 }
 
 const BG_WIDTH: f32 = 288.0;
-const BG_HEIGHT: f32 = 512.0;
+//const BG_HEIGHT: f32 = 512.0;
 const BASE_WIDTH: f32 = 336.0;
 const BASE_HEIGHT: f32 = 112.0;
 const BIRD_WIDTH: f32 = 34.0;
@@ -194,7 +194,7 @@ impl Game {
 
         // Update base
         for i in 0..6 {
-            self.sprites[2 * i + 1].pos.x = self.sprites[2 * i + 1].pos.x - 200.0 * dt;
+            self.sprites[2 * i + 1].pos.x -= -200.0 * dt;
             if self.sprites[2 * i + 1].pos.x < -BASE_WIDTH {
                 self.sprites[2 * i + 1].pos.x += 6.0 * BASE_WIDTH;
             }
@@ -202,7 +202,7 @@ impl Game {
 
         // Update pipes
         for i in 12..14 {
-            self.sprites[i].pos.x = self.sprites[i].pos.x - 200.0 * dt;
+            self.sprites[i].pos.x -= -200.0 * dt;
             if self.sprites[i].pos.x < -PIPE_WIDTH {
                 self.sprites[i].pos.x = WIDTH;
             }

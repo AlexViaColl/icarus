@@ -209,7 +209,7 @@ mod tests {
                 println!("IOID: Input & Output");
             }
 
-            println!("");
+            println!();
 
             hint = unsafe { hint.offset(1) };
         }

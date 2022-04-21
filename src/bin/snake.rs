@@ -35,7 +35,7 @@ fn main() {
         8, //mem::size_of::<GlobalState>(),
         Some(String::from("snake")),
     );
-    vk_ctx.vertex_buffer.drop();
+    vk_ctx.vertex_buffer.destroy();
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
 
@@ -253,14 +253,12 @@ impl Game {
                             } else {
                                 new_dir = directions[self.rand.next_usize() % 4];
                             }
+                        } else if row == self.coin.0 && col == 0 {
+                            new_dir = Direction::Right;
+                        } else if row == self.coin.0 && col == self.cols - 1 {
+                            new_dir = Direction::Left;
                         } else {
-                            if row == self.coin.0 && col == 0 {
-                                new_dir = Direction::Right;
-                            } else if row == self.coin.0 && col == self.cols - 1 {
-                                new_dir = Direction::Left;
-                            } else {
-                                new_dir = directions[self.rand.next_usize() % 4];
-                            }
+                            new_dir = directions[self.rand.next_usize() % 4];
                         }
                     } else if !self.towards_border && row != self.coin.0 {
                         // Try to go to the border
@@ -291,12 +289,7 @@ impl Game {
             };
 
             if is_valid_pos(new_pos, self.rows, self.cols)
-                && !self
-                    .snake
-                    .iter()
-                    .map(|s| s.0)
-                    .collect::<Vec<_>>()
-                    .contains(&(new_pos.0 as usize, new_pos.1 as usize))
+                && !self.snake.iter().map(|s| s.0).any(|x| x == (new_pos.0 as usize, new_pos.1 as usize))
             {
                 if (new_pos.0 as usize, new_pos.1 as usize) != self.coin {
                     self.snake.pop_back();
@@ -326,7 +319,7 @@ impl Game {
         };
 
         is_valid_pos(new_pos, self.rows, self.cols)
-            && !self.snake.iter().map(|s| s.0).collect::<Vec<_>>().contains(&(new_pos.0 as usize, new_pos.1 as usize))
+            && !self.snake.iter().map(|s| s.0).any(|x| x == (new_pos.0 as usize, new_pos.1 as usize))
     }
 
     fn render(&mut self, width: f32, height: f32) {
@@ -462,7 +455,7 @@ impl Game {
     fn spawn_coin(&mut self) {
         loop {
             let coin_pos = (self.rand.next_usize() % self.rows, self.rand.next_usize() % self.cols);
-            if !self.snake.iter().map(|s| s.0).collect::<Vec<_>>().contains(&coin_pos) {
+            if !self.snake.iter().map(|s| s.0).any(|x| x == coin_pos) {
                 self.coin = coin_pos;
                 break;
             }

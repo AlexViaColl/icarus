@@ -46,15 +46,8 @@ impl ShaderModule {
         let locations = self
             .instructions
             .iter()
-            .filter(|x| match x {
-                Instruction::OpDecorate {
-                    decoration,
-                    ..
-                } if *decoration == Decoration::Location => true,
-                _ => false,
-            })
+            .filter(|x| matches!(x, Instruction::OpDecorate {decoration, ..} if *decoration == Decoration::Location))
             .collect::<Vec<_>>();
-        //println!("{:#?}", locations);
 
         // 1. Get the shader interface from OpEntryPoint
         let entry = self.instructions.iter().find(|x| matches!(x, Instruction::OpEntryPoint { .. })).unwrap();
@@ -72,14 +65,7 @@ impl ShaderModule {
         let variables = self
             .instructions
             .iter()
-            .filter(|x| match x {
-                Instruction::OpVariable {
-                    result,
-                    storage_class,
-                    ..
-                } if interface.contains(result) && *storage_class == StorageClass::Input => true,
-                _ => false,
-            })
+            .filter(|x| matches!(x, Instruction::OpVariable {result, storage_class, ..} if interface.contains(result) && *storage_class == StorageClass::Input))
             .collect::<Vec<_>>();
 
         let variable_ids = variables
@@ -212,11 +198,11 @@ impl fmt::Debug for ShaderModule {
 }
 
 impl TryFrom<&[u8]> for ShaderModule {
-    type Error = &'static str;
+    type Error = String;
 
     fn try_from(bytes: &[u8]) -> Result<Self, Self::Error> {
         if bytes.len() % 4 != 0 {
-            return Err("Length should be an even multiple of 4.");
+            return Err("Length should be an even multiple of 4.".to_string());
         }
         let mut r = std::io::Cursor::new(bytes);
 
@@ -224,15 +210,15 @@ impl TryFrom<&[u8]> for ShaderModule {
         let magic = read_u32_le(&mut r).map_err(|_| "IO Error")?;
         //println!("Magic Number: 0x{:08x}", magic);
         if magic != 0x07230203 {
-            return Err("Magic number should be 0x07230203.");
+            return Err("Magic number should be 0x07230203.".to_string());
         }
 
         // Version number
         let version = read_u32_le(&mut r).map_err(|_| "IO Error")?;
         //println!("Version: 0x{:08x}", version);
-        if !(version >= 0x0001_0000 && version <= 0x0001_0600) {
+        if !(0x0001_0000..=0x0001_0600).contains(&version) {
             // 1.0 <= version <= 1.6
-            return Err("Unexpected version number.");
+            return Err(format!("Unexpected version number 0x{:08x}.", version));
         }
 
         let generator = read_u32_le(&mut r).map_err(|_| "IO Error")?;
@@ -245,7 +231,7 @@ impl TryFrom<&[u8]> for ShaderModule {
 
         let reserved = read_u32_le(&mut r).map_err(|_| "IO Error")?;
         if reserved != 0 {
-            return Err("Reserved should be 0.");
+            return Err("Reserved should be 0.".to_string());
         }
 
         let instructions_size = bytes.len() - 20;
