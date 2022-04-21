@@ -1,7 +1,7 @@
 use crate::color::*;
 use crate::cstr;
 use crate::glyph::{Glyph, GLYPHS, GLYPH_HEIGHT, GLYPH_WIDTH};
-use crate::math::Rect;
+use crate::math::{Rect, Vec2};
 use crate::platform::Platform;
 use crate::spirv::ShaderModule;
 use crate::stb_image::*;
@@ -69,6 +69,19 @@ pub enum RenderCommand {
 }
 pub fn push_rect<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32) {
     push_rect_color(cmd, r, z, WHITE);
+}
+pub fn push_rect_outline<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32) {
+    let r = r.into();
+    let upper = Rect::offset_extent(r.offset, (r.extent.x, 2.0));
+    let lower = Rect::offset_extent(r.offset + Vec2::new(0.0, r.extent.y - 2.0), (r.extent.x, 2.0));
+    let left = Rect::offset_extent(r.offset, (2.0, r.extent.y));
+    let right = Rect::offset_extent(r.offset + Vec2::new(r.extent.x - 2.0, 0.0), (2.0, r.extent.y));
+
+    let color = RED;
+    push_rect_color(cmd, upper, z, color);
+    push_rect_color(cmd, lower, z, color);
+    push_rect_color(cmd, left, z, color);
+    push_rect_color(cmd, right, z, color);
 }
 pub fn push_rect_color<R: Into<Rect>, C: Into<Color>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32, c: C) {
     let r = r.into();
@@ -467,15 +480,23 @@ impl VkContext {
                 "snake" => {
                     for i in 0..render_commands.len() {
                         let rotation_id = rotations[i];
-                        let mut v = (0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, 1_u32, rotation_id);
-                        ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 5);
+                        #[rustfmt::skip]
+                        let mut v = (
+                            0.0_f32, 0.0_f32, // offset
+                            0.0_f32, 0.0_f32, // size
+                            0.0_f32, // z
+                            0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
+                            1_u32, // material_id
+                            rotation_id
+                        );
+                        ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 9);
                         if i == 0 {
-                            v.5 = 0;
+                            v.9 = 0;
                         } else {
-                            v.5 = 1;
+                            v.9 = 1;
                         }
                         let v = &v as *const _ as *const c_void;
-                        vkCmdPushConstants(cmd, self.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT.into(), 0, 7 * 4, v);
+                        vkCmdPushConstants(cmd, self.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT.into(), 0, 11 * 4, v);
 
                         let img_idx = material_ids[i] as usize;
                         let dsc_set = self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame];
@@ -1002,7 +1023,7 @@ impl VkContext {
                     pPushConstantRanges: &VkPushConstantRange {
                         stageFlags: VK_SHADER_STAGE_VERTEX_BIT.into(),
                         offset: 0,
-                        size: 7 * 4, // vec2 offset + vec2 size + z + materialId + rotationId
+                        size: 11 * 4, // vec2 offset + vec2 size + z + color + materialId + rotationId
                     },
                     ..VkPipelineLayoutCreateInfo::default()
                 },
