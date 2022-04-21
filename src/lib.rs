@@ -8,6 +8,7 @@ pub mod parsing;
 pub mod platform;
 pub mod pulseaudio;
 pub mod rand;
+pub mod shaderc;
 pub mod spirv;
 pub mod stb_image;
 pub mod string_util;
