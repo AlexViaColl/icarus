@@ -203,6 +203,7 @@ const MAX_FRAMES_IN_FLIGHT: usize = 2;
 const MAX_TEXTURES: usize = 20;
 //#[derive(Default)]
 pub struct VkContext {
+    pub generation: usize,
     pub allocator: *const VkAllocationCallbacks,
 
     // instance_layers
@@ -230,6 +231,7 @@ pub struct VkContext {
     pub graphics_queue: VkQueue,
     pub graphics_family_index: u32,
 
+    pub recreate_swapchain: bool,
     pub swapchain: VkSwapchainKHR,
     pub swapchain_image_views: Vec<VkImageView>,
 
@@ -274,6 +276,7 @@ pub struct VkContext {
 impl Default for VkContext {
     fn default() -> Self {
         Self {
+            generation: 0,
             allocator: ptr::null(),
             instance: VkInstance::default(),
             surface: VkSurfaceKHR::default(),
@@ -289,6 +292,7 @@ impl Default for VkContext {
             device: VkDevice::default(),
             graphics_queue: VkQueue::default(),
             graphics_family_index: 0,
+            recreate_swapchain: false,
             swapchain: VkSwapchainKHR::default(),
             swapchain_image_views: vec![],
             depth_image: Image::default(),
@@ -351,7 +355,7 @@ impl VkContext {
         vk_ctx.create_index_buffer();
 
         vk_ctx.create_sampler();
-        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1)); // 0
+        vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1));
 
         // Shader Storage Buffer Object
         vk_ctx.create_ssbo(ssbo_size);
@@ -381,7 +385,7 @@ impl VkContext {
         material_ids: &[u32],
         rotations: &[u32],
     ) {
-        //println!("{} {} {}", render_commands.len(), material_ids.len(), rotations.len());
+        self.generation += 1;
         unsafe {
             let cmd = self.command_buffers[self.current_frame];
             let fence = self.in_flight_fences[self.current_frame];
@@ -398,12 +402,12 @@ impl VkContext {
             ) {
                 VK_SUCCESS | VK_SUBOPTIMAL_KHR => {}
                 VK_ERROR_OUT_OF_DATE_KHR => {
-                    self.recreate_swapchain();
-                    self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+                    self.recreate_swapchain_internal();
                     return;
                 }
                 res => panic!("{:?}", res),
             };
+            check!(vkResetFences(self.device, 1, &fence));
 
             // Update transforms
             vk_map_memory_copy(
@@ -412,8 +416,6 @@ impl VkContext {
                 render_commands.as_ptr(),
                 mem::size_of::<RenderCommand>() * render_commands.len(),
             );
-
-            check!(vkResetFences(self.device, 1, &fence));
 
             for img_idx in 0..self.texture_images.len() {
                 vkUpdateDescriptorSets(
@@ -475,7 +477,6 @@ impl VkContext {
             }
 
             let layout = self.pipeline_layout;
-            //println!("#Render commands: {}", render_commands.len());
             match self.shader_id.as_str() {
                 "snake" => {
                     for i in 0..render_commands.len() {
@@ -553,7 +554,7 @@ impl VkContext {
                 fence,
             ));
 
-            match vkQueuePresentKHR(
+            self.recreate_swapchain |= match vkQueuePresentKHR(
                 self.graphics_queue,
                 &VkPresentInfoKHR {
                     waitSemaphoreCount: 1,
@@ -564,10 +565,13 @@ impl VkContext {
                     ..VkPresentInfoKHR::default()
                 },
             ) {
-                VK_SUCCESS => {}
-                VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => self.recreate_swapchain(),
+                VK_SUCCESS => false,
+                VK_SUBOPTIMAL_KHR | VK_ERROR_OUT_OF_DATE_KHR => true,
                 res => panic!("{:?}", res),
             };
+            if self.recreate_swapchain {
+                self.recreate_swapchain_internal();
+            }
 
             self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
         }
@@ -877,7 +881,12 @@ impl VkContext {
         }
     }
 
-    fn recreate_swapchain(&mut self) {
+    pub fn recreate_swapchain(&mut self) {
+        self.recreate_swapchain = true;
+    }
+
+    fn recreate_swapchain_internal(&mut self) {
+        println!("Recreating Swapchain");
         unsafe { vkDeviceWaitIdle(self.device) };
         self.cleanup_swapchain();
         self.create_swapchain();
@@ -886,6 +895,8 @@ impl VkContext {
         self.create_graphics_pipeline();
         self.create_depth_image();
         self.create_framebuffers();
+
+        self.recreate_swapchain = false;
     }
 
     fn cleanup_swapchain(&mut self) {
