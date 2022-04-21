@@ -5,7 +5,7 @@ use crate::parsing::read_u32_le;
 
 use std::fmt;
 
-macro_rules! bitflag_enum {
+macro_rules! def_enum {
     (
         $enum_name:ident {
             $($variant:ident = $value:expr,)*
@@ -1428,7 +1428,7 @@ impl TryFrom<&[u32]> for Instruction {
     }
 }
 
-bitflag_enum!(Capability {
+def_enum!(Capability {
     Matrix = 0,
     Shader = 1,
     Geometry = 2,
@@ -1501,21 +1501,21 @@ bitflag_enum!(Capability {
     UniformDecoration = 69,
 });
 
-bitflag_enum!(AddressingModel {
+def_enum!(AddressingModel {
     Logical = 0,
     Physical32 = 1,
     Physical64 = 2,
     PhysicalStorageBuffer64 = 5348,
 });
 
-bitflag_enum!(MemoryModel {
+def_enum!(MemoryModel {
     Simple = 0,
     GLSL450 = 1,
     OpenCL = 2,
     Vulkan = 3,
 });
 
-bitflag_enum!(ExecutionModel {
+def_enum!(ExecutionModel {
     Vertex = 0,
     TessellationControl = 1,
     TessellationEvaluation = 2,
@@ -1525,7 +1525,7 @@ bitflag_enum!(ExecutionModel {
     Kernel = 6,
 });
 
-bitflag_enum!(StorageClass {
+def_enum!(StorageClass {
     UniformConstant = 0,
     Input = 1,
     Uniform = 2,
@@ -1541,7 +1541,7 @@ bitflag_enum!(StorageClass {
     StorageBuffer = 12,
 });
 
-bitflag_enum!(SourceLanguage {
+def_enum!(SourceLanguage {
     Unknown = 0,
     ESSL = 1,
     GLSL = 2,
@@ -1551,7 +1551,7 @@ bitflag_enum!(SourceLanguage {
     CPP_for_OpenCL = 6,
 });
 
-bitflag_enum!(ExecutionMode {
+def_enum!(ExecutionMode {
     Invocations = 0,
     SpacingEqual = 1,
     SpacingFractionalEven = 2,
@@ -1593,7 +1593,7 @@ bitflag_enum!(ExecutionMode {
     // TODO: Extensions...
 });
 
-bitflag_enum!(Dim {
+def_enum!(Dim {
     Dim1D = 0,
     Dim2D = 1,
     Dim3D = 2,
@@ -1603,7 +1603,7 @@ bitflag_enum!(Dim {
     SubpassData = 6,
 });
 
-bitflag_enum!(ImageFormat {
+def_enum!(ImageFormat {
     Unknown = 0,
     Rgba32f = 1,
     Rgba16f = 2,
@@ -1648,13 +1648,13 @@ bitflag_enum!(ImageFormat {
     R64i = 41,
 });
 
-bitflag_enum!(AccessQualifier {
+def_enum!(AccessQualifier {
     ReadOnly = 0,
     WriteOnly = 1,
     ReadWrite = 2,
 });
 
-bitflag_enum!(SamplerAddressingMode {
+def_enum!(SamplerAddressingMode {
     None = 0,
     ClampToEdge = 1,
     Clamp = 2,
@@ -1662,12 +1662,12 @@ bitflag_enum!(SamplerAddressingMode {
     RepeatMirrored = 4,
 });
 
-bitflag_enum!(SamplerFilterMode {
+def_enum!(SamplerFilterMode {
     Nearest = 0,
     Linear = 1,
 });
 
-bitflag_enum!(Decoration {
+def_enum!(Decoration {
     RelaxedPrecision = 0,
     SpecId = 1,
     Block = 2,
@@ -1719,7 +1719,7 @@ bitflag_enum!(Decoration {
 });
 
 // TODO: Bit flags!!
-bitflag_enum!(FunctionControl {
+def_enum!(FunctionControl {
     None = 0,
     Inline = 1,
     DontInline = 2,
@@ -1728,7 +1728,7 @@ bitflag_enum!(FunctionControl {
 });
 
 // TODO: Bit flags!!
-bitflag_enum!(MemoryOperands {
+def_enum!(MemoryOperands {
     None = 0,
     Volatile = 1,
     Aligned = 2,
@@ -1739,7 +1739,7 @@ bitflag_enum!(MemoryOperands {
 });
 
 // TODO: Bit flags!
-bitflag_enum!(ImageOperands {
+def_enum!(ImageOperands {
     None = 0,
     Bias = 1,
     Lod = 2,
