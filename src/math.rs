@@ -71,7 +71,7 @@ pub fn inv_lerp(a: f32, b: f32, value: f32) -> f32 {
 }
 
 impl Rect {
-    pub fn offset_extent<T: Into<Vec2>>(offset: T, extent: T) -> Self {
+    pub fn offset_extent<T1: Into<Vec2>, T2: Into<Vec2>>(offset: T1, extent: T2) -> Self {
         Self {
             offset: offset.into(),
             extent: extent.into(),
