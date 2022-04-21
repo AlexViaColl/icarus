@@ -1050,8 +1050,7 @@ impl VkContext {
 
     fn create_graphics_pipeline(&mut self) {
         unsafe {
-            //let vs_code = fs::read("assets/shaders/shader.vert.spv").expect("Failed to load vertex shader");
-            //let fs_code = fs::read("assets/shaders/shader.frag.spv").expect("Failed to load fragment shader");
+            std::process::Command::new("/bin/sh").arg("compile_shaders.sh").status().unwrap();
             let vs_path = format!("assets/shaders/{}.vert.spv", self.shader_id);
             let fs_path = format!("assets/shaders/{}.frag.spv", self.shader_id);
             let vs_code = fs::read(vs_path).expect("Failed to load vertex shader");
