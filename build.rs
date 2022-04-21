@@ -24,10 +24,8 @@ fn main() {
         std::fs::set_permissions("glslc", std::fs::Permissions::from_mode(0o770)).unwrap();
     }
 
-    let output = Command::new("/bin/sh").arg("compile.sh").output().unwrap();
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let stderr = String::from_utf8(output.stderr).unwrap();
-    assert!(output.status.success(), "stderr: {}\nstdout: {}", stderr, stdout);
+    Command::new("/bin/sh").arg("compile_stb.sh").status().unwrap();
+    Command::new("/bin/sh").arg("compile_shaders.sh").status().unwrap();
 
     // Download flappy bird assets
     let path = "assets/textures/flappy";
