@@ -3,26 +3,7 @@
 
 use std::ffi::c_void;
 
-use crate::cstr;
-
-macro_rules! VK_DEFINE_HANDLE(
-    ($pub_name: ident, $priv_name: ident) => {
-        #[repr(C)]
-        pub struct $priv_name {
-            _data: [u8; 0],
-            _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
-        }
-
-        #[repr(transparent)]
-        #[derive(Debug, Copy, Clone, PartialEq)]
-        pub struct $pub_name(*mut $priv_name);
-        impl Default for $pub_name {
-            fn default() -> Self {
-                Self(std::ptr::null_mut())
-            }
-        }
-    }
-);
+use crate::{cstr, opaque};
 
 macro_rules! bitflag_struct {
     ($struct_name:ident : $enum_name:ident) => {
@@ -907,38 +888,38 @@ pub type VkFlags = u32;
 pub type VkSampleMask = u32;
 
 // Handles
-VK_DEFINE_HANDLE!(VkInstance, VkInstance_);
-VK_DEFINE_HANDLE!(VkPhysicalDevice, VkPhysicalDevice_);
-VK_DEFINE_HANDLE!(VkDevice, VkDevice_);
-VK_DEFINE_HANDLE!(VkQueue, VkQueue_);
-VK_DEFINE_HANDLE!(VkCommandBuffer, VkCommandBuffer_);
+opaque!(VkInstance, VkInstance_);
+opaque!(VkPhysicalDevice, VkPhysicalDevice_);
+opaque!(VkDevice, VkDevice_);
+opaque!(VkQueue, VkQueue_);
+opaque!(VkCommandBuffer, VkCommandBuffer_);
 
-VK_DEFINE_HANDLE!(VkBuffer, VkBuffer_);
-VK_DEFINE_HANDLE!(VkImage, VkImage_);
-VK_DEFINE_HANDLE!(VkSemaphore, _VkSemaphore_);
-VK_DEFINE_HANDLE!(VkFence, _VkFence_);
-VK_DEFINE_HANDLE!(VkDeviceMemory, _VkDeviceMemory_);
-VK_DEFINE_HANDLE!(VkEvent, _VkEvent_);
-VK_DEFINE_HANDLE!(VkQueryPool, _VkQueryPool_);
-VK_DEFINE_HANDLE!(VkBufferView, _VkBufferView_);
-VK_DEFINE_HANDLE!(VkImageView, _VkImageView_);
-VK_DEFINE_HANDLE!(VkShaderModule, _VkShaderModule_);
-VK_DEFINE_HANDLE!(VkPipelineCache, _VkPipelineCache_);
-VK_DEFINE_HANDLE!(VkPipelineLayout, _VkPipelineLayout_);
-VK_DEFINE_HANDLE!(VkPipeline, _VkPipeline_);
-VK_DEFINE_HANDLE!(VkRenderPass, _VkRenderPass_);
-VK_DEFINE_HANDLE!(VkDescriptorSetLayout, _VkDescriptorSetLayout_);
-VK_DEFINE_HANDLE!(VkSampler, _VkSampler_);
-VK_DEFINE_HANDLE!(VkDescriptorSet, _VkDescriptorSet_);
-VK_DEFINE_HANDLE!(VkDescriptorPool, _VkDescriptorPool_);
-VK_DEFINE_HANDLE!(VkFramebuffer, _VkFramebuffer_);
-VK_DEFINE_HANDLE!(VkCommandPool, _VkCommandPool_);
+opaque!(VkBuffer, VkBuffer_);
+opaque!(VkImage, VkImage_);
+opaque!(VkSemaphore, _VkSemaphore_);
+opaque!(VkFence, _VkFence_);
+opaque!(VkDeviceMemory, _VkDeviceMemory_);
+opaque!(VkEvent, _VkEvent_);
+opaque!(VkQueryPool, _VkQueryPool_);
+opaque!(VkBufferView, _VkBufferView_);
+opaque!(VkImageView, _VkImageView_);
+opaque!(VkShaderModule, _VkShaderModule_);
+opaque!(VkPipelineCache, _VkPipelineCache_);
+opaque!(VkPipelineLayout, _VkPipelineLayout_);
+opaque!(VkPipeline, _VkPipeline_);
+opaque!(VkRenderPass, _VkRenderPass_);
+opaque!(VkDescriptorSetLayout, _VkDescriptorSetLayout_);
+opaque!(VkSampler, _VkSampler_);
+opaque!(VkDescriptorSet, _VkDescriptorSet_);
+opaque!(VkDescriptorPool, _VkDescriptorPool_);
+opaque!(VkFramebuffer, _VkFramebuffer_);
+opaque!(VkCommandPool, _VkCommandPool_);
 
 // Extensions
-VK_DEFINE_HANDLE!(VkDebugReportCallbackEXT, VkDebugReportCallbackEXT_);
-VK_DEFINE_HANDLE!(VkDebugUtilsMessengerEXT, VkDebugUtilsMessengerEXT_);
-VK_DEFINE_HANDLE!(VkSurfaceKHR, _VkSurfaceKHR_);
-VK_DEFINE_HANDLE!(VkSwapchainKHR, _VkSwapchainKHR_);
+opaque!(VkDebugReportCallbackEXT, VkDebugReportCallbackEXT_);
+opaque!(VkDebugUtilsMessengerEXT, VkDebugUtilsMessengerEXT_);
+opaque!(VkSurfaceKHR, _VkSurfaceKHR_);
+opaque!(VkSwapchainKHR, _VkSwapchainKHR_);
 
 pub const fn VK_API_VERSION_VARIANT(version: u32) -> u32 {
     version >> 29
