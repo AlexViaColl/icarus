@@ -1,0 +1,3 @@
+[submodule "icarus-assets"]
+	path = icarus-assets
+	url = git@github.com:AlexViaColl/icarus-assets.git
