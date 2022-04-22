@@ -39,11 +39,11 @@ fn main() {
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
 
-    vk_ctx.load_texture_image("assets/textures/snake_head.png");
-    vk_ctx.load_texture_image("assets/textures/snake_body_0.png");
-    vk_ctx.load_texture_image("assets/textures/snake_body_1.png");
-    vk_ctx.load_texture_image("assets/textures/snake_tail.png");
-    vk_ctx.load_texture_image("assets/textures/coin.png");
+    vk_ctx.load_texture_image("assets/textures/snake/snake_head.png");
+    vk_ctx.load_texture_image("assets/textures/snake/snake_body_0.png");
+    vk_ctx.load_texture_image("assets/textures/snake/snake_body_1.png");
+    vk_ctx.load_texture_image("assets/textures/snake/snake_tail.png");
+    vk_ctx.load_texture_image("assets/textures/snake/coin.png");
     let global_state = (platform.window_width, platform.window_height);
     vk_ctx.update_descriptor_sets(global_state);
 
@@ -381,7 +381,7 @@ impl Game {
                 &mut self.cmd,
                 Rect::offset_extent(((*col as f32) * SNAKE_SIZE, (*row as f32) * SNAKE_SIZE), (SNAKE_SIZE, SNAKE_SIZE)),
                 0.1,
-                color::GREEN,
+                color::WHITE,
             );
             match idx {
                 // Head
