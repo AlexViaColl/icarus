@@ -16,7 +16,7 @@ fn main() {
 
     if !Path::new("glslc").exists() {
         Command::new("/usr/bin/wget")
-            .arg("https://github.com/AlexViaColl/Icarus_deps/raw/main/glslc.tar.gz")
+            .arg("https://github.com/AlexViaColl/icarus-deps/raw/main/glslc.tar.gz")
             .status()
             .unwrap();
 
