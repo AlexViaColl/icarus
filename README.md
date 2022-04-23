@@ -11,7 +11,8 @@ Learning Rust by making a game
 # Instructions
 ```console
 # Clone the repository and all of its submodules
-git clone --recurse-submodules
+git clone --recurse-submodules https://github.com/AlexViaColl/icarus.git
+cd icarus
 
 # Run one of the binaries
 cargo run --bin minesweeper
