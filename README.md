@@ -22,17 +22,17 @@ cargo test
 
 # Examples
 ### Pong
-![Pong](/assets/screenshot/pong.png)
+![Pong](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/pong.png)
 
 ### Tic-Tac-Toe
-![Tic-Tac-Toe](/assets/screenshot/tic-tac-toe.png)
+![Tic-Tac-Toe](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/tic-tac-toe.png)
 
 ### Minesweeper
-![Minesweeper](/assets/screenshot/minesweeper.png)
+![Minesweeper](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/minesweeper.png)
 
 ### Snake
-![Snake](/assets/screenshot/snake.png)
+![Snake](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/snake.png)
 
 ### Flappy Bird
 Assets from: [github.com/samuelcust/flappy-bird-assets](https://github.com/samuelcust/flappy-bird-assets)
-![Flappy Bird](/assets/screenshot/flappy.png)
+![Flappy Bird](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/flappy.png)
