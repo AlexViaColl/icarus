@@ -10,6 +10,9 @@ Learning Rust by making a game
 
 # Instructions
 ```console
+# Clone the repository and all of its submodules
+git clone --recurse-submodules
+
 # Run one of the binaries
 cargo run --bin minesweeper
 
