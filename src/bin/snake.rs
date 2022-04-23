@@ -17,7 +17,7 @@ const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
 const MAX_ENTITIES: usize = 1000;
-const SNAKE_AI: bool = true;
+const SNAKE_AI: bool = false;
 const SNAKE_SIZE: f32 = 100.0;
 const SNAKE_SPEED: f32 = 0.0001;
 
