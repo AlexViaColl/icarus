@@ -44,23 +44,9 @@ fn main() {
     let global_state = (platform.window_width, platform.window_height);
     vk_ctx.update_descriptor_sets(global_state);
 
-    // https://coolors.co/palettes/trending
-    let colors: [color::Color; 8] = [
-        color::srgb_to_linear(0xcb997e).into(),
-        color::srgb_to_linear(0xddbea9).into(),
-        color::srgb_to_linear(0xffe8d6).into(),
-        color::srgb_to_linear(0xb7b7a4).into(),
-        color::srgb_to_linear(0xa5a58d).into(),
-        color::srgb_to_linear(0x6b705c).into(),
-        color::srgb_to_linear(0x7400b8).into(),
-        color::srgb_to_linear(0x1d1f21).into(),
-    ];
-
     // Main loop
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
-    let mut timer = 0.0;
-    let mut color = None;
     while game.running {
         platform.process_messages(&mut input);
 
@@ -69,16 +55,9 @@ fn main() {
         game.update(&input, seconds_elapsed);
         game.render(vk_ctx.frame_width, vk_ctx.frame_height);
 
-        timer += seconds_elapsed;
-        if color.is_none() || timer >= 1.0 {
-            timer = 0.0;
-            //color = Some(color::srgb_to_linear(game.rand.next_u32() % 0xffffff).into());
-            //color = Some(colors[game.rand.next_usize() % colors.len()]);
-            color = Some(colors[colors.len() - 1]);
-        }
         vk_ctx.render(
             &game.cmd,
-            color,
+            Some(color::srgb_to_linear(0x1d1f21).into()),
             &game.material_ids,
             &game.rotations.iter().map(|r| *r as u32).collect::<Vec<_>>(),
         );
