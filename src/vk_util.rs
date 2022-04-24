@@ -380,17 +380,18 @@ impl VkContext {
         vk_ctx
     }
 
-    // TODO: Figure out a better way to pass data from CPU -> GPU depending on the Shader.
-    pub fn render<RenderCommand>(
-        &mut self,
-        render_commands: &[RenderCommand],
-        clear_color: Option<Color>,
-        material_ids: &[u32],
-        rotations: &[u32],
-    ) {
+    //pub fn render_simple(&mut self, transforms: &[Transform]) {
+    //    // TODO
+    //}
+
+    //pub fn render_sprite(&mut self, sprite_render_commands: &[SpriteRenderCommand]) {
+    //    // TODO
+    //}
+
+    // TODO: Consider also returning the VkCommandBuffer being recorded
+    fn render_begin(&mut self) -> Option<u32> {
         self.generation += 1;
         unsafe {
-            let cmd = self.command_buffers[self.current_frame];
             let fence = self.in_flight_fences[self.current_frame];
             check!(vkWaitForFences(self.device, 1, &fence, VK_TRUE, u64::MAX));
 
@@ -406,141 +407,29 @@ impl VkContext {
                 VK_SUCCESS | VK_SUBOPTIMAL_KHR => {}
                 VK_ERROR_OUT_OF_DATE_KHR => {
                     self.recreate_swapchain_internal();
-                    return;
+                    return None;
                 }
                 res => panic!("{:?}", res),
             };
             check!(vkResetFences(self.device, 1, &fence));
 
-            // Update transforms
-            vk_map_memory_copy(
-                self.device,
-                self.ssbo.memory,
-                render_commands.as_ptr(),
-                mem::size_of::<RenderCommand>() * render_commands.len(),
-            );
-
-            for img_idx in 0..self.texture_images.len() {
-                vkUpdateDescriptorSets(
-                    self.device,
-                    1,
-                    &VkWriteDescriptorSet {
-                        dstSet: self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame],
-                        dstBinding: 2,
-                        dstArrayElement: 0,
-                        descriptorCount: 1,
-                        descriptorType: VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                        pImageInfo: &VkDescriptorImageInfo {
-                            sampler: self.texture_sampler,
-                            imageView: self.texture_images[img_idx].view,
-                            imageLayout: VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        },
-                        ..VkWriteDescriptorSet::default()
-                    },
-                    0,
-                    ptr::null(),
-                );
-            }
-
+            let cmd = self.command_buffers[self.current_frame];
             vkResetCommandBuffer(cmd, 0.into());
 
             // Record command buffer
             check!(vkBeginCommandBuffer(cmd, &VkCommandBufferBeginInfo::default()));
 
-            let width = self.surface_caps.currentExtent.width;
-            let height = self.surface_caps.currentExtent.height;
-            let color = if let Some(color) = clear_color {
-                color.as_f32()
-            } else {
-                BLACK.as_f32()
-            };
-            vkCmdBeginRenderPass(
-                cmd,
-                &VkRenderPassBeginInfo {
-                    renderPass: self.render_pass,
-                    framebuffer: self.framebuffers[image_index as usize],
-                    renderArea: VkRect2D::new(0, 0, width, height),
-                    clearValueCount: 2,
-                    pClearValues: [VkClearColorValue::new(color), VkClearDepthStencilValue::new(1.0, 0)].as_ptr(),
-                    ..VkRenderPassBeginInfo::default()
-                },
-                VK_SUBPASS_CONTENTS_INLINE,
-            );
+            Some(image_index)
+        }
+    }
 
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphics_pipeline);
-
-            vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
-            vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
-
-            if self.vertex_buffer.buffer != VkBuffer::default() {
-                vkCmdBindVertexBuffers(cmd, 0, 1, &self.vertex_buffer.buffer, &0);
-            }
-            if self.index_buffer.buffer != VkBuffer::default() {
-                vkCmdBindIndexBuffer(cmd, self.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-            }
-
-            let layout = self.pipeline_layout;
-            match self.shader_id.as_str() {
-                "simple" => {
-                    let dsc_set = self.descriptor_sets[self.current_frame];
-                    vkCmdBindDescriptorSets(
-                        cmd,
-                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        layout,
-                        0,
-                        1,
-                        &dsc_set,
-                        0,
-                        ptr::null(),
-                    );
-                    vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
-                }
-                "sprite" => {
-                    for i in 0..render_commands.len() {
-                        let rotation_id = rotations[i];
-                        #[rustfmt::skip]
-                        let mut v = (
-                            0.0_f32, 0.0_f32, // offset
-                            0.0_f32, 0.0_f32, // size
-                            0.0_f32, // z
-                            0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
-                            1_u32, // material_id
-                            rotation_id
-                        );
-                        ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 9);
-                        if i == 0 {
-                            v.9 = 0;
-                        } else {
-                            v.9 = 1;
-                        }
-                        let v = &v as *const _ as *const c_void;
-                        vkCmdPushConstants(cmd, self.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT.into(), 0, 11 * 4, v);
-
-                        let img_idx = material_ids[i] as usize;
-                        let dsc_set = self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame];
-                        if i == render_commands.len() - 1 {}
-
-                        vkCmdBindDescriptorSets(
-                            cmd,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            layout,
-                            0,
-                            1,
-                            &dsc_set,
-                            0,
-                            ptr::null(),
-                        );
-                        vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-                    }
-                }
-                _ => {}
-            }
-
-            vkCmdEndRenderPass(cmd);
-
+    fn render_end(&mut self, image_index: u32) {
+        unsafe {
+            let cmd = self.command_buffers[self.current_frame];
             check!(vkEndCommandBuffer(cmd));
 
             // Submit command buffer
+            let fence = self.in_flight_fences[self.current_frame];
             check!(vkQueueSubmit(
                 self.graphics_queue,
                 1,
@@ -577,6 +466,125 @@ impl VkContext {
             }
 
             self.current_frame = (self.current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+        }
+    }
+
+    // TODO: Figure out a better way to pass data from CPU -> GPU depending on the Shader.
+    pub fn render<RenderCommand>(
+        &mut self,
+        render_commands: &[RenderCommand],
+        clear_color: Option<Color>,
+        material_ids: &[u32],
+        rotations: &[u32],
+    ) {
+        if let Some(image_index) = self.render_begin() {
+            unsafe {
+                // Update transforms
+                vk_map_memory_copy(
+                    self.device,
+                    self.ssbo.memory,
+                    render_commands.as_ptr(),
+                    mem::size_of::<RenderCommand>() * render_commands.len(),
+                );
+
+                let width = self.surface_caps.currentExtent.width;
+                let height = self.surface_caps.currentExtent.height;
+                let cmd = self.command_buffers[self.current_frame];
+                vkCmdBeginRenderPass(
+                    cmd,
+                    &VkRenderPassBeginInfo {
+                        renderPass: self.render_pass,
+                        framebuffer: self.framebuffers[image_index as usize],
+                        renderArea: VkRect2D::new(0, 0, width, height),
+                        clearValueCount: 2,
+                        pClearValues: [
+                            VkClearColorValue::new(if let Some(color) = clear_color {
+                                color.as_f32()
+                            } else {
+                                BLACK.as_f32()
+                            }),
+                            VkClearDepthStencilValue::new(1.0, 0),
+                        ]
+                        .as_ptr(),
+                        ..VkRenderPassBeginInfo::default()
+                    },
+                    VK_SUBPASS_CONTENTS_INLINE,
+                );
+
+                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphics_pipeline);
+
+                vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
+                vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
+
+                if self.vertex_buffer.buffer != VkBuffer::default() {
+                    vkCmdBindVertexBuffers(cmd, 0, 1, &self.vertex_buffer.buffer, &0);
+                }
+                if self.index_buffer.buffer != VkBuffer::default() {
+                    vkCmdBindIndexBuffer(cmd, self.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+                }
+
+                let layout = self.pipeline_layout;
+                match self.shader_id.as_str() {
+                    "simple" => {
+                        let dsc_set = self.descriptor_sets[self.current_frame];
+                        vkCmdBindDescriptorSets(
+                            cmd,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            layout,
+                            0,
+                            1,
+                            &dsc_set,
+                            0,
+                            ptr::null(),
+                        );
+                        vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
+                    }
+                    "sprite" => {
+                        for i in 0..render_commands.len() {
+                            let rotation_id = rotations[i];
+                            // TODO: Simplify this
+                            #[rustfmt::skip]
+                        let mut v = (
+                            0.0_f32, 0.0_f32, // offset
+                            0.0_f32, 0.0_f32, // size
+                            0.0_f32, // z
+                            0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
+                            rotation_id
+                        );
+                            ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 9);
+                            let v = &v as *const _ as *const c_void;
+                            vkCmdPushConstants(
+                                cmd,
+                                self.pipeline_layout,
+                                VK_SHADER_STAGE_VERTEX_BIT.into(),
+                                0,
+                                10 * 4,
+                                v,
+                            );
+
+                            let img_idx = material_ids[i] as usize;
+                            let dsc_set = self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame];
+
+                            vkCmdBindDescriptorSets(
+                                cmd,
+                                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                                layout,
+                                0,
+                                1,
+                                &dsc_set,
+                                0,
+                                ptr::null(),
+                            );
+                            vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
+                        }
+                    }
+                    _ => {}
+                }
+
+                vkCmdEndRenderPass(cmd);
+
+                self.render_end(image_index);
+            }
         }
     }
 
@@ -1040,7 +1048,7 @@ impl VkContext {
                     pPushConstantRanges: &VkPushConstantRange {
                         stageFlags: VK_SHADER_STAGE_VERTEX_BIT.into(),
                         offset: 0,
-                        size: 11 * 4, // vec2 offset + vec2 size + z + color + materialId + rotationId
+                        size: 10 * 4, // vec2 offset + vec2 size + z + color + materialId + rotationId
                     },
                     ..VkPipelineLayoutCreateInfo::default()
                 },
