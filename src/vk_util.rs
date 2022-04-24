@@ -267,7 +267,7 @@ pub struct VkContext {
     pub render_finished_semaphores: [VkSemaphore; MAX_FRAMES_IN_FLIGHT],
     pub in_flight_fences: [VkFence; MAX_FRAMES_IN_FLIGHT],
 
-    // TODO: Enable only on debug builds
+    #[cfg(debug_assertions)]
     pub debug_messenger: VkDebugUtilsMessengerEXT,
 
     pub current_frame: usize,
@@ -317,6 +317,7 @@ impl Default for VkContext {
             image_available_semaphores: [VkSemaphore::default(); MAX_FRAMES_IN_FLIGHT],
             render_finished_semaphores: [VkSemaphore::default(); MAX_FRAMES_IN_FLIGHT],
             in_flight_fences: [VkFence::default(); MAX_FRAMES_IN_FLIGHT],
+            #[cfg(debug_assertions)]
             debug_messenger: VkDebugUtilsMessengerEXT::default(),
             current_frame: 0,
         }
@@ -336,6 +337,7 @@ impl VkContext {
             [VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XLIB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME];
 
         vk_ctx.create_instance(&enabled_layers, &enabled_extensions);
+        #[cfg(debug_assertions)]
         vk_ctx.create_debug_utils_messenger_ext(debug_callback);
         vk_ctx.create_xlib_surface_khr(platform);
         vk_ctx.pick_physical_device();
@@ -517,7 +519,7 @@ impl VkContext {
                     }
                 }
                 "shader" => {
-                    let dsc_set = self.descriptor_sets[/*0 * MAX_FRAMES_IN_FLIGHT + */self.current_frame];
+                    let dsc_set = self.descriptor_sets[self.current_frame];
                     vkCmdBindDescriptorSets(
                         cmd,
                         VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -528,7 +530,7 @@ impl VkContext {
                         0,
                         ptr::null(),
                     );
-                    vkCmdDrawIndexed(cmd, 6 /*index_count as u32*/, render_commands.len() as u32, 0, 0, 0);
+                    vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
                 }
                 _ => {}
             }
@@ -608,6 +610,7 @@ impl VkContext {
         self.destroy_swapchain();
         self.destroy_device();
         self.destroy_surface_khr();
+        #[cfg(debug_assertions)]
         self.destroy_debug_utils_messenger_ext();
 
         // We need to close the display before destroying the vulkan instance to avoid segfaults!
@@ -639,6 +642,7 @@ impl VkContext {
         unsafe { vkDestroyInstance(self.instance, self.allocator) };
     }
 
+    #[cfg(debug_assertions)]
     fn create_debug_utils_messenger_ext(&mut self, debug_callback: PFN_vkDebugUtilsMessengerCallbackEXT) {
         unsafe {
             #[allow(non_snake_case)]
@@ -668,6 +672,7 @@ impl VkContext {
         }
     }
 
+    #[cfg(debug_assertions)]
     pub fn destroy_debug_utils_messenger_ext(&mut self) {
         unsafe {
             #[allow(non_snake_case)]
@@ -2974,6 +2979,7 @@ impl Default for VkWriteDescriptorSet {
     }
 }
 
+#[cfg(debug_assertions)]
 extern "C" fn debug_callback(
     _message_severity: VkDebugUtilsMessageSeverityFlagsEXT,
     _message_type: VkDebugUtilsMessageTypeFlagsEXT,
