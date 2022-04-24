@@ -311,7 +311,7 @@ impl Default for VkContext {
             frame_height: 0.0,
             pipeline_layout: VkPipelineLayout::default(),
             graphics_pipeline: VkPipeline::default(),
-            shader_id: String::from("shader"),
+            shader_id: String::from("simple"),
             command_pool: VkCommandPool::default(),
             command_buffers: [VkCommandBuffer::default(); MAX_FRAMES_IN_FLIGHT],
             image_available_semaphores: [VkSemaphore::default(); MAX_FRAMES_IN_FLIGHT],
@@ -481,6 +481,20 @@ impl VkContext {
 
             let layout = self.pipeline_layout;
             match self.shader_id.as_str() {
+                "simple" => {
+                    let dsc_set = self.descriptor_sets[self.current_frame];
+                    vkCmdBindDescriptorSets(
+                        cmd,
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        layout,
+                        0,
+                        1,
+                        &dsc_set,
+                        0,
+                        ptr::null(),
+                    );
+                    vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
+                }
                 "sprite" => {
                     for i in 0..render_commands.len() {
                         let rotation_id = rotations[i];
@@ -518,20 +532,6 @@ impl VkContext {
                         );
                         vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
                     }
-                }
-                "shader" => {
-                    let dsc_set = self.descriptor_sets[self.current_frame];
-                    vkCmdBindDescriptorSets(
-                        cmd,
-                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        layout,
-                        0,
-                        1,
-                        &dsc_set,
-                        0,
-                        ptr::null(),
-                    );
-                    vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
                 }
                 _ => {}
             }
