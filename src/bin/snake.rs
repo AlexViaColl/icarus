@@ -30,7 +30,7 @@ fn main() {
     let mut input = InputState::default();
     let mut game = Game::init();
     let mut vk_ctx =
-        VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES, 8, Some(String::from("sprite")));
+        VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES, Some(String::from("sprite")));
     vk_ctx.vertex_buffer.destroy();
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
