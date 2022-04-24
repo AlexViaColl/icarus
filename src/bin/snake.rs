@@ -19,7 +19,8 @@ const HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 1000;
 const SNAKE_AI: bool = false;
 const SNAKE_SIZE: f32 = 100.0;
-const SNAKE_SPEED: f32 = 0.0001;
+//const SNAKE_SPEED: f32 = 0.0001;
+const SNAKE_SPEED: f32 = 0.2;
 
 fn main() {
     let mut platform = Platform::init(Config {
@@ -294,11 +295,11 @@ impl Game {
                 }
                 self.snake.push_front(((new_pos.0 as usize, new_pos.1 as usize), self.dir));
             } else {
-                //self.state = GameState::GameOver;
-                if is_valid_pos(new_pos, self.rows, self.cols) {
-                    self.snake.pop_back();
-                    self.snake.push_front(((new_pos.0 as usize, new_pos.1 as usize), self.dir));
-                }
+                self.state = GameState::GameOver;
+                //if is_valid_pos(new_pos, self.rows, self.cols) {
+                //    self.snake.pop_back();
+                //    self.snake.push_front(((new_pos.0 as usize, new_pos.1 as usize), self.dir));
+                //}
             }
             self.timer -= self.speed;
         }
