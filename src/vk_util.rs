@@ -327,7 +327,6 @@ impl Default for VkContext {
 impl VkContext {
     // TODO: Create VkCtxOptions struct to provide arguments
     pub fn init(platform: &Platform, ssbo_size: usize, shader_id: Option<String>) -> Self {
-        let ubo_size = 8;
         let mut vk_ctx = VkContext::default();
         if let Some(shader_id) = shader_id {
             vk_ctx.shader_id = shader_id;
@@ -365,6 +364,7 @@ impl VkContext {
 
         // Uniform Buffer Object
         let global_state = (platform.window_width, platform.window_height);
+        let ubo_size = 8;
         vk_ctx.create_ubo(ubo_size);
         vk_map_memory_copy(vk_ctx.device, vk_ctx.ubo.memory, &global_state, ubo_size);
 
