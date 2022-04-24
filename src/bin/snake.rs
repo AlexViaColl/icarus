@@ -118,7 +118,7 @@ struct Game {
     rows: usize,
     cols: usize,
     snake: VecDeque<((usize, usize), Direction)>, // (row, col) Front is the head of the snake
-    coin: (usize, usize),                         // (row, col)
+    apple: (usize, usize),                        // (row, col)
     dir: Direction,
     timer: f32,
     speed: f32, // seconds per tile
@@ -154,12 +154,12 @@ impl Game {
             rows: rows as usize,
             cols: cols as usize,
             snake,
-            coin: (0, 0),
+            apple: (0, 0),
             dir: Direction::Left,
             timer: 0.0,
             speed: SNAKE_SPEED,
         };
-        game.spawn_coin();
+        game.spawn_apple();
         game
     }
 
@@ -213,15 +213,15 @@ impl Game {
         if self.ai {
             let (head_pos, head_dir) = self.snake.front().unwrap();
             let delta =
-                Vec2::new(self.coin.0 as f32, self.coin.1 as f32) - Vec2::new(head_pos.0 as f32, head_pos.1 as f32);
+                Vec2::new(self.apple.0 as f32, self.apple.1 as f32) - Vec2::new(head_pos.0 as f32, head_pos.1 as f32);
             let delta_len = delta.len();
             //println!("delta: {}", delta_len);
 
             let mut new_dir = *head_dir;
             let (row, col) = *head_pos;
-            if row == self.coin.0 && col == 0 && delta_len < (self.cols as f32 / 2.0) {
+            if row == self.apple.0 && col == 0 && delta_len < (self.cols as f32 / 2.0) {
                 new_dir = Direction::Right;
-            } else if row == self.coin.0 && col == self.cols - 1 && delta_len < (self.cols as f32 / 2.0) {
+            } else if row == self.apple.0 && col == self.cols - 1 && delta_len < (self.cols as f32 / 2.0) {
                 new_dir = Direction::Left;
             }
 
@@ -250,14 +250,14 @@ impl Game {
                             } else {
                                 new_dir = directions[self.rand.next_usize() % 4];
                             }
-                        } else if row == self.coin.0 && col == 0 {
+                        } else if row == self.apple.0 && col == 0 {
                             new_dir = Direction::Right;
-                        } else if row == self.coin.0 && col == self.cols - 1 {
+                        } else if row == self.apple.0 && col == self.cols - 1 {
                             new_dir = Direction::Left;
                         } else {
                             new_dir = directions[self.rand.next_usize() % 4];
                         }
-                    } else if !self.towards_border && row != self.coin.0 {
+                    } else if !self.towards_border && row != self.apple.0 {
                         // Try to go to the border
                         if *head_dir == Direction::Up {
                             new_dir = Direction::Right;
@@ -288,10 +288,10 @@ impl Game {
             if is_valid_pos(new_pos, self.rows, self.cols)
                 && !self.snake.iter().map(|s| s.0).any(|x| x == (new_pos.0 as usize, new_pos.1 as usize))
             {
-                if (new_pos.0 as usize, new_pos.1 as usize) != self.coin {
+                if (new_pos.0 as usize, new_pos.1 as usize) != self.apple {
                     self.snake.pop_back();
                 } else {
-                    self.spawn_coin();
+                    self.spawn_apple();
                 }
                 self.snake.push_front(((new_pos.0 as usize, new_pos.1 as usize), self.dir));
             } else {
@@ -327,7 +327,7 @@ impl Game {
         match self.state {
             GameState::Playing => {
                 self.render_snake();
-                self.render_coin();
+                self.render_apple();
 
                 if self.paused {
                     let prev_count = self.cmd.len();
@@ -350,7 +350,7 @@ impl Game {
             }
             GameState::GameOver => {
                 self.render_snake();
-                self.render_coin();
+                self.render_apple();
 
                 let prev_count = self.cmd.len();
                 vk_util::push_str_centered_color(
@@ -435,25 +435,25 @@ impl Game {
         }
     }
 
-    fn render_coin(&mut self) {
+    fn render_apple(&mut self) {
         vk_util::push_rect_color(
             &mut self.cmd,
             Rect::offset_extent(
-                ((self.coin.1 as f32) * SNAKE_SIZE, (self.coin.0 as f32) * SNAKE_SIZE),
+                ((self.apple.1 as f32) * SNAKE_SIZE, (self.apple.0 as f32) * SNAKE_SIZE),
                 (SNAKE_SIZE, SNAKE_SIZE),
             ),
             0.1,
-            color::YELLOW,
+            color::RED,
         );
         self.material_ids.push(5);
         self.rotations.push(Direction::Left);
     }
 
-    fn spawn_coin(&mut self) {
+    fn spawn_apple(&mut self) {
         loop {
-            let coin_pos = (self.rand.next_usize() % self.rows, self.rand.next_usize() % self.cols);
-            if !self.snake.iter().map(|s| s.0).any(|x| x == coin_pos) {
-                self.coin = coin_pos;
+            let apple = (self.rand.next_usize() % self.rows, self.rand.next_usize() % self.cols);
+            if !self.snake.iter().map(|s| s.0).any(|x| x == apple) {
+                self.apple = apple;
                 break;
             }
         }
