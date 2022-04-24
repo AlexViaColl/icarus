@@ -478,7 +478,7 @@ impl VkContext {
 
             let layout = self.pipeline_layout;
             match self.shader_id.as_str() {
-                "snake" => {
+                "sprite" => {
                     for i in 0..render_commands.len() {
                         let rotation_id = rotations[i];
                         #[rustfmt::skip]
