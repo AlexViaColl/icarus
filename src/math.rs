@@ -78,7 +78,7 @@ impl Rect {
         }
     }
 
-    pub fn center_extent<T: Into<Vec2>>(center: T, extent: T) -> Self {
+    pub fn center_extent<T1: Into<Vec2>, T2: Into<Vec2>>(center: T1, extent: T2) -> Self {
         let extent = extent.into();
         Self {
             offset: center.into() - extent * 0.5,
@@ -96,6 +96,18 @@ impl Rect {
 
     pub fn center(&self) -> Vec2 {
         self.offset + self.extent * 0.5
+    }
+
+    pub fn collides(&self, other: &Rect) -> bool {
+        if self.is_inside(other.offset)
+            || self.is_inside(other.offset + Vec2::new(0.0, other.extent.y))
+            || self.is_inside(other.offset + Vec2::new(other.extent.x, 0.0))
+            || self.is_inside(other.offset + other.extent)
+        {
+            return true;
+        }
+
+        false
     }
 }
 
