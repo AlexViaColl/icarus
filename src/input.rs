@@ -1,3 +1,5 @@
+use crate::math::Vec2;
+
 #[repr(u32)]
 #[derive(Copy, Clone, Debug)]
 pub enum KeyId {
@@ -52,6 +54,7 @@ pub struct ButtonState {
 pub struct InputState {
     pub keys: [KeyState; KeyId::KeyCount as usize],
     pub buttons: [ButtonState; ButtonId::ButtonCount as usize],
+    pub mouse_pos: Vec2,
 }
 
 impl InputState {
@@ -98,5 +101,13 @@ impl InputState {
     pub fn was_button_released(&self, id: ButtonId) -> bool {
         let button = self.buttons[id as usize];
         !button.is_down && button.half_transitions >= 1
+    }
+
+    pub fn set_mouse_pos(&mut self, x: f32, y: f32) {
+        self.mouse_pos = Vec2::new(x, y);
+    }
+
+    pub fn get_mouse_pos(&self) -> Vec2 {
+        self.mouse_pos
     }
 }

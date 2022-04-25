@@ -38,6 +38,7 @@ impl Platform {
                 | x11::KeyReleaseMask
                 | x11::ButtonPressMask
                 | x11::ButtonReleaseMask
+                | x11::PointerMotionMask
                 | x11::ExposureMask
                 | x11::StructureNotifyMask;
             assert_ne!(x11::XSelectInput(dpy, window, mask), 0);
@@ -69,6 +70,10 @@ impl Platform {
                 let mut event = x11::XEvent::default();
                 x11::XNextEvent(self.dpy, &mut event);
                 match event.ttype {
+                    x11::MotionNotify => {
+                        let event = event.xmotion;
+                        input.set_mouse_pos(event.x as f32, event.y as f32);
+                    }
                     x11::KeyPress | x11::KeyRelease => {
                         #[allow(unused_variables)]
                         let keysym = x11::XLookupKeysym(&mut event.xkey, 0);
