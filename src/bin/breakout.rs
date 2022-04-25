@@ -20,30 +20,44 @@ const BLOCK_PADDING: f32 = 2.0;
 const ROW_COUNT: usize = 3;
 
 #[derive(Default)]
+struct Block {
+    pos: Vec2,
+    alive: bool,
+}
+impl Block {
+    fn new(pos: Vec2) -> Self {
+        Self {
+            pos,
+            alive: true,
+        }
+    }
+}
+
+#[derive(Default)]
 struct Game {
     paused: bool,
+    game_over: bool,
     paddle: Vec2,
     ball: Vec2,
     ball_vel: Vec2,
-    blocks: Vec<Vec2>,
-    rect1: Rect,
-    rect2: Rect,
+    blocks: Vec<Block>,
 }
 impl Game {
     fn init() -> Self {
         let mut blocks = vec![];
         for row in 0..ROW_COUNT {
             for col in 0..(WIDTH / BLOCK_SIZE) as usize {
-                blocks.push((col as f32 * BLOCK_SIZE + BLOCK_PADDING, row as f32 * BLOCK_SIZE + BLOCK_PADDING).into());
+                blocks.push(Block::new(
+                    (col as f32 * BLOCK_SIZE + BLOCK_PADDING, row as f32 * BLOCK_SIZE + BLOCK_PADDING).into(),
+                ));
             }
         }
+        let speed_mod = 2.0;
         Self {
             paddle: (WIDTH / 2.0, HEIGHT - PADDLE_HEIGHT / 2.0).into(),
             ball: (WIDTH / 2.0, HEIGHT / 2.0).into(),
-            ball_vel: (300.0, 300.0).into(),
+            ball_vel: Vec2::new(300.0, 300.0) * speed_mod,
             blocks,
-            rect1: Rect::center_extent((WIDTH / 2.0, HEIGHT / 2.0), (200.0, 200.0)),
-            rect2: Rect::center_extent((WIDTH / 2.0 + 300.0, HEIGHT / 2.0), (200.0, 200.0)),
             ..Self::default()
         }
     }
@@ -61,13 +75,9 @@ impl Game {
         if self.paused {
             return;
         }
-
-        if input.was_button_pressed(ButtonId::Left) {
-            let button = input.buttons[ButtonId::Left as usize];
-            self.rect1 = Rect::center_extent((button.x as f32, button.y as f32), self.rect1.extent);
+        if self.game_over {
+            return;
         }
-        let pos = input.get_mouse_pos();
-        self.rect2 = Rect::center_extent((pos.x, pos.y), self.rect2.extent);
 
         if input.is_key_down(KeyId::A) {
             self.paddle.x -= PADDLE_VEL * dt;
@@ -92,8 +102,11 @@ impl Game {
             let reapply_dt = dt - revert_dt;
             new_ball = new_ball + self.ball_vel * reapply_dt;
         }
-        if new_ball.y <= 0.0 || new_ball.y + BALL_SIZE >= HEIGHT {
+        if new_ball.y <= 0.0 {
             self.ball_vel.y = -self.ball_vel.y;
+        }
+        if new_ball.y + BALL_SIZE >= HEIGHT {
+            self.game_over = true;
         }
 
         if Rect::center_extent(self.paddle, (PADDLE_WIDTH, PADDLE_HEIGHT))
@@ -104,37 +117,66 @@ impl Game {
             }
         }
 
+        let ball_rect = Rect::offset_extent(new_ball, (BALL_SIZE, BALL_SIZE));
+        for block in &mut self.blocks {
+            let block_rect = Rect::offset_extent(block.pos, (BLOCK_SIZE - BLOCK_PADDING, BLOCK_SIZE - BLOCK_PADDING));
+            if block.alive && ball_rect.collides(&block_rect) {
+                block.alive = false;
+                if self.ball_vel.y < 0.0 {
+                    self.ball_vel.y = -self.ball_vel.y;
+                }
+            }
+        }
+
         self.ball = new_ball;
-        //println!("{:?}", self.ball);
     }
 
     fn render(&self, cmd: &mut Vec<RenderCommand>) {
-        let mut color = color::WHITE;
-        if self.rect1.collides(&self.rect2) {
-            color = color::RED;
-        }
-        //vk_util::push_rect_color(cmd, self.rect1, 0.0, color);
-        //vk_util::push_rect_color(cmd, self.rect2, 0.0, color);
-
         // Render player
         vk_util::push_rect_color(
             cmd,
             Rect::center_extent(self.paddle, (PADDLE_WIDTH, PADDLE_HEIGHT)),
-            0.0,
+            0.1,
             color::WHITE,
         );
 
         // Render ball
-        vk_util::push_rect_color(cmd, Rect::offset_extent(self.ball, (BALL_SIZE, BALL_SIZE)), 0.0, color::WHITE);
+        let ball_rect = Rect::offset_extent(self.ball, (BALL_SIZE, BALL_SIZE));
+        vk_util::push_rect_color(cmd, ball_rect, 0.1, color::WHITE);
 
         // Render blocks
         for block in &self.blocks {
-            vk_util::push_rect(
-                cmd,
-                Rect::offset_extent(*block, (BLOCK_SIZE - BLOCK_PADDING, BLOCK_SIZE - BLOCK_PADDING)),
-                0.0,
-            );
+            if block.alive {
+                let block_rect =
+                    Rect::offset_extent(block.pos, (BLOCK_SIZE - BLOCK_PADDING, BLOCK_SIZE - BLOCK_PADDING));
+                let color = if ball_rect.collides(&block_rect) {
+                    color::RED
+                } else {
+                    color::WHITE
+                };
+                vk_util::push_rect_color(cmd, block_rect, 0.1, color);
+            }
         }
+
+        let alive_count = self.blocks.iter().filter(|x| x.alive).count();
+        let text = if alive_count == 0 {
+            "Victory".to_string()
+        } else if self.game_over {
+            "Game Over".to_string()
+        } else {
+            format!("")
+            //format!("{}", alive_count)
+        };
+        vk_util::push_str_centered_color(
+            cmd,
+            &text,
+            100.0,
+            0.0,
+            10.0,
+            color::DARK_GREY,
+            true,
+            Rect::offset_extent((0.0, 0.0), (WIDTH, HEIGHT)),
+        );
     }
 }
 
