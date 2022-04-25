@@ -40,3 +40,6 @@ cargo test
 ### Flappy Bird
 Assets from: [github.com/samuelcust/flappy-bird-assets](https://github.com/samuelcust/flappy-bird-assets)
 ![Flappy Bird](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/flappy.png)
+
+### Breakout
+![Breakout](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/breakout.png)
