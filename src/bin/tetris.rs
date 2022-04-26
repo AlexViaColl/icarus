@@ -127,6 +127,10 @@ impl Game {
             }
         }
 
+        if input.was_key_pressed(KeyId::Space) {
+            Self::rotate_piece(&mut self.piece);
+        }
+
         // TODO: Check for collision before moving horizontally
         if input.was_key_pressed(KeyId::A) {
             if !self.piece.tiles.iter().any(
@@ -188,16 +192,132 @@ impl Game {
         }
     }
 
+    fn rotate_piece(piece: &mut Piece) {
+        match piece.tiles[0].color {
+            c if c == color::CYAN => {
+                if piece.tiles[0].pos.0 == piece.tiles[1].pos.0 {
+                    // Vertical
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 2, piece.tiles[2].pos.1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                } else {
+                    // Horizontal
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 2);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                }
+            }
+            c if c == color::DARK_BLUE => {
+                if piece.tiles[0].pos.0 < piece.tiles[3].pos.0 && piece.tiles[0].pos.1 < piece.tiles[3].pos.1 {
+                    // Pointing up -> Pointing right
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                } else if piece.tiles[0].pos.0 > piece.tiles[3].pos.0 && piece.tiles[0].pos.1 < piece.tiles[3].pos.1 {
+                    // Pointing right -> Pointing down
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                } else if piece.tiles[0].pos.0 > piece.tiles[3].pos.0 && piece.tiles[0].pos.1 > piece.tiles[3].pos.1 {
+                    // Pointing down -> Pointing left
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                } else if piece.tiles[0].pos.0 < piece.tiles[3].pos.0 && piece.tiles[0].pos.1 > piece.tiles[3].pos.1 {
+                    // Pointing left -> Pointing up
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                }
+            }
+            c if c == color::ORANGE => {
+                if piece.tiles[0].pos.0 > piece.tiles[3].pos.0 && piece.tiles[0].pos.1 < piece.tiles[3].pos.1 {
+                    // Pointing up -> Pointing right
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                } else if piece.tiles[0].pos.0 > piece.tiles[3].pos.0 && piece.tiles[0].pos.1 > piece.tiles[3].pos.1 {
+                    // Pointing right -> Pointing down
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                } else if piece.tiles[0].pos.0 < piece.tiles[3].pos.0 && piece.tiles[0].pos.1 > piece.tiles[3].pos.1 {
+                    // Pointing down -> Pointing left
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                } else if piece.tiles[0].pos.0 < piece.tiles[3].pos.0 && piece.tiles[0].pos.1 < piece.tiles[3].pos.1 {
+                    // Pointing left -> Pointing up
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                }
+            }
+            c if c == color::RED => {
+                if piece.tiles[0].pos.0 < piece.tiles[3].pos.0 {
+                    // Horizontal
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                } else {
+                    // Vertical
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                }
+            }
+            c if c == color::GREEN => {
+                if piece.tiles[0].pos.0 > piece.tiles[3].pos.0 {
+                    // Horizontal
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                } else {
+                    // Vertical
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                }
+            }
+            c if c == color::PURPLE => {
+                if piece.tiles[0].pos.1 < piece.tiles[2].pos.1 {
+                    // Pointing up => Pointing right
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                } else if piece.tiles[0].pos.1 > piece.tiles[2].pos.1 {
+                    // Pointing down => Pointing left
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                } else if piece.tiles[0].pos.0 < piece.tiles[2].pos.0 {
+                    // Pointing left => Pointing up
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 - 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                } else if piece.tiles[0].pos.0 > piece.tiles[2].pos.0 {
+                    // Pointing right => Pointing down
+                    piece.tiles[0].pos = (piece.tiles[2].pos.0, piece.tiles[2].pos.1 + 1);
+                    piece.tiles[1].pos = (piece.tiles[2].pos.0 - 1, piece.tiles[2].pos.1);
+                    piece.tiles[3].pos = (piece.tiles[2].pos.0 + 1, piece.tiles[2].pos.1);
+                }
+            }
+            _ => {}
+        }
+    }
+
     fn spawn_piece() -> Piece {
         #[rustfmt::skip]
         let colors = [
-            color::CYAN,
-            color::DARK_BLUE,
-            color::ORANGE,
-            color::RED,
-            color::GREEN,
-            color::YELLOW,
-            color::PURPLE,
+            color::CYAN,        // ____
+            color::DARK_BLUE,   // |___
+            color::ORANGE,      // ___|
+            color::RED,         // __
+                                //   |__
+            color::GREEN,       //    __
+                                // __|
+            color::YELLOW,      // Square
+            color::PURPLE,      // __|__
         ];
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -206,7 +326,7 @@ impl Game {
         let mut rand = Rand::new(seed);
         let idx = rand.next_usize() % colors.len();
         let color = colors[idx];
-        println!("{}, {:?}", idx, color);
+        //println!("{}, {:?}", idx, color);
         match color {
             c if c == color::BLUE => Piece {
                 tiles: vec![
@@ -227,9 +347,9 @@ impl Game {
             c if c == color::ORANGE => Piece {
                 tiles: vec![
                     Tile::new(6, 0, color),
-                    Tile::new(4, 1, color),
-                    Tile::new(5, 1, color),
                     Tile::new(6, 1, color),
+                    Tile::new(5, 1, color),
+                    Tile::new(4, 1, color),
                 ],
             },
             c if c == color::RED => Piece {
@@ -242,10 +362,10 @@ impl Game {
             },
             c if c == color::GREEN => Piece {
                 tiles: vec![
-                    Tile::new(5, 0, color),
                     Tile::new(6, 0, color),
-                    Tile::new(4, 1, color),
+                    Tile::new(5, 0, color),
                     Tile::new(5, 1, color),
+                    Tile::new(4, 1, color),
                 ],
             },
             c if c == color::YELLOW => Piece {
