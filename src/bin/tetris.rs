@@ -11,6 +11,9 @@ const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
 const MAX_ENTITIES: usize = 1000;
+const TILES_X: usize = 10;
+const TILES_Y: usize = 20;
+const TILE_SIZE: f32 = 30.0;
 
 #[derive(Default)]
 struct Game {}
@@ -20,12 +23,21 @@ impl Game {
     }
     fn update(&mut self, _input_state: &InputState, _dt: f32) {}
     fn render(&self, cmd: &mut Vec<RenderCommand>) {
-        vk_util::push_rect_color(
-            cmd,
-            Rect::center_extent((WIDTH / 2.0, HEIGHT / 2.0), (300.0, 400.0)),
-            0.1,
-            color::WHITE,
-        );
+        let start_x = WIDTH / 2.0 - TILE_SIZE * (TILES_X / 2) as f32;
+        let start_y = HEIGHT / 2.0 - TILE_SIZE * (TILES_Y / 2) as f32;
+        for row in 0..TILES_Y {
+            for col in 0..TILES_X {
+                vk_util::push_rect_color(
+                    cmd,
+                    Rect::offset_extent(
+                        (start_x + col as f32 * TILE_SIZE, start_y + row as f32 * TILE_SIZE),
+                        (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
+                    ),
+                    0.1,
+                    color::DARK_GREY,
+                );
+            }
+        }
     }
 }
 
