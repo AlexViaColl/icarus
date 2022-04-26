@@ -106,16 +106,17 @@ impl Game {
                 }
                 // Spawn a new piece
                 self.piece = Self::spawn_piece();
+                return;
             } else {
-                self.piece = new_piece;
+                //self.piece = new_piece;
             }
 
             // Did we reach the bottom?
-            if self.piece.tiles.iter().any(
+            if new_piece.tiles.iter().any(
                 |Tile {
                      pos: (_, y),
                      ..
-                 }| *y == TILES_Y - 1,
+                 }| *y >= TILES_Y - 1,
             ) {
                 for tile in &mut self.piece.tiles {
                     let idx = pos_to_idx(tile.pos.0, tile.pos.1);
@@ -124,6 +125,8 @@ impl Game {
                 }
                 // Spawn a new piece
                 self.piece = Self::spawn_piece();
+            } else {
+                self.piece = new_piece;
             }
         }
 
@@ -158,6 +161,25 @@ impl Game {
                     tile.pos.0 = tile.pos.0.min(TILES_X - 1);
                 }
             }
+        }
+        if input.is_key_down(KeyId::S) {
+            self.time_per_tile_sec = 0.05;
+        } else {
+            self.time_per_tile_sec = 0.5;
+        }
+        if input.was_key_pressed(KeyId::W) {
+            while !self.piece.tiles.iter().any(
+                |Tile {
+                     pos: (x, y),
+                     ..
+                 }| *y == TILES_Y - 1 || !self.tiles[pos_to_idx(*x, *y + 1)].is_empty(),
+            ) {
+                for tile in &mut self.piece.tiles {
+                    tile.pos.1 += 1;
+                    tile.pos.1 = tile.pos.1.min(TILES_Y - 1);
+                }
+            }
+            //self.paused = true;
         }
     }
     fn render(&self, cmd: &mut Vec<RenderCommand>) {
