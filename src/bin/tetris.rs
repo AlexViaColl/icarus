@@ -1,7 +1,8 @@
 use icarus::color;
-use icarus::input::{ButtonId, InputState, KeyId};
+use icarus::input::{InputState, KeyId};
 use icarus::math::Rect;
 use icarus::platform::{Config, Platform};
+use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
@@ -52,7 +53,7 @@ impl Game {
             }
         }
         Self {
-            time_per_tile_sec: 0.5,
+            time_per_tile_sec: 0.05,
             tiles,
             piece: Self::spawn_piece(),
             ..Self::default()
@@ -151,13 +152,84 @@ impl Game {
     }
 
     fn spawn_piece() -> Piece {
-        Piece {
-            tiles: vec![
-                Tile::new(3, 0, color::BLUE),
-                Tile::new(4, 0, color::BLUE),
-                Tile::new(5, 0, color::BLUE),
-                Tile::new(6, 0, color::BLUE),
-            ],
+        #[rustfmt::skip]
+        let colors = [
+            color::CYAN,
+            color::DARK_BLUE,
+            color::ORANGE,
+            color::RED,
+            color::GREEN,
+            color::YELLOW,
+            color::PURPLE,
+        ];
+        let seed = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Failed to get time since UNIX_EPOCH")
+            .as_secs() as usize;
+        let mut rand = Rand::new(seed);
+        let idx = rand.next_usize() % colors.len();
+        let color = colors[idx];
+        println!("{}, {:?}", idx, color);
+        match color {
+            c if c == color::BLUE => Piece {
+                tiles: vec![
+                    Tile::new(3, 0, color),
+                    Tile::new(4, 0, color),
+                    Tile::new(5, 0, color),
+                    Tile::new(6, 0, color),
+                ],
+            },
+            c if c == color::DARK_BLUE => Piece {
+                tiles: vec![
+                    Tile::new(4, 0, color),
+                    Tile::new(4, 1, color),
+                    Tile::new(5, 1, color),
+                    Tile::new(6, 1, color),
+                ],
+            },
+            c if c == color::ORANGE => Piece {
+                tiles: vec![
+                    Tile::new(6, 0, color),
+                    Tile::new(4, 1, color),
+                    Tile::new(5, 1, color),
+                    Tile::new(6, 1, color),
+                ],
+            },
+            c if c == color::RED => Piece {
+                tiles: vec![
+                    Tile::new(4, 0, color),
+                    Tile::new(5, 0, color),
+                    Tile::new(5, 1, color),
+                    Tile::new(6, 1, color),
+                ],
+            },
+            c if c == color::GREEN => Piece {
+                tiles: vec![
+                    Tile::new(5, 0, color),
+                    Tile::new(6, 0, color),
+                    Tile::new(4, 1, color),
+                    Tile::new(5, 1, color),
+                ],
+            },
+            c if c == color::YELLOW => Piece {
+                tiles: vec![
+                    Tile::new(4, 0, color),
+                    Tile::new(5, 0, color),
+                    Tile::new(4, 1, color),
+                    Tile::new(5, 1, color),
+                ],
+            },
+            c if c == color::PURPLE => Piece {
+                tiles: vec![
+                    Tile::new(5, 0, color),
+                    Tile::new(4, 1, color),
+                    Tile::new(5, 1, color),
+                    Tile::new(6, 1, color),
+                ],
+            },
+            c => Piece {
+                tiles: vec![Tile::new(3, 0, c), Tile::new(4, 0, c), Tile::new(5, 0, c), Tile::new(6, 0, c)],
+            },
         }
     }
 }
