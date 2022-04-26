@@ -38,7 +38,7 @@ macro_rules! color(
 );
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct Color(pub Vec4);
 
 pub const BLACK: Color = color!(rgb(0.0, 0.0, 0.0));
