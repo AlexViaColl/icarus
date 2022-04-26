@@ -38,7 +38,7 @@ macro_rules! color(
 );
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
 pub struct Color(pub Vec4);
 
 pub const BLACK: Color = color!(rgb(0.0, 0.0, 0.0));
@@ -56,6 +56,9 @@ pub const LIGHT_GREY: Color = color!(rgb(0.6, 0.6, 0.6));
 pub const BROWN: Color = color!(rgb(0.5, 0.0, 0.0));
 pub const CYAN: Color = color!(rgb(0.0, 0.5, 0.5));
 pub const GREY: Color = color!(rgb(0.5, 0.5, 0.5));
+pub const PURPLE: Color = color!(rgb(0.5, 0.0, 0.5));
+pub const ORANGE: Color = color!(rgb(1.0, 0.5, 0.0));
+//pub const ORANGE: Color = color!(rgb8(255, 255, 0));
 
 impl Color {
     pub fn from_hex(linear: u32) -> Self {
