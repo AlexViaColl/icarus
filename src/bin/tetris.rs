@@ -1,5 +1,5 @@
 use icarus::color;
-use icarus::input::{InputState, KeyId};
+use icarus::input::{ButtonId, InputState, KeyId};
 use icarus::math::Rect;
 use icarus::platform::{Config, Platform};
 use icarus::vk_util::{self, RenderCommand, VkContext};
@@ -16,26 +16,53 @@ const TILES_Y: usize = 20;
 const TILE_SIZE: f32 = 30.0;
 
 #[derive(Default)]
-struct Game {}
+struct Game {
+    tiles: Vec<bool>,
+}
 impl Game {
     fn init() -> Self {
-        Self::default()
+        Self {
+            tiles: vec![true; TILES_X * TILES_Y],
+            ..Self::default()
+        }
     }
-    fn update(&mut self, _input_state: &InputState, _dt: f32) {}
+    fn update(&mut self, input_state: &InputState, _dt: f32) {
+        if input_state.was_button_pressed(ButtonId::Left) {
+            let button = input_state.buttons[ButtonId::Left as usize];
+
+            let start_x = WIDTH / 2.0 - TILE_SIZE * (TILES_X / 2) as f32;
+            let start_y = HEIGHT / 2.0 - TILE_SIZE * (TILES_Y / 2) as f32;
+            for row in 0..TILES_Y {
+                for col in 0..TILES_X {
+                    let idx = row * TILES_X + col;
+                    let tile_rect = Rect::offset_extent(
+                        (start_x + col as f32 * TILE_SIZE, start_y + row as f32 * TILE_SIZE),
+                        (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
+                    );
+                    if tile_rect.is_inside((button.x as f32, button.y as f32)) {
+                        self.tiles[idx] = false;
+                    }
+                }
+            }
+        }
+    }
     fn render(&self, cmd: &mut Vec<RenderCommand>) {
         let start_x = WIDTH / 2.0 - TILE_SIZE * (TILES_X / 2) as f32;
         let start_y = HEIGHT / 2.0 - TILE_SIZE * (TILES_Y / 2) as f32;
         for row in 0..TILES_Y {
             for col in 0..TILES_X {
-                vk_util::push_rect_color(
-                    cmd,
-                    Rect::offset_extent(
-                        (start_x + col as f32 * TILE_SIZE, start_y + row as f32 * TILE_SIZE),
-                        (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
-                    ),
-                    0.1,
-                    color::DARK_GREY,
-                );
+                let idx = row * TILES_X + col;
+                if self.tiles[idx] {
+                    vk_util::push_rect_color(
+                        cmd,
+                        Rect::offset_extent(
+                            (start_x + col as f32 * TILE_SIZE, start_y + row as f32 * TILE_SIZE),
+                            (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
+                        ),
+                        0.1,
+                        color::DARK_GREY,
+                    );
+                }
             }
         }
     }

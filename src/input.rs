@@ -93,6 +93,7 @@ impl InputState {
         self.buttons[id as usize].is_down
     }
 
+    // TODO: Consider returning an Option here with the position where we clicked
     pub fn was_button_pressed(&self, id: ButtonId) -> bool {
         let button = self.buttons[id as usize];
         button.is_down && button.half_transitions >= 1
