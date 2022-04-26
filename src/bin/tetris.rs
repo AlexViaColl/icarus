@@ -8,6 +8,12 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
+// TODO: Collision detection
+// TODO: Handle complete rows
+// TODO: Input: rotate piece whith space
+// TODO: Input: fall faster with Down/S
+// TODO: UI: score, time, next piece preview...
+
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
@@ -53,13 +59,17 @@ impl Game {
             }
         }
         Self {
-            time_per_tile_sec: 0.05,
+            time_per_tile_sec: 0.5,
             tiles,
             piece: Self::spawn_piece(),
             ..Self::default()
         }
     }
     fn update(&mut self, input: &InputState, dt: f32) {
+        if input.was_key_pressed(KeyId::R) {
+            *self = Self::init();
+            return;
+        }
         if input.was_key_pressed(KeyId::P) {
             self.paused = !self.paused;
         }
