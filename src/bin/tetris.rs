@@ -22,6 +22,7 @@ const TILES_X: usize = 10;
 const TILES_Y: usize = 20;
 const TILE_COUNT: usize = TILES_X * TILES_Y;
 const TILE_SIZE: f32 = 30.0;
+const TILE_BG_COLOR: color::Color = color::DARK_GREY;
 
 #[derive(Default, Copy, Clone)]
 struct Tile {
@@ -35,9 +36,12 @@ impl Tile {
             color,
         }
     }
+    fn is_empty(&self) -> bool {
+        self.color == TILE_BG_COLOR
+    }
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Piece {
     tiles: Vec<Tile>,
 }
@@ -55,7 +59,7 @@ impl Game {
         let mut tiles = vec![];
         for row in 0..TILES_Y {
             for col in 0..TILES_X {
-                tiles.push(Tile::new(col, row, color::DARK_GREY));
+                tiles.push(Tile::new(col, row, TILE_BG_COLOR));
             }
         }
         Self {
@@ -80,10 +84,32 @@ impl Game {
         self.timer += dt;
         if self.timer >= self.time_per_tile_sec {
             self.timer -= self.time_per_tile_sec;
-            for tile in &mut self.piece.tiles {
+            let mut new_piece = self.piece.clone();
+            for tile in &mut new_piece.tiles {
                 tile.pos.1 += 1;
                 tile.pos.1 = tile.pos.1.min(TILES_Y - 1);
             }
+
+            // Are we colliding with another piece?
+            if new_piece.tiles.iter().any(
+                |Tile {
+                     pos: (x, y),
+                     ..
+                 }| {
+                    let idx = pos_to_idx(*x, *y);
+                    !self.tiles[idx].is_empty()
+                },
+            ) {
+                for tile in &mut self.piece.tiles {
+                    let idx = pos_to_idx(tile.pos.0, tile.pos.1);
+                    self.tiles[idx].color = tile.color;
+                }
+                // Spawn a new piece
+                self.piece = Self::spawn_piece();
+            } else {
+                self.piece = new_piece;
+            }
+
             // Did we reach the bottom?
             if self.piece.tiles.iter().any(
                 |Tile {
@@ -101,6 +127,7 @@ impl Game {
             }
         }
 
+        // TODO: Check for collision before moving horizontally
         if input.was_key_pressed(KeyId::A) {
             if !self.piece.tiles.iter().any(
                 |Tile {
