@@ -13,22 +13,64 @@ const HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 1000;
 const TILES_X: usize = 10;
 const TILES_Y: usize = 20;
+const TILE_COUNT: usize = TILES_X * TILES_Y;
 const TILE_SIZE: f32 = 30.0;
+
+#[derive(Default)]
+struct Piece {
+    tiles: Vec<(usize, usize)>, // x, y
+    color: color::Color,
+}
 
 #[derive(Default)]
 struct Game {
     tiles: Vec<bool>,
+    piece: Piece,
+    timer: f32, // Goes from 0.0 to time_per_tile and then resets
+    time_per_tile_sec: f32,
 }
 impl Game {
     fn init() -> Self {
         Self {
-            tiles: vec![true; TILES_X * TILES_Y],
+            time_per_tile_sec: 0.5,
+            tiles: vec![true; TILE_COUNT],
+            piece: Piece {
+                tiles: vec![(3, 0), (4, 0), (5, 0), (6, 0)],
+                color: color::BLUE,
+            },
             ..Self::default()
         }
     }
-    fn update(&mut self, input_state: &InputState, _dt: f32) {
-        if input_state.was_button_pressed(ButtonId::Left) {
-            let button = input_state.buttons[ButtonId::Left as usize];
+    fn update(&mut self, input: &InputState, dt: f32) {
+        self.timer += dt;
+        if self.timer >= self.time_per_tile_sec {
+            self.timer -= self.time_per_tile_sec;
+            for tile in &mut self.piece.tiles {
+                tile.1 += 1;
+                tile.1 = tile.1.min(TILES_Y - 1);
+            }
+        }
+
+        if input.was_key_pressed(KeyId::A) {
+            if !self.piece.tiles.iter().any(|(x, y)| *x == 0 || *y == TILES_Y - 1) {
+                for tile in &mut self.piece.tiles {
+                    if tile.0 > 0 {
+                        tile.0 -= 1;
+                    }
+                }
+            }
+        }
+        if input.was_key_pressed(KeyId::D) {
+            if !self.piece.tiles.iter().any(|(x, y)| *x == TILES_X - 1 || *y == TILES_Y - 1) {
+                for tile in &mut self.piece.tiles {
+                    tile.0 += 1;
+                    tile.0 = tile.0.min(TILES_X - 1);
+                }
+            }
+        }
+
+        if input.was_button_pressed(ButtonId::Left) {
+            let button = input.buttons[ButtonId::Left as usize];
 
             let start_x = WIDTH / 2.0 - TILE_SIZE * (TILES_X / 2) as f32;
             let start_y = HEIGHT / 2.0 - TILE_SIZE * (TILES_Y / 2) as f32;
@@ -64,6 +106,18 @@ impl Game {
                     );
                 }
             }
+        }
+
+        for (x, y) in &self.piece.tiles {
+            vk_util::push_rect_color(
+                cmd,
+                Rect::offset_extent(
+                    (start_x + *x as f32 * TILE_SIZE, start_y + *y as f32 * TILE_SIZE),
+                    (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
+                ),
+                0.0,
+                self.piece.color,
+            );
         }
     }
 }
