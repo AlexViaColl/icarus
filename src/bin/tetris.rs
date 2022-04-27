@@ -8,7 +8,7 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: UI: score, time, next piece preview...
+// TODO: UI: render borders/boundaries of the board, preview of where the piece will fall, ...
 // TODO: Detect lose condition
 
 const WIDTH: f32 = 1600.0;
@@ -71,6 +71,12 @@ impl Piece {
 }
 
 #[derive(Default)]
+struct Timer {
+    elapsed: f32,
+    duration: f32,
+}
+
+#[derive(Default)]
 struct Game {
     paused: bool,
     tiles: Vec<Tile>,
@@ -78,6 +84,8 @@ struct Game {
     next_piece: Piece,
     timer: f32, // Goes from 0.0 to time_per_tile and then resets
     time_per_tile_sec: f32,
+    seconds_timer: Timer,
+    total_seconds: usize,
     score: usize,
 }
 impl Game {
@@ -94,6 +102,10 @@ impl Game {
             tiles,
             piece: Self::spawn_piece(),
             next_piece,
+            seconds_timer: Timer {
+                elapsed: 0.0,
+                duration: 1.0,
+            },
             ..Self::default()
         }
     }
@@ -107,6 +119,12 @@ impl Game {
         }
         if self.paused {
             return;
+        }
+
+        self.seconds_timer.elapsed += dt;
+        if self.seconds_timer.elapsed >= self.seconds_timer.duration {
+            self.seconds_timer.elapsed -= self.seconds_timer.duration;
+            self.total_seconds += 1;
         }
 
         self.timer += dt;
@@ -278,6 +296,15 @@ impl Game {
             cmd,
             &format!("Score: {}", self.score),
             (start_x + 350.0, start_y),
+            0.0,
+            6.0,
+            color::WHITE,
+            false,
+        );
+        vk_util::push_str_color(
+            cmd,
+            &format!("Time: {}", self.total_seconds),
+            (start_x + 350.0, start_y + 100.0),
             0.0,
             6.0,
             color::WHITE,
