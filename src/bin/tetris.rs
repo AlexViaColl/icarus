@@ -8,10 +8,8 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: Collision detection
 // TODO: Handle complete rows
-// TODO: Input: rotate piece whith space
-// TODO: Input: fall faster with Down/S
+// TODO: Fix collision issues during rotation
 // TODO: UI: score, time, next piece preview...
 
 const WIDTH: f32 = 1600.0;
@@ -24,7 +22,7 @@ const TILE_COUNT: usize = TILES_X * TILES_Y;
 const TILE_SIZE: f32 = 30.0;
 const TILE_BG_COLOR: color::Color = color::DARK_GREY;
 
-#[derive(Default, Copy, Clone)]
+#[derive(Default, Copy, Clone, Debug)]
 struct Tile {
     pos: (usize, usize),
     color: color::Color,
@@ -41,9 +39,37 @@ impl Tile {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Debug)]
 struct Piece {
     tiles: Vec<Tile>,
+}
+impl Piece {
+    fn is_valid(&self, board_tiles: &[Tile]) -> bool {
+        // Are we out of bounds?
+        if self.tiles.iter().any(
+            |Tile {
+                 pos: (x, y),
+                 ..
+             }| { *x > TILES_X - 1 || *y > TILES_Y - 1 },
+        ) {
+            return false;
+        }
+
+        // Are we colliding with another piece?
+        if self.tiles.iter().any(
+            |Tile {
+                 pos: (x, y),
+                 ..
+             }| {
+                let idx = pos_to_idx(*x, *y);
+                !board_tiles[idx].is_empty()
+            },
+        ) {
+            return false;
+        }
+
+        true
+    }
 }
 
 #[derive(Default)]
@@ -86,47 +112,18 @@ impl Game {
             self.timer -= self.time_per_tile_sec;
             let mut new_piece = self.piece.clone();
             for tile in &mut new_piece.tiles {
-                tile.pos.1 += 1;
-                tile.pos.1 = tile.pos.1.min(TILES_Y - 1);
+                tile.pos.1 = tile.pos.1 + 1;
             }
 
-            // Are we colliding with another piece?
-            if new_piece.tiles.iter().any(
-                |Tile {
-                     pos: (x, y),
-                     ..
-                 }| {
-                    let idx = pos_to_idx(*x, *y);
-                    !self.tiles[idx].is_empty()
-                },
-            ) {
-                for tile in &mut self.piece.tiles {
-                    let idx = pos_to_idx(tile.pos.0, tile.pos.1);
-                    self.tiles[idx].color = tile.color;
-                }
-                // Spawn a new piece
-                self.piece = Self::spawn_piece();
-                return;
-            } else {
-                //self.piece = new_piece;
-            }
-
-            // Did we reach the bottom?
-            if new_piece.tiles.iter().any(
-                |Tile {
-                     pos: (_, y),
-                     ..
-                 }| *y >= TILES_Y - 1,
-            ) {
-                for tile in &mut self.piece.tiles {
-                    let idx = pos_to_idx(tile.pos.0, tile.pos.1);
-                    //println!("pos: ({},{}), idx: {}", tile.pos.0, tile.pos.1, idx);
-                    self.tiles[idx].color = tile.color;
-                }
-                // Spawn a new piece
-                self.piece = Self::spawn_piece();
-            } else {
+            if new_piece.is_valid(&self.tiles) {
                 self.piece = new_piece;
+            } else {
+                // Convert piece tiles into fixed tiles in the board
+                for tile in &mut self.piece.tiles {
+                    let idx = pos_to_idx(tile.pos.0, tile.pos.1);
+                    self.tiles[idx].color = tile.color;
+                }
+                self.piece = Self::spawn_piece();
             }
         }
 
