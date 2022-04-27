@@ -8,7 +8,6 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: Handle complete rows
 // TODO: Fix collision issues during rotation
 // TODO: UI: score, time, next piece preview...
 
@@ -18,7 +17,6 @@ const HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 1000;
 const TILES_X: usize = 10;
 const TILES_Y: usize = 20;
-const TILE_COUNT: usize = TILES_X * TILES_Y;
 const TILE_SIZE: f32 = 30.0;
 const TILE_BG_COLOR: color::Color = color::DARK_GREY;
 
@@ -123,6 +121,39 @@ impl Game {
                     let idx = pos_to_idx(tile.pos.0, tile.pos.1);
                     self.tiles[idx].color = tile.color;
                 }
+
+                // Check for complete rows
+                for tile in &self.piece.tiles {
+                    let complete_row = tile.pos.1;
+                    if TILES_X
+                        == self
+                            .tiles
+                            .iter()
+                            .filter(
+                                |Tile {
+                                     pos: (_, y),
+                                     color,
+                                 }| *y == complete_row && *color != TILE_BG_COLOR,
+                            )
+                            .count()
+                    {
+                        println!("Complete row!");
+                        // Remove complete row
+                        self.tiles.iter_mut().filter(|t| t.pos.1 == complete_row).for_each(|t| t.color = TILE_BG_COLOR);
+                        // Move occupied tiles above completed row
+                        for row in 0..TILES_Y {
+                            for col in 0..TILES_X {
+                                let src_idx = pos_to_idx(col, row);
+                                if row < complete_row && self.tiles[src_idx].color != TILE_BG_COLOR {
+                                    let dst_idx = pos_to_idx(col, row + 1);
+                                    self.tiles[dst_idx].color = self.tiles[src_idx].color;
+                                    self.tiles[src_idx].color = TILE_BG_COLOR;
+                                }
+                            }
+                        }
+                    }
+                }
+
                 self.piece = Self::spawn_piece();
             }
         }
