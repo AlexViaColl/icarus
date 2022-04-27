@@ -8,25 +8,24 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: Fix collision issues during rotation
 // TODO: UI: score, time, next piece preview...
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
 const MAX_ENTITIES: usize = 1000;
-const TILES_X: usize = 10;
-const TILES_Y: usize = 20;
+const TILES_X: isize = 10;
+const TILES_Y: isize = 20;
 const TILE_SIZE: f32 = 30.0;
 const TILE_BG_COLOR: color::Color = color::DARK_GREY;
 
 #[derive(Default, Copy, Clone, Debug)]
 struct Tile {
-    pos: (usize, usize),
+    pos: (isize, isize),
     color: color::Color,
 }
 impl Tile {
-    fn new(x: usize, y: usize, color: color::Color) -> Self {
+    fn new(x: isize, y: isize, color: color::Color) -> Self {
         Self {
             pos: (x, y),
             color,
@@ -48,7 +47,7 @@ impl Piece {
             |Tile {
                  pos: (x, y),
                  ..
-             }| { *x > TILES_X - 1 || *y > TILES_Y - 1 },
+             }| { *x < 0 || *x > TILES_X - 1 || *y < 0 || *y > TILES_Y - 1 },
         ) {
             return false;
         }
@@ -135,9 +134,8 @@ impl Game {
                                      color,
                                  }| *y == complete_row && *color != TILE_BG_COLOR,
                             )
-                            .count()
+                            .count() as isize
                     {
-                        println!("Complete row!");
                         // Remove complete row
                         self.tiles.iter_mut().filter(|t| t.pos.1 == complete_row).for_each(|t| t.color = TILE_BG_COLOR);
                         // Move occupied tiles above completed row
@@ -159,7 +157,23 @@ impl Game {
         }
 
         if input.was_key_pressed(KeyId::Space) {
-            Self::rotate_piece(&mut self.piece);
+            let mut new_piece = self.piece.clone();
+            Self::rotate_piece(&mut new_piece);
+            if new_piece.is_valid(&self.tiles) {
+                self.piece = new_piece;
+            } else {
+                // if we are out of bounds, adjust position
+                if new_piece.tiles.iter().any(
+                    |Tile {
+                         pos: (x, _),
+                         ..
+                     }| { *x < 0 },
+                ) {
+                    let min = -new_piece.tiles.iter().map(|t| t.pos.0).min().unwrap();
+                    new_piece.tiles.iter_mut().for_each(|t| t.pos.0 += min);
+                    self.piece = new_piece;
+                }
+            }
         }
 
         // TODO: Check for collision before moving horizontally
@@ -441,12 +455,13 @@ impl Game {
     }
 }
 
-fn pos_to_idx(x: usize, y: usize) -> usize {
-    y * TILES_X + x
+fn pos_to_idx(x: isize, y: isize) -> usize {
+    // TODO: Check for negative!
+    (y * TILES_X + x) as usize
 }
-fn idx_to_pos(idx: usize) -> (usize, usize) {
-    let x = idx % TILES_X;
-    let y = idx / TILES_X;
+fn idx_to_pos(idx: usize) -> (isize, isize) {
+    let x = idx as isize % TILES_X;
+    let y = idx as isize / TILES_X;
     (x, y)
 }
 
