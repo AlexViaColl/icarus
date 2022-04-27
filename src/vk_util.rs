@@ -479,14 +479,6 @@ impl VkContext {
     ) {
         if let Some(image_index) = self.render_begin() {
             unsafe {
-                // Update transforms
-                vk_map_memory_copy(
-                    self.device,
-                    self.ssbo.memory,
-                    render_commands.as_ptr(),
-                    mem::size_of::<RenderCommand>() * render_commands.len(),
-                );
-
                 let width = self.surface_caps.currentExtent.width;
                 let height = self.surface_caps.currentExtent.height;
                 let cmd = self.command_buffers[self.current_frame];
@@ -526,6 +518,14 @@ impl VkContext {
                 let layout = self.pipeline_layout;
                 match self.shader_id.as_str() {
                     "simple" => {
+                        // Update transforms
+                        vk_map_memory_copy(
+                            self.device,
+                            self.ssbo.memory,
+                            render_commands.as_ptr(),
+                            mem::size_of::<RenderCommand>() * render_commands.len(),
+                        );
+
                         let dsc_set = self.descriptor_sets[self.current_frame];
                         vkCmdBindDescriptorSets(
                             cmd,
