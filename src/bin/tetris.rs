@@ -9,6 +9,7 @@ use std::mem;
 use std::time::Instant;
 
 // TODO: UI: score, time, next piece preview...
+// TODO: Detect lose condition
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
@@ -74,6 +75,7 @@ struct Game {
     paused: bool,
     tiles: Vec<Tile>,
     piece: Piece,
+    next_piece: Piece,
     timer: f32, // Goes from 0.0 to time_per_tile and then resets
     time_per_tile_sec: f32,
 }
@@ -85,10 +87,12 @@ impl Game {
                 tiles.push(Tile::new(col, row, TILE_BG_COLOR));
             }
         }
+        let next_piece = Self::spawn_piece();
         Self {
             time_per_tile_sec: 0.5,
             tiles,
             piece: Self::spawn_piece(),
+            next_piece,
             ..Self::default()
         }
     }
@@ -152,7 +156,8 @@ impl Game {
                     }
                 }
 
-                self.piece = Self::spawn_piece();
+                self.piece = self.next_piece.clone();
+                self.next_piece = Self::spawn_piece();
             }
         }
 
@@ -248,6 +253,19 @@ impl Game {
                 cmd,
                 Rect::offset_extent(
                     (start_x + tile.pos.0 as f32 * TILE_SIZE, start_y + tile.pos.1 as f32 * TILE_SIZE),
+                    (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
+                ),
+                0.0,
+                tile.color,
+            );
+        }
+
+        vk_util::push_str_color(cmd, "Next", (start_x - 200.0, start_y), 0.0, 6.0, color::WHITE, false);
+        for tile in &self.next_piece.tiles {
+            vk_util::push_rect_color(
+                cmd,
+                Rect::offset_extent(
+                    (start_x - 300.0 + tile.pos.0 as f32 * TILE_SIZE, start_y + 100.0 + tile.pos.1 as f32 * TILE_SIZE),
                     (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
                 ),
                 0.0,
