@@ -78,6 +78,7 @@ struct Game {
     next_piece: Piece,
     timer: f32, // Goes from 0.0 to time_per_tile and then resets
     time_per_tile_sec: f32,
+    score: usize,
 }
 impl Game {
     fn init() -> Self {
@@ -153,6 +154,7 @@ impl Game {
                                 }
                             }
                         }
+                        self.score += 10;
                     }
                 }
 
@@ -272,6 +274,15 @@ impl Game {
                 tile.color,
             );
         }
+        vk_util::push_str_color(
+            cmd,
+            &format!("Score: {}", self.score),
+            (start_x + 350.0, start_y),
+            0.0,
+            6.0,
+            color::WHITE,
+            false,
+        );
     }
 
     fn rotate_piece(piece: &mut Piece) {
