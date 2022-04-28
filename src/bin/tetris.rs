@@ -9,7 +9,6 @@ use std::mem;
 use std::time::Instant;
 
 // TODO: UI: render borders/boundaries of the board, preview of where the piece will fall, ...
-// TODO: Bug when completing rows
 // TODO: Progressive increase fall speed
 
 const WIDTH: f32 = 1600.0;
@@ -209,34 +208,23 @@ impl Game {
             }
         }
 
-        // TODO: Check for collision before moving horizontally
-        if input.was_key_pressed(KeyId::A) {
-            if !self.piece.tiles.iter().any(
-                |Tile {
-                     pos: (x, y),
-                     ..
-                 }| *x == 0 || *y == TILES_Y - 1,
-            ) {
-                for tile in &mut self.piece.tiles {
-                    if tile.pos.0 > 0 {
-                        tile.pos.0 -= 1;
-                    }
-                }
-            }
+        // Move Horizontally
+        let x_delta = if input.was_key_pressed(KeyId::A) {
+            -1
+        } else if input.was_key_pressed(KeyId::D) {
+            1
+        } else {
+            0
+        };
+        let mut new_piece = self.piece.clone();
+        for tile in &mut new_piece.tiles {
+            tile.pos.0 = tile.pos.0 + x_delta;
         }
-        if input.was_key_pressed(KeyId::D) {
-            if !self.piece.tiles.iter().any(
-                |Tile {
-                     pos: (x, y),
-                     ..
-                 }| *x == TILES_X - 1 || *y == TILES_Y - 1,
-            ) {
-                for tile in &mut self.piece.tiles {
-                    tile.pos.0 += 1;
-                    tile.pos.0 = tile.pos.0.min(TILES_X - 1);
-                }
-            }
+        if new_piece.is_valid(&self.tiles) {
+            self.piece = new_piece;
         }
+
+        // Move Vertically
         if input.is_key_down(KeyId::S) {
             self.time_per_tile_sec = 0.05;
         } else {
