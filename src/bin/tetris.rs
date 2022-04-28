@@ -204,6 +204,24 @@ impl Game {
                     let min = -new_piece.tiles.iter().map(|t| t.pos.0).min().unwrap();
                     new_piece.tiles.iter_mut().for_each(|t| t.pos.0 += min);
                     self.piece = new_piece;
+                } else if new_piece.tiles.iter().any(
+                    |Tile {
+                         pos: (x, _),
+                         ..
+                     }| { *x > TILES_X - 1 },
+                ) {
+                    let max = new_piece.tiles.iter().map(|t| t.pos.0).max().unwrap() - (TILES_X - 1);
+                    new_piece.tiles.iter_mut().for_each(|t| t.pos.0 -= max);
+                    self.piece = new_piece;
+                } else if new_piece.tiles.iter().any(
+                    |Tile {
+                         pos: (_, y),
+                         ..
+                     }| { *y < 0 },
+                ) {
+                    let min = -new_piece.tiles.iter().map(|t| t.pos.1).min().unwrap();
+                    new_piece.tiles.iter_mut().for_each(|t| t.pos.1 += min);
+                    self.piece = new_piece;
                 }
             }
         }
