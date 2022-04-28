@@ -147,8 +147,10 @@ impl Game {
                 }
 
                 // Check for complete rows
-                for tile in &self.piece.tiles {
-                    let complete_row = tile.pos.1;
+                let mut complete_rows = self.piece.tiles.iter().map(|t| t.pos.1).collect::<Vec<_>>();
+                complete_rows.sort();
+                complete_rows.dedup();
+                for complete_row in complete_rows {
                     if TILES_X
                         == self
                             .tiles
@@ -164,8 +166,8 @@ impl Game {
                         // Remove complete row
                         self.tiles.iter_mut().filter(|t| t.pos.1 == complete_row).for_each(|t| t.color = TILE_BG_COLOR);
                         // Move occupied tiles above completed row
-                        for row in 0..TILES_Y {
-                            for col in 0..TILES_X {
+                        for row in (0..TILES_Y).rev() {
+                            for col in (0..TILES_X).rev() {
                                 let src_idx = pos_to_idx(col, row);
                                 if row < complete_row && self.tiles[src_idx].color != TILE_BG_COLOR {
                                     let dst_idx = pos_to_idx(col, row + 1);
