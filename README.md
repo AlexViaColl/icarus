@@ -43,3 +43,6 @@ Assets from: [github.com/samuelcust/flappy-bird-assets](https://github.com/samue
 
 ### Breakout
 ![Breakout](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/breakout.png)
+
+### Tetris
+![Tetris](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/tetris.png)
