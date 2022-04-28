@@ -9,7 +9,8 @@ use std::mem;
 use std::time::Instant;
 
 // TODO: UI: render borders/boundaries of the board, preview of where the piece will fall, ...
-// TODO: Detect lose condition
+// TODO: Bug when completing rows
+// TODO: Progressive increase fall speed
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
@@ -79,6 +80,7 @@ struct Timer {
 #[derive(Default)]
 struct Game {
     paused: bool,
+    game_over: bool,
     tiles: Vec<Tile>,
     piece: Piece,
     next_piece: Piece,
@@ -117,7 +119,7 @@ impl Game {
         if input.was_key_pressed(KeyId::P) {
             self.paused = !self.paused;
         }
-        if self.paused {
+        if self.paused || self.game_over {
             return;
         }
 
@@ -178,6 +180,10 @@ impl Game {
 
                 self.piece = self.next_piece.clone();
                 self.next_piece = Self::spawn_piece();
+                if !self.next_piece.is_valid(&self.tiles) {
+                    self.game_over = true;
+                    return;
+                }
             }
         }
 
@@ -262,7 +268,7 @@ impl Game {
                         (start_x + col as f32 * TILE_SIZE, start_y + row as f32 * TILE_SIZE),
                         (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
                     ),
-                    0.1,
+                    0.2,
                     tile.color,
                 );
             }
@@ -275,7 +281,7 @@ impl Game {
                     (start_x + tile.pos.0 as f32 * TILE_SIZE, start_y + tile.pos.1 as f32 * TILE_SIZE),
                     (TILE_SIZE - 1.0, TILE_SIZE - 1.0),
                 ),
-                0.0,
+                0.1,
                 tile.color,
             );
         }
@@ -310,6 +316,19 @@ impl Game {
             color::WHITE,
             false,
         );
+
+        if self.game_over {
+            vk_util::push_str_centered_color(
+                cmd,
+                "Game Over",
+                50.0,
+                0.0,
+                10.0,
+                color::LIGHT_GREY,
+                true,
+                Rect::offset_extent((0.0, 0.0), (WIDTH, HEIGHT)),
+            );
+        }
     }
 
     fn rotate_piece(piece: &mut Piece) {
