@@ -9,7 +9,6 @@ use std::mem;
 use std::time::Instant;
 
 // TODO: UI: render borders/boundaries of the board, preview of where the piece will fall, ...
-// TODO: Progressive increase fall speed
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
@@ -88,6 +87,7 @@ struct Game {
     seconds_timer: Timer,
     total_seconds: usize,
     score: usize,
+    level: usize,
 }
 impl Game {
     fn init() -> Self {
@@ -121,6 +121,9 @@ impl Game {
         if self.paused || self.game_over {
             return;
         }
+
+        self.level = self.score / 50; // Increase level after 50 points (5 rows)
+        self.time_per_tile_sec = 0.5 - (0.05 * self.level as f32);
 
         self.seconds_timer.elapsed += dt;
         if self.seconds_timer.elapsed >= self.seconds_timer.duration {
@@ -319,6 +322,15 @@ impl Game {
             cmd,
             &format!("Time: {}", self.total_seconds),
             (start_x + 350.0, start_y + 100.0),
+            0.0,
+            6.0,
+            color::WHITE,
+            false,
+        );
+        vk_util::push_str_color(
+            cmd,
+            &format!("Level: {}", self.level),
+            (start_x + 350.0, start_y + 200.0),
             0.0,
             6.0,
             color::WHITE,
