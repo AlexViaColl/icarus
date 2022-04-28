@@ -1,6 +1,7 @@
 use icarus::color;
+use icarus::color::Color;
 use icarus::input::{InputState, KeyId};
-use icarus::math::Rect;
+use icarus::math::{Rect, Vec4};
 use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
@@ -17,7 +18,7 @@ const MAX_ENTITIES: usize = 1000;
 const TILES_X: isize = 10;
 const TILES_Y: isize = 20;
 const TILE_SIZE: f32 = 30.0;
-const TILE_BG_COLOR: color::Color = color::DARK_GREY;
+const TILE_BG_COLOR: Color = color!(rgb8(15, 15, 15));
 
 #[derive(Default, Copy, Clone, Debug)]
 struct Tile {
@@ -297,7 +298,8 @@ impl Game {
             );
         }
 
-        vk_util::push_str_color(cmd, "Next", (start_x - 200.0, start_y), 0.0, 6.0, color::WHITE, false);
+        let text_color = color::srgb_to_linear(0xE5E4E2).into();
+        vk_util::push_str_color(cmd, "Next", (start_x - 200.0, start_y), 0.0, 6.0, text_color, false);
         for tile in &self.next_piece.tiles {
             vk_util::push_rect_color(
                 cmd,
@@ -315,7 +317,7 @@ impl Game {
             (start_x + 350.0, start_y),
             0.0,
             6.0,
-            color::WHITE,
+            text_color,
             false,
         );
         vk_util::push_str_color(
@@ -324,7 +326,7 @@ impl Game {
             (start_x + 350.0, start_y + 100.0),
             0.0,
             6.0,
-            color::WHITE,
+            text_color,
             false,
         );
         vk_util::push_str_color(
@@ -333,7 +335,7 @@ impl Game {
             (start_x + 350.0, start_y + 200.0),
             0.0,
             6.0,
-            color::WHITE,
+            text_color,
             false,
         );
 
@@ -585,6 +587,7 @@ fn main() {
         let mut cmd = vec![];
         game.render(&mut cmd);
 
-        vk_ctx.render(&cmd, None, &[], &[]);
+        let bg_color = color::srgb_to_linear(0x28282B).into();
+        vk_ctx.render(&cmd, Some(bg_color), &[], &[]);
     }
 }
