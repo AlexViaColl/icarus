@@ -22,6 +22,9 @@ const BULLET_SPEED: f32 = 1000.0;
 const BULLET_WIDTH: f32 = 5.0;
 const BULLET_HEIGHT: f32 = 20.0;
 
+const ENEMY_WIDTH: f32 = 100.0;
+const ENEMY_HEIGHT: f32 = 50.0;
+
 const BG_COLOR: Color = color!(rgb8(28, 28, 28));
 
 #[derive(Default)]
@@ -30,19 +33,45 @@ struct Bullet {
 }
 
 #[derive(Default)]
+struct Enemy {
+    pos: Vec2,
+    dead: bool,
+}
+
+#[derive(Default)]
 struct Game {
     player: Vec2,
     player_vel: f32,
     bullets: Vec<Bullet>,
+    enemies: Vec<Enemy>,
 }
 impl Game {
     fn init() -> Self {
         Self {
             player: Vec2::new(WIDTH / 2.0, HEIGHT - PLAYER_HEIGHT / 2.0),
+            enemies: vec![
+                Enemy {
+                    pos: Vec2::new(WIDTH / 2.0, ENEMY_HEIGHT / 2.0),
+                    dead: false,
+                },
+                Enemy {
+                    pos: Vec2::new(WIDTH / 2.0 - ENEMY_WIDTH * 1.1, ENEMY_HEIGHT / 2.0),
+                    dead: false,
+                },
+                Enemy {
+                    pos: Vec2::new(WIDTH / 2.0 + ENEMY_WIDTH * 1.1, ENEMY_HEIGHT / 2.0),
+                    dead: false,
+                },
+            ],
             ..Self::default()
         }
     }
     fn update(&mut self, input: &InputState, dt: f32) {
+        if input.is_key_down(KeyId::R) {
+            *self = Self::init();
+            return;
+        }
+
         self.player_vel = 0.0;
         if input.is_key_down(KeyId::A) {
             self.player_vel = -PLAYER_SPEED;
@@ -62,13 +91,30 @@ impl Game {
         for bullet in &mut self.bullets {
             bullet.pos = bullet.pos + Vec2::new(0.0, -BULLET_SPEED) * dt;
         }
+
+        for enemy in &mut self.enemies {
+            let enemy_rect = Rect::center_extent(enemy.pos, (ENEMY_WIDTH, ENEMY_HEIGHT));
+            for bullet in &mut self.bullets {
+                let bullet_rect = Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT));
+                if enemy_rect.collides(&bullet_rect) {
+                    enemy.dead = true;
+                    bullet.pos.y = -10.0;
+                }
+            }
+        }
+
         self.bullets.retain(|b| b.pos.y > 0.0);
+        self.enemies.retain(|e| !e.dead);
     }
     fn render(&self, cmd: &mut Vec<RenderCommand>) {
         vk_util::push_rect(cmd, Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT)), 0.9);
 
         for bullet in &self.bullets {
             vk_util::push_rect(cmd, Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT)), 0.9);
+        }
+
+        for enemy in &self.enemies {
+            vk_util::push_rect(cmd, Rect::center_extent(enemy.pos, (ENEMY_WIDTH, ENEMY_HEIGHT)), 0.9);
         }
     }
 }
