@@ -183,6 +183,9 @@ fn main() {
     let mut input = InputState::default();
     let mut game = Game::init();
     let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES, None);
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_01.png");
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_02.png");
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_03.png");
 
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
