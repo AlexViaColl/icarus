@@ -41,11 +41,20 @@ struct Enemy {
 }
 
 #[derive(Default)]
+struct Timer {
+    elapsed: f32,
+    duration: f32,
+}
+
+#[derive(Default)]
 struct Game {
     player: Vec2,
     player_vel: f32,
     bullets: Vec<Bullet>,
     enemies: Vec<Enemy>,
+    enemies_moving_left: bool,
+    enemies_offset: Vec2,
+    seconds_timer: Timer,
 }
 impl Game {
     fn init() -> Self {
@@ -63,6 +72,10 @@ impl Game {
         Self {
             player: Vec2::new(WIDTH / 2.0, HEIGHT - PLAYER_HEIGHT / 2.0),
             enemies,
+            seconds_timer: Timer {
+                elapsed: 0.0,
+                duration: 1.0,
+            },
             ..Self::default()
         }
     }
@@ -86,6 +99,27 @@ impl Game {
             });
         }
 
+        self.seconds_timer.elapsed += dt;
+        if self.seconds_timer.elapsed >= self.seconds_timer.duration {
+            self.seconds_timer.elapsed -= self.seconds_timer.duration;
+            if self.enemies_moving_left {
+                self.enemies_offset.x -= 50.0;
+                if self.enemies_offset.x < -250.0 {
+                    self.enemies_moving_left = false;
+                }
+            } else {
+                self.enemies_offset.x += 50.0;
+                if self.enemies_offset.x > 300.0 {
+                    self.enemies_offset.x -= 50.0;
+                    self.enemies_offset.y += 50.0;
+                    self.enemies_moving_left = true;
+                } else if self.enemies_offset.x > 250.0 {
+                    //self.enemies_moving_left = true;
+                    self.enemies_offset.x += 50.0;
+                }
+            }
+        }
+
         self.player = self.player + Vec2::new(self.player_vel, 0.0) * dt;
 
         for bullet in &mut self.bullets {
@@ -93,7 +127,7 @@ impl Game {
         }
 
         for enemy in &mut self.enemies {
-            let enemy_rect = Rect::center_extent(enemy.pos, (ENEMY_WIDTH, ENEMY_HEIGHT));
+            let enemy_rect = Rect::center_extent(enemy.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT));
             for bullet in &mut self.bullets {
                 let bullet_rect = Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT));
                 if enemy_rect.collides(&bullet_rect) {
@@ -113,8 +147,13 @@ impl Game {
             vk_util::push_rect(cmd, Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT)), 0.9);
         }
 
-        for enemy in &self.enemies {
-            vk_util::push_rect(cmd, Rect::center_extent(enemy.pos, (ENEMY_WIDTH, ENEMY_HEIGHT)), 0.9);
+            for enemy in &self.enemies {
+                vk_util::push_rect(
+                    cmd,
+                    Rect::center_extent(enemy.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT)),
+                    0.9,
+                );
+            }
         }
     }
 }
