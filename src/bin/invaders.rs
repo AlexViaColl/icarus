@@ -99,6 +99,10 @@ impl Game {
             });
         }
 
+        if self.enemies.is_empty() {
+            return;
+        }
+
         self.seconds_timer.elapsed += dt;
         if self.seconds_timer.elapsed >= self.seconds_timer.duration {
             self.seconds_timer.elapsed -= self.seconds_timer.duration;
@@ -143,9 +147,21 @@ impl Game {
     fn render(&self, cmd: &mut Vec<RenderCommand>) {
         vk_util::push_rect(cmd, Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT)), 0.9);
 
-        for bullet in &self.bullets {
-            vk_util::push_rect(cmd, Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT)), 0.9);
-        }
+        if self.enemies.is_empty() {
+            vk_util::push_str_centered_color(
+                cmd,
+                "Victory",
+                HEIGHT / 2.0 - 100.0,
+                0.0,
+                10.0,
+                color::ORANGE,
+                false,
+                Rect::offset_extent((0.0, 0.0), (WIDTH, HEIGHT)),
+            );
+        } else {
+            for bullet in &self.bullets {
+                vk_util::push_rect(cmd, Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT)), 0.9);
+            }
 
             for enemy in &self.enemies {
                 vk_util::push_rect(
