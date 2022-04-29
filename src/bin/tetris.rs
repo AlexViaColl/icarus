@@ -1,7 +1,7 @@
 use icarus::color;
 use icarus::color::Color;
 use icarus::input::{InputState, KeyId};
-use icarus::math::{Rect, Vec4};
+use icarus::math::Rect;
 use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
@@ -19,6 +19,8 @@ const TILES_X: isize = 10;
 const TILES_Y: isize = 20;
 const TILE_SIZE: f32 = 30.0;
 const TILE_BG_COLOR: Color = color!(rgb8(15, 15, 15));
+const TEXT_COLOR: Color = color!(hex(0xE5E4E2)); //color::srgb_to_linear(0xE5E4E2).into();
+const BG_COLOR: Color = color!(hex(0x28282B));
 
 #[derive(Default, Copy, Clone, Debug)]
 struct Tile {
@@ -124,7 +126,6 @@ impl Game {
         }
 
         self.level = self.score / 50; // Increase level after 50 points (5 rows)
-        self.time_per_tile_sec = 0.5 - (0.05 * self.level as f32);
 
         self.seconds_timer.elapsed += dt;
         if self.seconds_timer.elapsed >= self.seconds_timer.duration {
@@ -250,7 +251,8 @@ impl Game {
         if input.is_key_down(KeyId::S) {
             self.time_per_tile_sec = 0.05;
         } else {
-            self.time_per_tile_sec = 0.5;
+            self.time_per_tile_sec = 0.5 - (0.05 * self.level as f32);
+            //self.time_per_tile_sec = 0.5;
         }
         if input.was_key_pressed(KeyId::W) {
             while !self.piece.tiles.iter().any(
@@ -298,8 +300,7 @@ impl Game {
             );
         }
 
-        let text_color = color::srgb_to_linear(0xE5E4E2).into();
-        vk_util::push_str_color(cmd, "Next", (start_x - 200.0, start_y), 0.0, 6.0, text_color, false);
+        vk_util::push_str_color(cmd, "Next", (start_x - 200.0, start_y), 0.0, 6.0, TEXT_COLOR, false);
         for tile in &self.next_piece.tiles {
             vk_util::push_rect_color(
                 cmd,
@@ -317,7 +318,7 @@ impl Game {
             (start_x + 350.0, start_y),
             0.0,
             6.0,
-            text_color,
+            TEXT_COLOR,
             false,
         );
         vk_util::push_str_color(
@@ -326,7 +327,7 @@ impl Game {
             (start_x + 350.0, start_y + 100.0),
             0.0,
             6.0,
-            text_color,
+            TEXT_COLOR,
             false,
         );
         vk_util::push_str_color(
@@ -335,7 +336,7 @@ impl Game {
             (start_x + 350.0, start_y + 200.0),
             0.0,
             6.0,
-            text_color,
+            TEXT_COLOR,
             false,
         );
 
@@ -553,13 +554,7 @@ impl Game {
 }
 
 fn pos_to_idx(x: isize, y: isize) -> usize {
-    // TODO: Check for negative!
     (y * TILES_X + x) as usize
-}
-fn idx_to_pos(idx: usize) -> (isize, isize) {
-    let x = idx as isize % TILES_X;
-    let y = idx as isize / TILES_X;
-    (x, y)
 }
 
 fn main() {
@@ -586,8 +581,6 @@ fn main() {
 
         let mut cmd = vec![];
         game.render(&mut cmd);
-
-        let bg_color = color::srgb_to_linear(0x28282B).into();
-        vk_ctx.render(&cmd, Some(bg_color), &[], &[]);
+        vk_ctx.render(&cmd, Some(BG_COLOR), &[], &[]);
     }
 }
