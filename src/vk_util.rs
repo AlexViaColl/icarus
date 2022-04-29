@@ -64,7 +64,7 @@ pub enum RenderCommand {
         f32, f32,   // x, y,
         f32, f32,   // w, h,
         f32,        // z,
-        Color,      // r, g, b,
+        [f32; 4],   // r, g, b, a,
     ),
 }
 pub fn push_rect<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32) {
@@ -85,7 +85,7 @@ pub fn push_rect_outline<R: Into<Rect>>(cmd: &mut Vec<RenderCommand>, r: R, z: f
 }
 pub fn push_rect_color<R: Into<Rect>, C: Into<Color>>(cmd: &mut Vec<RenderCommand>, r: R, z: f32, c: C) {
     let r = r.into();
-    cmd.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, z, c.into()));
+    cmd.push(RenderCommand::Rect(r.offset.x, r.offset.y, r.extent.x, r.extent.y, z, c.into().as_f32()));
 }
 pub const GLYPH_OUTLINE_SIZE: f32 = 4.0;
 pub fn push_glyph(cmd: &mut Vec<RenderCommand>, glyph: &Glyph, x: f32, y: f32, z: f32, pixel_size: f32) {

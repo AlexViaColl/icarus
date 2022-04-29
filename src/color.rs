@@ -2,36 +2,36 @@ use crate::math::Vec4;
 
 #[macro_export]
 macro_rules! color(
-    (hex($x:expr)) => {
-        Color(Vec4::new(
-            (($x >> 16) & 0xFF) as f32 / 255.0,
-            (($x >> 8) & 0xFF) as f32 / 255.0,
-            (($x >> 0) & 0xFF) as f32 / 255.0,
-            (($x >> 24) & 0xFF) as f32 / 255.0,
-        ))
+    (hex($x:expr)) => { // 0xAARRGGBB
+        Color::new(
+            (($x >> 16) & 0xFF) as u8,
+            (($x >> 8) & 0xFF) as u8,
+            (($x >> 0) & 0xFF) as u8,
+            (($x >> 24) & 0xFF) as u8,
+        )
     };
 
     // 0-255 components
     (rgb8($r:expr, $g:expr, $b:expr)) => {
-        Color(Vec4::new(
-            ($r as f32) / 255.0,
-            ($g as f32) / 255.0,
-            ($b as f32) / 255.0,
-            1.0,
-        ))
+        Color::new(
+            $r,
+            $g,
+            $b,
+            255,
+        )
     };
     (rgba8($r:expr, $g:expr, $b:expr, $a:expr)) => {
-        Color(Vec4::new(
-            ($r as f32) / 255.0,
-            ($g as f32) / 255.0,
-            ($b as f32) / 255.0,
-            ($a as f32) / 255.0,
-        ))
+        Color::new(
+            $r,
+            $g,
+            $b,
+            $a,
+        )
     };
 
     // normalized 0-1 components
-    (rgb($r:expr, $g:expr, $b:expr)) => {Color(Vec4::new($r, $g, $b, 1.0))};
-    (rgba($r:expr, $g:expr, $b:expr, $a:expr)) => {Color(Vec4::new($r, $g, $b, $a))};
+    (rgb($r:expr, $g:expr, $b:expr)) => {Color::new(($r * 255.0) as u8, ($g * 255.0) as u8, ($b * 255.0) as u8, 255)};
+    (rgba($r:expr, $g:expr, $b:expr, $a:expr)) => {Color::new(($r * 255.0) as u8, ($g * 255.0) as u8, ($b * 255.0) as u8, ($a * 255.0) as u8)};
 
     // srgb
     // hsv
@@ -39,7 +39,12 @@ macro_rules! color(
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub struct Color(pub Vec4);
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+    pub a: u8,
+}
 
 pub const BLACK: Color = color!(rgb(0.0, 0.0, 0.0));
 pub const WHITE: Color = color!(rgb(1.0, 1.0, 1.0));
@@ -61,12 +66,21 @@ pub const ORANGE: Color = color!(rgb(1.0, 0.5, 0.0));
 //pub const ORANGE: Color = color!(rgb8(255, 255, 0));
 
 impl Color {
+    pub const fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self {
+            r,
+            g,
+            b,
+            a,
+        }
+    }
+
     pub fn from_hex(linear: u32) -> Self {
         Self::from_hex_linear(linear)
     }
 
     pub fn from_hex_linear(linear: u32) -> Self {
-        Self(color_to_f32(linear).into())
+        color!(hex(linear))
     }
 
     pub fn from_hex_srgb(_srgb: u32) -> Self {
@@ -74,26 +88,29 @@ impl Color {
     }
 
     pub fn invert(&self) -> Self {
-        Self(Vec4::new(1.0 - self.0.x, 1.0 - self.0.y, 1.0 - self.0.z, self.0.w))
+        Self::new(255 - self.r, 255 - self.g, 255 - self.b, self.a)
     }
 
     pub fn as_f32(&self) -> [f32; 4] {
-        [self.0.x, self.0.y, self.0.z, self.0.w]
+        srgb_to_linear(self.as_u32())
+        //[self.r as f32 / 255.0, self.g as f32 / 255.0, self.b as f32 / 255.0, self.a as f32 / 255.0]
     }
 
     pub fn as_u32(&self) -> u32 {
-        color_to_u32([self.0.x, self.0.y, self.0.z, self.0.w])
+        //color_to_u32(self.as_f32())
+        // 0xAARRGGBB
+        (self.a as u32) << 24 | (self.r as u32) << 16 | (self.g as u32) << 8 | (self.b as u32)
     }
 }
 
 impl From<Vec4> for Color {
     fn from(color: Vec4) -> Self {
-        Self(color)
+        color!(rgba(color.x, color.y, color.z, color.w))
     }
 }
 impl From<[f32; 4]> for Color {
     fn from(color: [f32; 4]) -> Self {
-        Self(Vec4::new(color[0], color[1], color[2], color[3]))
+        color!(rgba(color[0], color[1], color[2], color[3]))
     }
 }
 
