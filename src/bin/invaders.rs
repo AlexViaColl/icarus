@@ -20,10 +20,12 @@ const PLAYER_HEIGHT: f32 = 50.0;
 
 const BULLET_SPEED: f32 = 1000.0;
 const BULLET_WIDTH: f32 = 5.0;
-const BULLET_HEIGHT: f32 = 20.0;
+const BULLET_HEIGHT: f32 = 10.0;
 
-const ENEMY_WIDTH: f32 = 100.0;
-const ENEMY_HEIGHT: f32 = 50.0;
+const ENEMY_ROWS: usize = 5;
+const ENEMY_COLS: usize = 11;
+const ENEMY_WIDTH: f32 = 40.0;
+const ENEMY_HEIGHT: f32 = 32.0;
 
 const BG_COLOR: Color = color!(rgb8(28, 28, 28));
 
@@ -47,22 +49,20 @@ struct Game {
 }
 impl Game {
     fn init() -> Self {
+        let mut enemies = vec![];
+        let start_x = WIDTH / 2.0 - (ENEMY_COLS as f32 / 2.0) * ENEMY_WIDTH * 2.0;
+        let start_y = ENEMY_HEIGHT;
+        for row in 0..ENEMY_ROWS {
+            for col in 0..ENEMY_COLS {
+                enemies.push(Enemy {
+                    pos: Vec2::new(start_x + col as f32 * ENEMY_WIDTH * 2.0, start_y + row as f32 * ENEMY_HEIGHT * 2.0),
+                    dead: false,
+                });
+            }
+        }
         Self {
             player: Vec2::new(WIDTH / 2.0, HEIGHT - PLAYER_HEIGHT / 2.0),
-            enemies: vec![
-                Enemy {
-                    pos: Vec2::new(WIDTH / 2.0, ENEMY_HEIGHT / 2.0),
-                    dead: false,
-                },
-                Enemy {
-                    pos: Vec2::new(WIDTH / 2.0 - ENEMY_WIDTH * 1.1, ENEMY_HEIGHT / 2.0),
-                    dead: false,
-                },
-                Enemy {
-                    pos: Vec2::new(WIDTH / 2.0 + ENEMY_WIDTH * 1.1, ENEMY_HEIGHT / 2.0),
-                    dead: false,
-                },
-            ],
+            enemies,
             ..Self::default()
         }
     }
