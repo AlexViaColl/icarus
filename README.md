@@ -46,3 +46,6 @@ Assets from: [github.com/samuelcust/flappy-bird-assets](https://github.com/samue
 
 ### Tetris
 ![Tetris](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/tetris.png)
+
+### Space Invaders
+![Invaders](https://github.com/AlexViaColl/icarus-assets/raw/main/screenshots/invaders.png)
