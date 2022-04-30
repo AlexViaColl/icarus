@@ -43,6 +43,11 @@ struct Enemy {
     material: u32,
     dead: bool,
 }
+#[derive(Default)]
+struct Splat {
+    pos: Vec2,
+    duration: f32,
+}
 
 #[derive(Default)]
 struct Timer {
@@ -59,6 +64,7 @@ struct Game {
     enemies: Vec<Enemy>,
     enemies_moving_left: bool,
     enemies_offset: Vec2,
+    splats: Vec<Splat>,
     seconds_timer: Timer,
 }
 impl Game {
@@ -141,6 +147,8 @@ impl Game {
                 }
             }
         }
+        self.splats.iter_mut().for_each(|s| s.duration -= dt);
+        self.splats.retain(|s| s.duration > 0.0);
 
         self.player = self.player + Vec2::new(self.player_vel, 0.0) * dt;
         self.player.x = self.player.x.clamp(PLAYER_WIDTH / 2.0, WIDTH - PLAYER_WIDTH / 2.0);
@@ -156,6 +164,10 @@ impl Game {
                 if enemy_rect.collides(&bullet_rect) {
                     enemy.dead = true;
                     bullet.pos.y = -10.0;
+                    self.splats.push(Splat {
+                        pos: enemy.pos,
+                        duration: 0.2,
+                    });
                 }
             }
         }
@@ -222,6 +234,15 @@ impl Game {
                     }
                 }
             }
+
+            for splat in &self.splats {
+                vk_util::push_rect(
+                    cmd,
+                    Rect::center_extent(splat.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT)),
+                    0.9,
+                );
+                materials.push(6);
+            }
         }
     }
 }
@@ -246,6 +267,7 @@ fn main() {
     vk_ctx.load_texture_image("assets/textures/invaders/invader_02.png");
     vk_ctx.load_texture_image("assets/textures/invaders/invader_03.png");
     vk_ctx.load_texture_image("assets/textures/invaders/bunker.png");
+    vk_ctx.load_texture_image("assets/textures/invaders/splat.png");
     vk_ctx.update_descriptor_sets((WIDTH, HEIGHT));
 
     let start_time = Instant::now();
