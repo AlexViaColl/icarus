@@ -9,7 +9,6 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: Bullet vs. Bunker collision
 // TODO: Enemy animations
 // TODO: Bunker destruction
 // TODO: 4th kind of enemy (RED)
@@ -181,6 +180,17 @@ impl Game {
 
         for bullet in &mut self.bullets {
             bullet.pos = bullet.pos + bullet.vel * dt;
+        }
+
+        for bunker in &self.bunkers {
+            let bunker_rect = Rect::center_extent((bunker.x, bunker.y), (BUNKER_WIDTH, BUNKER_HEIGHT));
+            for bullet in &mut self.bullets {
+                let bullet_rect = Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT));
+                if bunker_rect.collides(&bullet_rect) {
+                    // TODO: Damage bunker
+                    bullet.pos.y = -10.0;
+                }
+            }
         }
 
         for enemy in &mut self.enemies.iter_mut().filter(|e| !e.dead) {
