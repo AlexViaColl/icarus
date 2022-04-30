@@ -3,7 +3,6 @@ use icarus::color::Color;
 use icarus::input::{InputState, KeyId};
 use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
-use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
@@ -37,6 +36,7 @@ struct Bullet {
 #[derive(Default)]
 struct Enemy {
     pos: Vec2,
+    material: u32,
     dead: bool,
 }
 
@@ -62,10 +62,17 @@ impl Game {
         let start_x = WIDTH / 2.0 - (ENEMY_COLS as f32 / 2.0) * ENEMY_WIDTH * 2.0;
         let start_y = ENEMY_HEIGHT;
         for row in 0..ENEMY_ROWS {
+            let material = match row {
+                0 => 1,
+                1 | 2 => 2,
+                3 | 4 => 3,
+                _ => unreachable!(),
+            };
             for col in 0..ENEMY_COLS {
                 enemies.push(Enemy {
                     pos: Vec2::new(start_x + col as f32 * ENEMY_WIDTH * 2.0, start_y + row as f32 * ENEMY_HEIGHT * 2.0),
                     dead: false,
+                    material,
                 });
             }
         }
@@ -99,7 +106,7 @@ impl Game {
             });
         }
 
-        if self.enemies.is_empty() {
+        if self.enemies.iter().filter(|e| !e.dead).count() == 0 {
             return;
         }
 
@@ -118,7 +125,6 @@ impl Game {
                     self.enemies_offset.y += 50.0;
                     self.enemies_moving_left = true;
                 } else if self.enemies_offset.x > 250.0 {
-                    //self.enemies_moving_left = true;
                     self.enemies_offset.x += 50.0;
                 }
             }
@@ -131,7 +137,7 @@ impl Game {
             bullet.pos = bullet.pos + Vec2::new(0.0, -BULLET_SPEED) * dt;
         }
 
-        for enemy in &mut self.enemies {
+        for enemy in &mut self.enemies.iter_mut().filter(|e| !e.dead) {
             let enemy_rect = Rect::center_extent(enemy.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT));
             for bullet in &mut self.bullets {
                 let bullet_rect = Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT));
@@ -143,12 +149,13 @@ impl Game {
         }
 
         self.bullets.retain(|b| b.pos.y > 0.0);
-        self.enemies.retain(|e| !e.dead);
     }
-    fn render(&self, cmd: &mut Vec<RenderCommand>) {
+    fn render(&self, cmd: &mut Vec<RenderCommand>, materials: &mut Vec<u32>) {
         vk_util::push_rect(cmd, Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT)), 0.9);
+        materials.push(0);
 
-        if self.enemies.is_empty() {
+        if self.enemies.iter().filter(|e| !e.dead).count() == 0 {
+            let count = cmd.len();
             vk_util::push_str_centered_color(
                 cmd,
                 "Victory",
@@ -159,17 +166,28 @@ impl Game {
                 false,
                 Rect::offset_extent((0.0, 0.0), (WIDTH, HEIGHT)),
             );
+            let count = cmd.len() - count;
+            for _ in 0..count {
+                materials.push(0);
+            }
         } else {
             for bullet in &self.bullets {
                 vk_util::push_rect(cmd, Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT)), 0.9);
+                materials.push(0);
             }
 
-            for enemy in &self.enemies {
-                vk_util::push_rect(
-                    cmd,
-                    Rect::center_extent(enemy.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT)),
-                    0.9,
-                );
+            for row in 0..ENEMY_ROWS {
+                for col in 0..ENEMY_COLS {
+                    let enemy = &self.enemies[row * ENEMY_COLS + col];
+                    if !enemy.dead {
+                        vk_util::push_rect(
+                            cmd,
+                            Rect::center_extent(enemy.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT)),
+                            0.9,
+                        );
+                        materials.push(enemy.material);
+                    }
+                }
             }
         }
     }
@@ -183,10 +201,17 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES, None);
+    let mut vk_ctx =
+        VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES, Some(String::from("sprite")));
+
+    vk_ctx.vertex_buffer.destroy();
+    let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
+    vk_ctx.create_vertex_buffer(&vertices);
+
     vk_ctx.load_texture_image("assets/textures/invaders/invader_01.png");
     vk_ctx.load_texture_image("assets/textures/invaders/invader_02.png");
     vk_ctx.load_texture_image("assets/textures/invaders/invader_03.png");
+    vk_ctx.update_descriptor_sets((WIDTH, HEIGHT));
 
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
@@ -201,7 +226,9 @@ fn main() {
         game.update(&input, seconds_elapsed);
 
         let mut cmd = vec![];
-        game.render(&mut cmd);
-        vk_ctx.render(&cmd, Some(BG_COLOR), &[], &[]);
+        let mut materials = vec![];
+        game.render(&mut cmd, &mut materials);
+        let rotations = vec![0; cmd.len()];
+        vk_ctx.render(&cmd, Some(BG_COLOR), &materials, &rotations);
     }
 }

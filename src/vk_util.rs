@@ -544,13 +544,13 @@ impl VkContext {
                             let rotation_id = rotations[i];
                             // TODO: Simplify this
                             #[rustfmt::skip]
-                        let mut v = (
-                            0.0_f32, 0.0_f32, // offset
-                            0.0_f32, 0.0_f32, // size
-                            0.0_f32, // z
-                            0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
-                            rotation_id
-                        );
+                            let mut v = (
+                                0.0_f32, 0.0_f32, // offset
+                                0.0_f32, 0.0_f32, // size
+                                0.0_f32, // z
+                                0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
+                                rotation_id
+                            );
                             ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 9);
                             let v = &v as *const _ as *const c_void;
                             vkCmdPushConstants(
