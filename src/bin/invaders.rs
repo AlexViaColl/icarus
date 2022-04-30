@@ -125,6 +125,7 @@ impl Game {
         }
 
         self.player = self.player + Vec2::new(self.player_vel, 0.0) * dt;
+        self.player.x = self.player.x.clamp(PLAYER_WIDTH / 2.0, WIDTH - PLAYER_WIDTH / 2.0);
 
         for bullet in &mut self.bullets {
             bullet.pos = bullet.pos + Vec2::new(0.0, -BULLET_SPEED) * dt;
