@@ -3,6 +3,7 @@ use icarus::color::Color;
 use icarus::input::{InputState, KeyId};
 use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
+use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
@@ -14,12 +15,12 @@ const HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 1000;
 
 const PLAYER_SPEED: f32 = 1000.0;
-const PLAYER_WIDTH: f32 = 40.0;
+const PLAYER_WIDTH: f32 = 60.0;
 const PLAYER_HEIGHT: f32 = 32.0;
 const PLAYER_COLOR: Color = color::GREEN;
 
-const BUNKER_WIDTH: f32 = PLAYER_WIDTH * 2.0;
-const BUNKER_HEIGHT: f32 = PLAYER_HEIGHT * 2.0;
+const BUNKER_WIDTH: f32 = 80.0;
+const BUNKER_HEIGHT: f32 = 64.0;
 
 const BULLET_SPEED: f32 = 1000.0;
 const BULLET_WIDTH: f32 = 5.0;
@@ -35,6 +36,7 @@ const BG_COLOR: Color = color!(rgb8(28, 28, 28));
 #[derive(Default)]
 struct Bullet {
     pos: Vec2,
+    vel: Vec2,
 }
 
 #[derive(Default)]
@@ -60,12 +62,14 @@ struct Game {
     paused: bool,
     player: Vec2,
     player_vel: f32,
+    health: u32,
     bullets: Vec<Bullet>,
     enemies: Vec<Enemy>,
     enemies_moving_left: bool,
     enemies_offset: Vec2,
     splats: Vec<Splat>,
     seconds_timer: Timer,
+    rand: Rand,
 }
 impl Game {
     fn init() -> Self {
@@ -88,7 +92,8 @@ impl Game {
             }
         }
         Self {
-            player: Vec2::new(WIDTH / 2.0, HEIGHT - PLAYER_HEIGHT / 2.0),
+            player: Vec2::new(WIDTH / 2.0, HEIGHT - 2.0 * PLAYER_HEIGHT),
+            health: 3,
             enemies,
             seconds_timer: Timer {
                 elapsed: 0.0,
@@ -106,7 +111,7 @@ impl Game {
         if input.was_key_pressed(KeyId::P) {
             self.paused = !self.paused;
         }
-        if self.paused {
+        if self.paused || self.health <= 0 {
             return;
         }
 
@@ -121,6 +126,7 @@ impl Game {
         if input.was_key_pressed(KeyId::Space) {
             self.bullets.push(Bullet {
                 pos: self.player,
+                vel: Vec2::new(0.0, -BULLET_SPEED),
             });
         }
 
@@ -146,6 +152,11 @@ impl Game {
                     self.enemies_offset.x += 50.0;
                 }
             }
+
+            self.bullets.push(Bullet {
+                pos: self.enemies[self.rand.next_usize() % self.enemies.len()].pos + self.enemies_offset,
+                vel: Vec2::new(0.0, BULLET_SPEED),
+            });
         }
         self.splats.iter_mut().for_each(|s| s.duration -= dt);
         self.splats.retain(|s| s.duration > 0.0);
@@ -154,12 +165,12 @@ impl Game {
         self.player.x = self.player.x.clamp(PLAYER_WIDTH / 2.0, WIDTH - PLAYER_WIDTH / 2.0);
 
         for bullet in &mut self.bullets {
-            bullet.pos = bullet.pos + Vec2::new(0.0, -BULLET_SPEED) * dt;
+            bullet.pos = bullet.pos + bullet.vel * dt;
         }
 
         for enemy in &mut self.enemies.iter_mut().filter(|e| !e.dead) {
             let enemy_rect = Rect::center_extent(enemy.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT));
-            for bullet in &mut self.bullets {
+            for bullet in &mut self.bullets.iter_mut().filter(|b| b.vel.y < 0.0) {
                 let bullet_rect = Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT));
                 if enemy_rect.collides(&bullet_rect) {
                     enemy.dead = true;
@@ -172,7 +183,16 @@ impl Game {
             }
         }
 
-        self.bullets.retain(|b| b.pos.y > 0.0);
+        let player_rect = Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT));
+        for bullet in &mut self.bullets.iter_mut().filter(|b| b.vel.y > 0.0) {
+            let bullet_rect = Rect::center_extent(bullet.pos, (BULLET_WIDTH, BULLET_HEIGHT));
+            if player_rect.collides(&bullet_rect) {
+                self.health -= 1;
+                bullet.pos.y = -10.0;
+            }
+        }
+
+        self.bullets.retain(|b| b.pos.y > 0.0 && b.pos.y < HEIGHT);
     }
     fn render(&self, cmd: &mut Vec<RenderCommand>, materials: &mut Vec<u32>) {
         vk_util::push_rect_color(
@@ -190,7 +210,7 @@ impl Game {
             vk_util::push_rect_color(
                 cmd,
                 Rect::center_extent(
-                    (bunker_start_x + (i as f32) * bunker_spacing, HEIGHT - BUNKER_HEIGHT * 2.0),
+                    (bunker_start_x + (i as f32) * bunker_spacing, HEIGHT - BUNKER_HEIGHT * 3.0),
                     (BUNKER_WIDTH, BUNKER_HEIGHT),
                 ),
                 0.9,
@@ -199,7 +219,36 @@ impl Game {
             materials.push(5);
         }
 
-        if self.enemies.iter().filter(|e| !e.dead).count() == 0 {
+        for i in 0..self.health {
+            vk_util::push_rect_color(
+                cmd,
+                Rect::center_extent(
+                    (PLAYER_WIDTH + (i as f32) * PLAYER_WIDTH * 1.3, HEIGHT - PLAYER_HEIGHT * 0.8 / 2.0),
+                    (PLAYER_WIDTH * 0.8, PLAYER_HEIGHT * 0.8),
+                ),
+                0.9,
+                PLAYER_COLOR,
+            );
+            materials.push(1);
+        }
+
+        if self.health <= 0 {
+            let count = cmd.len();
+            vk_util::push_str_centered_color(
+                cmd,
+                "Game Over",
+                HEIGHT / 2.0 - 100.0,
+                0.0,
+                10.0,
+                color::ORANGE,
+                false,
+                Rect::offset_extent((0.0, 0.0), (WIDTH, HEIGHT)),
+            );
+            let count = cmd.len() - count;
+            for _ in 0..count {
+                materials.push(0);
+            }
+        } else if self.enemies.iter().filter(|e| !e.dead).count() == 0 {
             let count = cmd.len();
             vk_util::push_str_centered_color(
                 cmd,
