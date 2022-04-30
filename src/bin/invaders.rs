@@ -14,8 +14,12 @@ const HEIGHT: f32 = 900.0;
 const MAX_ENTITIES: usize = 1000;
 
 const PLAYER_SPEED: f32 = 1000.0;
-const PLAYER_WIDTH: f32 = 150.0;
-const PLAYER_HEIGHT: f32 = 50.0;
+const PLAYER_WIDTH: f32 = 40.0;
+const PLAYER_HEIGHT: f32 = 32.0;
+const PLAYER_COLOR: Color = color::GREEN;
+
+const BUNKER_WIDTH: f32 = PLAYER_WIDTH * 2.0;
+const BUNKER_HEIGHT: f32 = PLAYER_HEIGHT * 2.0;
 
 const BULLET_SPEED: f32 = 1000.0;
 const BULLET_WIDTH: f32 = 5.0;
@@ -48,6 +52,7 @@ struct Timer {
 
 #[derive(Default)]
 struct Game {
+    paused: bool,
     player: Vec2,
     player_vel: f32,
     bullets: Vec<Bullet>,
@@ -63,9 +68,9 @@ impl Game {
         let start_y = ENEMY_HEIGHT;
         for row in 0..ENEMY_ROWS {
             let material = match row {
-                0 => 1,
-                1 | 2 => 2,
-                3 | 4 => 3,
+                0 => 2,
+                1 | 2 => 3,
+                3 | 4 => 4,
                 _ => unreachable!(),
             };
             for col in 0..ENEMY_COLS {
@@ -89,6 +94,13 @@ impl Game {
     fn update(&mut self, input: &InputState, dt: f32) {
         if input.is_key_down(KeyId::R) {
             *self = Self::init();
+            return;
+        }
+
+        if input.was_key_pressed(KeyId::P) {
+            self.paused = !self.paused;
+        }
+        if self.paused {
             return;
         }
 
@@ -151,8 +163,29 @@ impl Game {
         self.bullets.retain(|b| b.pos.y > 0.0);
     }
     fn render(&self, cmd: &mut Vec<RenderCommand>, materials: &mut Vec<u32>) {
-        vk_util::push_rect(cmd, Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT)), 0.9);
-        materials.push(0);
+        vk_util::push_rect_color(
+            cmd,
+            Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT)),
+            0.9,
+            PLAYER_COLOR,
+        );
+        materials.push(1);
+
+        let bunker_count = 4;
+        let bunker_spacing = 3.0 * BUNKER_WIDTH;
+        let bunker_start_x = WIDTH / 2.0 - bunker_spacing * (bunker_count as f32) / 2.0 + bunker_spacing / 2.0;
+        for i in 0..bunker_count {
+            vk_util::push_rect_color(
+                cmd,
+                Rect::center_extent(
+                    (bunker_start_x + (i as f32) * bunker_spacing, HEIGHT - BUNKER_HEIGHT * 2.0),
+                    (BUNKER_WIDTH, BUNKER_HEIGHT),
+                ),
+                0.9,
+                PLAYER_COLOR,
+            );
+            materials.push(5);
+        }
 
         if self.enemies.iter().filter(|e| !e.dead).count() == 0 {
             let count = cmd.len();
@@ -208,9 +241,11 @@ fn main() {
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
 
+    vk_ctx.load_texture_image("assets/textures/invaders/player.png");
     vk_ctx.load_texture_image("assets/textures/invaders/invader_01.png");
     vk_ctx.load_texture_image("assets/textures/invaders/invader_02.png");
     vk_ctx.load_texture_image("assets/textures/invaders/invader_03.png");
+    vk_ctx.load_texture_image("assets/textures/invaders/bunker.png");
     vk_ctx.update_descriptor_sets((WIDTH, HEIGHT));
 
     let start_time = Instant::now();
