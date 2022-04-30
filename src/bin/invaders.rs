@@ -9,6 +9,11 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
+// TODO: Bullet vs. Bunker collision
+// TODO: Enemy animations
+// TODO: Bunker destruction
+// TODO: 4th kind of enemy (RED)
+
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
@@ -68,6 +73,7 @@ struct Game {
     enemies_moving_left: bool,
     enemies_offset: Vec2,
     splats: Vec<Splat>,
+    bunkers: Vec<Vec2>,
     seconds_timer: Timer,
     rand: Rand,
 }
@@ -91,10 +97,18 @@ impl Game {
                 });
             }
         }
+        let bunker_count = 4;
+        let bunker_spacing = 3.0 * BUNKER_WIDTH;
+        let bunker_start_x = WIDTH / 2.0 - bunker_spacing * (bunker_count as f32) / 2.0 + bunker_spacing / 2.0;
+        let mut bunkers = vec![];
+        for i in 0..bunker_count {
+            bunkers.push(Vec2::new(bunker_start_x + (i as f32) * bunker_spacing, HEIGHT - BUNKER_HEIGHT * 3.0));
+        }
         Self {
             player: Vec2::new(WIDTH / 2.0, HEIGHT - 2.0 * PLAYER_HEIGHT),
             health: 3,
             enemies,
+            bunkers,
             seconds_timer: Timer {
                 elapsed: 0.0,
                 duration: 1.0,
@@ -204,16 +218,10 @@ impl Game {
         );
         materials.push(1);
 
-        let bunker_count = 4;
-        let bunker_spacing = 3.0 * BUNKER_WIDTH;
-        let bunker_start_x = WIDTH / 2.0 - bunker_spacing * (bunker_count as f32) / 2.0 + bunker_spacing / 2.0;
-        for i in 0..bunker_count {
+        for bunker in &self.bunkers {
             vk_util::push_rect_color(
                 cmd,
-                Rect::center_extent(
-                    (bunker_start_x + (i as f32) * bunker_spacing, HEIGHT - BUNKER_HEIGHT * 3.0),
-                    (BUNKER_WIDTH, BUNKER_HEIGHT),
-                ),
+                Rect::center_extent((bunker.x, bunker.y), (BUNKER_WIDTH, BUNKER_HEIGHT)),
                 0.9,
                 PLAYER_COLOR,
             );
