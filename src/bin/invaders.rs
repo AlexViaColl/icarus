@@ -84,8 +84,8 @@ impl Game {
         for row in 0..ENEMY_ROWS {
             let material = match row {
                 0 => 2,
-                1 | 2 => 3,
-                3 | 4 => 4,
+                1 | 2 => 4,
+                3 | 4 => 6,
                 _ => unreachable!(),
             };
             for col in 0..ENEMY_COLS {
@@ -148,6 +148,17 @@ impl Game {
         }
 
         self.seconds_timer.elapsed += dt;
+        self.enemies.iter_mut().for_each(|e| {
+            if self.seconds_timer.elapsed < 0.5 {
+                if e.material % 2 == 0 {
+                    e.material += 1;
+                }
+            } else {
+                if e.material % 2 != 0 {
+                    e.material -= 1;
+                }
+            }
+        });
         if self.seconds_timer.elapsed >= self.seconds_timer.duration {
             self.seconds_timer.elapsed -= self.seconds_timer.duration;
             if self.enemies_moving_left {
@@ -235,7 +246,7 @@ impl Game {
                 0.9,
                 PLAYER_COLOR,
             );
-            materials.push(5);
+            materials.push(8);
         }
 
         for i in 0..self.health {
@@ -309,7 +320,7 @@ impl Game {
                     Rect::center_extent(splat.pos + self.enemies_offset, (ENEMY_WIDTH, ENEMY_HEIGHT)),
                     0.9,
                 );
-                materials.push(6);
+                materials.push(9);
             }
         }
     }
@@ -330,12 +341,15 @@ fn main() {
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];
     vk_ctx.create_vertex_buffer(&vertices);
 
-    vk_ctx.load_texture_image("assets/textures/invaders/player.png");
-    vk_ctx.load_texture_image("assets/textures/invaders/invader_01.png");
-    vk_ctx.load_texture_image("assets/textures/invaders/invader_02.png");
-    vk_ctx.load_texture_image("assets/textures/invaders/invader_03.png");
-    vk_ctx.load_texture_image("assets/textures/invaders/bunker.png");
-    vk_ctx.load_texture_image("assets/textures/invaders/splat.png");
+    vk_ctx.load_texture_image("assets/textures/invaders/player.png"); // 1
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_01_1.png"); // 2
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_01_2.png"); // 3
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_02_1.png"); // 4
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_02_2.png"); // 5
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_03_1.png"); // 6
+    vk_ctx.load_texture_image("assets/textures/invaders/invader_03_2.png"); // 7
+    vk_ctx.load_texture_image("assets/textures/invaders/bunker.png"); // 8
+    vk_ctx.load_texture_image("assets/textures/invaders/splat.png"); // 9
     vk_ctx.update_descriptor_sets((WIDTH, HEIGHT));
 
     let start_time = Instant::now();
