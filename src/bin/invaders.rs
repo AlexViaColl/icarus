@@ -153,8 +153,9 @@ impl Game {
                 }
             }
 
+            let idx = self.rand.next_usize() % self.enemies.iter().filter(|e| !e.dead).count();
             self.bullets.push(Bullet {
-                pos: self.enemies[self.rand.next_usize() % self.enemies.len()].pos + self.enemies_offset,
+                pos: self.enemies.iter().filter(|e| !e.dead).nth(idx).unwrap().pos + self.enemies_offset,
                 vel: Vec2::new(0.0, BULLET_SPEED),
             });
         }
