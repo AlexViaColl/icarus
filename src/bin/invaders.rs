@@ -231,6 +231,15 @@ impl Game {
         self.bullets.retain(|b| b.pos.y > 0.0 && b.pos.y < HEIGHT);
     }
     fn render(&self, cmd: &mut Vec<RenderCommand>, materials: &mut Vec<u32>) {
+        // Render ship
+        vk_util::push_rect_color(
+            cmd,
+            Rect::center_extent((WIDTH / 2.0, 50.0), (PLAYER_WIDTH, PLAYER_HEIGHT)),
+            0.9,
+            color::RED,
+        );
+        materials.push(10);
+
         vk_util::push_rect_color(
             cmd,
             Rect::center_extent(self.player, (PLAYER_WIDTH, PLAYER_HEIGHT)),
@@ -350,6 +359,7 @@ fn main() {
     vk_ctx.load_texture_image("assets/textures/invaders/invader_03_2.png"); // 7
     vk_ctx.load_texture_image("assets/textures/invaders/bunker.png"); // 8
     vk_ctx.load_texture_image("assets/textures/invaders/splat.png"); // 9
+    vk_ctx.load_texture_image("assets/textures/invaders/ship.png"); // 10
     vk_ctx.update_descriptor_sets((WIDTH, HEIGHT));
 
     let start_time = Instant::now();
