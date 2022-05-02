@@ -9,9 +9,8 @@ use icarus::vk_util::{self, RenderCommand, VkContext};
 use std::mem;
 use std::time::Instant;
 
-// TODO: Enemy animations
 // TODO: Bunker destruction
-// TODO: 4th kind of enemy (RED)
+// TODO: Misterious ship
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
