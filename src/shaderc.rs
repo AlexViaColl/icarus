@@ -577,10 +577,10 @@ pub struct spv_position_t {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use std::ffi::{CStr, CString};
-    use std::fs;
-    use std::ptr;
+    //use super::*;
+    //use std::ffi::{CStr, CString};
+    //use std::fs;
+    //use std::ptr;
 
     #[test]
     fn glslang() {

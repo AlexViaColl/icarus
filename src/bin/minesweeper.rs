@@ -2,7 +2,7 @@ use icarus::color;
 use icarus::color::*;
 use icarus::glyph::{Glyph, GLYPH_PIXEL_SIZE};
 use icarus::input::{ButtonId, InputState, KeyId};
-use icarus::math::{Rect, Vec2, Vec4};
+use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};

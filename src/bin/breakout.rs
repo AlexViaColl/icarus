@@ -1,5 +1,5 @@
 use icarus::color;
-use icarus::input::{ButtonId, InputState, KeyId};
+use icarus::input::{InputState, KeyId};
 use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
 use icarus::vk_util::{self, RenderCommand, VkContext};
