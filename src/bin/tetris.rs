@@ -138,7 +138,7 @@ impl Game {
             self.timer -= self.time_per_tile_sec;
             let mut new_piece = self.piece.clone();
             for tile in &mut new_piece.tiles {
-                tile.pos.1 = tile.pos.1 + 1;
+                tile.pos.1 += 1;
             }
 
             if new_piece.is_valid(&self.tiles) {
@@ -152,7 +152,7 @@ impl Game {
 
                 // Check for complete rows
                 let mut complete_rows = self.piece.tiles.iter().map(|t| t.pos.1).collect::<Vec<_>>();
-                complete_rows.sort();
+                complete_rows.sort_unstable();
                 complete_rows.dedup();
                 for complete_row in complete_rows {
                     if TILES_X
@@ -241,7 +241,7 @@ impl Game {
         };
         let mut new_piece = self.piece.clone();
         for tile in &mut new_piece.tiles {
-            tile.pos.0 = tile.pos.0 + x_delta;
+            tile.pos.0 += x_delta;
         }
         if new_piece.is_valid(&self.tiles) {
             self.piece = new_piece;

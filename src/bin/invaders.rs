@@ -123,7 +123,7 @@ impl Game {
         if input.was_key_pressed(KeyId::P) {
             self.paused = !self.paused;
         }
-        if self.paused || self.health <= 0 {
+        if self.paused || self.health == 0 {
             return;
         }
 
@@ -152,10 +152,8 @@ impl Game {
                 if e.material % 2 == 0 {
                     e.material += 1;
                 }
-            } else {
-                if e.material % 2 != 0 {
-                    e.material -= 1;
-                }
+            } else if e.material % 2 != 0 {
+                e.material -= 1;
             }
         });
         if self.seconds_timer.elapsed >= self.seconds_timer.duration {
@@ -270,7 +268,7 @@ impl Game {
             materials.push(1);
         }
 
-        if self.health <= 0 {
+        if self.health == 0 {
             let count = cmd.len();
             vk_util::push_str_centered_color(
                 cmd,

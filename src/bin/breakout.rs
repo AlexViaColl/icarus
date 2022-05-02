@@ -109,12 +109,11 @@ impl Game {
             self.game_over = true;
         }
 
-        if Rect::center_extent(self.paddle, (PADDLE_WIDTH, PADDLE_HEIGHT))
-            .collides(&Rect::offset_extent(new_ball, (BALL_SIZE, BALL_SIZE)))
+        if self.ball_vel.y > 0.0
+            && Rect::center_extent(self.paddle, (PADDLE_WIDTH, PADDLE_HEIGHT))
+                .collides(&Rect::offset_extent(new_ball, (BALL_SIZE, BALL_SIZE)))
         {
-            if self.ball_vel.y > 0.0 {
-                self.ball_vel.y = -self.ball_vel.y;
-            }
+            self.ball_vel.y = -self.ball_vel.y;
         }
 
         let ball_rect = Rect::offset_extent(new_ball, (BALL_SIZE, BALL_SIZE));
@@ -164,7 +163,7 @@ impl Game {
         } else if self.game_over {
             "Game Over".to_string()
         } else {
-            format!("")
+            String::new()
             //format!("{}", alive_count)
         };
         vk_util::push_str_centered_color(

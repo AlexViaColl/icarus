@@ -1,6 +1,8 @@
+use icarus::color;
 use icarus::input::{InputState, KeyId};
+use icarus::math::Rect;
 use icarus::platform::{Config, Platform};
-use icarus::vk_util::{RenderCommand, VkContext};
+use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::mem;
 use std::time::Instant;
@@ -16,7 +18,14 @@ impl Game {
         Self {}
     }
     fn update(&mut self, _input: &InputState, _dt: f32) {}
-    fn render(&self, _cmd: &mut Vec<RenderCommand>) {}
+    fn render(&self, cmd: &mut Vec<RenderCommand>) {
+        vk_util::push_rect_color(
+            cmd,
+            Rect::center_extent((WIDTH / 2.0, HEIGHT / 2.0), (200.0, 100.0)),
+            0.0,
+            color::GREEN,
+        );
+    }
 }
 
 fn main() {
