@@ -4,6 +4,9 @@ use std::io::Cursor;
 use std::io::Read;
 
 #[derive(Debug, Default)]
+pub struct DnaInstance {}
+
+#[derive(Debug, Default)]
 pub struct Dna {
     pub names: Vec<String>,
     pub types: Vec<String>,
@@ -110,6 +113,12 @@ fn align_to(mut r: &mut Cursor<&[u8]>, n: usize) -> std::io::Result<()> {
 }
 
 impl Dna {
+    pub fn instantiate(&self, struct_name: &str, data: &[u8]) -> DnaInstance {
+        let size = self.get_struct_size(struct_name);
+        assert_eq!(size, data.len());
+        todo!()
+    }
+
     pub fn get_struct_size(&self, name: &str) -> usize {
         let s = self.structs.iter().find(|s| s.name == name).unwrap();
         //println!("{:#?}", s);
@@ -188,13 +197,34 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
     }
     blend.dna = dna.expect("Could not find required DNA1 block in .blend file");
 
+    let mut data_structs_set = std::collections::BTreeSet::new();
     for block in &blend.blocks {
         match block.tag.as_str() {
             "REND" => {
-                println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
             }
             "DATA" => {
-                if blend.dna.structs[block.sdna_idx].name.as_str() == "MVert" {
+                // ARegion, ArmatureModifierData, Base, Bone, BrushGpencilSettings, Collection,
+                // CollectionChild, CollectionObject, ConsoleLine, CurveMapPoint, CurveMapping,
+                // CurveProfile, CurveProfilePoint, CustomDataLayer, Editing, FileSelectParams,
+                // FreestyleLineSet, GpPaint, GpSculptPaint, GpVertexPaint, GpWeightPaint,
+                // IDProperty, ImageTile, LayerCollection, LineStyleGeometryModifier_Sampling,
+                // Link, MDeformVert, MDeformWeight, MEdge, MLoop, MLoopUV, MPoly, MVert,
+                // MaterialGPencilStyle, MirrorModifierData, PaintToolSlot, PaletteColor, Panel,
+                // PanelCategoryStack, PartDeflect, PreviewImage, RegionView3D, RenderSlot,
+                // SceneRenderView, ScrArea, ScrEdge, ScrGlobalAreaData,
+                // ScrVert, Sculpt, SequencerToolSettings, SpaceAction, SpaceBUts, SpaceConsole,
+                // SpaceFile, SpaceImage, SpaceInfo, SpaceNode, SpaceOops, SpaceSpreadsheet, SpaceStatusBar,
+                // SpaceText, SpaceTopBar, SpreadsheetColumn, SpreadsheetColumnID, SpreadsheetContextObject,
+                // Stereo3dFormat, ToolSettings, TreeStore, TreeStoreElem,
+                // VPaint, View3D, ViewLayer, WorkSpaceDataRelation, WorkSpaceInstanceHook,
+                // bConstraint, bDeformGroup, bKinematicConstraint, bNode, bNodeLink, bNodeSocket,
+                // bNodeSocketValueFloat, bNodeSocketValueRGBA, bNodeSocketValueVector, bNodeTree, bNodeTreePath,
+                // bPose, bPoseChannel, bRotateLikeConstraint, bToolRef, uiList, wmWindow
+                let sname = blend.dna.structs[block.sdna_idx].name.as_str();
+                data_structs_set.insert(sname.to_string());
+                //println!("[{}] sdna: {} {}", block.tag.as_str(), block.sdna_idx, sname);
+                if sname == "MVert" {
                     let mut r = Cursor::new(&block.data);
                     let mvert_size = blend.dna.get_struct_size("MVert") as u64;
                     println!("MVert count: {}, size: {}", block.count, mvert_size);
@@ -208,7 +238,9 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
                 }
             }
             "DNA1" => {}
-            "GLOB" => {}
+            "GLOB" => {
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
             "TEST" => {
                 // Thumbnail
                 let mut r = Cursor::new(&block.data);
@@ -222,31 +254,87 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
                 //file.write_all(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
                 //file.write_all(&pixels)?;
             }
-            "USER" => {}
+            "USER" => {
+                // UserDef
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
             "ENDB" => {}
-            "AR" => {}
-            "BR" => {}
-            "CA" => {}
-            "GD" => {}
-            "GR" => {}
-            "IM" => {}
-            "LA" => {}
-            "LS" => {}
-            "MA" => {}
+            "AR" => {
+                // bArmature
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "BR" => {
+                // Brush
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "CA" => {
+                // Camera
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "GD" => {
+                // bGPdata?
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "GR" => {
+                // Collection
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "IM" => {
+                // Image
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "LA" => {
+                // Lamp
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "LS" => {
+                // FreestyleLineStyle
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "MA" => {
+                // Material
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
             "ME" => {
                 // Mesh
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
             }
-            "OB" => {}
-            "PL" => {}
-            "SC" => {}
-            "SN" => {}
-            "TX" => {}
-            "WM" => {}
-            "WO" => {}
-            "WS" => {}
+            "OB" => {
+                // Object
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "PL" => {
+                // Palette
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "SC" => {
+                // Scene
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "SN" => {
+                // bScreen
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "TX" => {
+                // Text
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "WM" => {
+                // wmWindowManager
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "WO" => {
+                // World
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
+            "WS" => {
+                // WorkSpace
+                //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
             t => panic!("Unknown block tag: {}", t),
         }
     }
+    //println!("{} {:#?}", data_structs_set.len(), data_structs_set);
 
     Ok(blend)
 }
@@ -255,10 +343,11 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
 mod tests {
     use super::*;
     use std::fs;
+    use std::path::Path;
 
     #[test]
     fn dna() -> std::io::Result<()> {
-        let bytes = fs::read("/home/alex/thirdparty/blender-git/blender/dna.bin").unwrap();
+        let bytes = fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("test/dna.bin")).unwrap();
         assert!(bytes.len() != 0);
         let dna = parse_dna(&bytes)?;
         println!("#names:  {}", dna.names.len());
@@ -270,10 +359,13 @@ mod tests {
 
     #[test]
     fn blend() -> std::io::Result<()> {
-        let bytes = fs::read("/home/alex/thirdparty/blender-git/blender/release/datafiles/startup.blend").unwrap();
-        let bytes = fs::read("/home/alex/tmp/base_model.blend").unwrap();
-        assert!(bytes.len() != 0);
-        let _ = parse_blend(&bytes)?;
+        let test_files = [Path::new(env!("CARGO_MANIFEST_DIR")).join("test/startup.blend")];
+        for path in test_files {
+            println!("{:?}", path);
+            let bytes = fs::read(path).unwrap();
+            assert!(bytes.len() != 0);
+            let _ = parse_blend(&bytes)?;
+        }
         Ok(())
     }
 }
