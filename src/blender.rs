@@ -15,10 +15,15 @@ pub struct DnaStruct {
     pub name: String,
     pub fields: Vec<DnaField>,
 }
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct DnaField {
     pub ttype: String,
     pub name: String,
+}
+impl std::fmt::Debug for DnaField {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.ttype, self.name)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -185,7 +190,9 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
 
     for block in &blend.blocks {
         match block.tag.as_str() {
-            "REND" => {}
+            "REND" => {
+                println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
+            }
             "DATA" => {
                 if blend.dna.structs[block.sdna_idx].name.as_str() == "MVert" {
                     let mut r = Cursor::new(&block.data);
