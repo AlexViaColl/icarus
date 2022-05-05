@@ -145,6 +145,55 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
     }
     blend.dna = dna.expect("Could not find required DNA1 block in .blend file");
 
+    for block in &blend.blocks {
+        match block.tag.as_str() {
+            "REND" => {}
+            "DATA" => {
+                if blend.dna.structs[block.sdna_idx].name.as_str() == "MVert" {
+                    //    let mut r = Cursor::new(&block.data);
+                }
+            }
+            "DNA1" => {}
+            "GLOB" => {}
+            "TEST" => {
+                // Thumbnail
+                let mut r = Cursor::new(&block.data);
+                let width = read_u32_le(&mut r)?;
+                let height = read_u32_le(&mut r)?;
+                let pixels = &block.data[8..];
+                println!("Thumbnail: {}x{}, pixels: {}\n", width, height, pixels.len());
+                // Write as .ppm
+                //let pixels = data[8..].chunks(4).map(|c| &c[..3]).flatten().map(|b| *b).collect::<Vec<_>>();
+                //let mut file = fs::File::create("/home/alex/blendthumb.ppm")?;
+                //file.write_all(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
+                //file.write_all(&pixels)?;
+            }
+            "USER" => {}
+            "ENDB" => {}
+            "AR" => {}
+            "BR" => {}
+            "CA" => {}
+            "GD" => {}
+            "GR" => {}
+            "IM" => {}
+            "LA" => {}
+            "LS" => {}
+            "MA" => {}
+            "ME" => {
+                // Mesh
+            }
+            "OB" => {}
+            "PL" => {}
+            "SC" => {}
+            "SN" => {}
+            "TX" => {}
+            "WM" => {}
+            "WO" => {}
+            "WS" => {}
+            t => panic!("Unknown block tag: {}", t),
+        }
+    }
+
     Ok(blend)
 }
 
