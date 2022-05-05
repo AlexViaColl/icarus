@@ -104,6 +104,44 @@ fn align_to(mut r: &mut Cursor<&[u8]>, n: usize) -> std::io::Result<()> {
     Ok(())
 }
 
+impl Dna {
+    pub fn get_struct_size(&self, name: &str) -> usize {
+        let s = self.structs.iter().find(|s| s.name == name).unwrap();
+        //println!("{:#?}", s);
+        let mut size = 0;
+        for field in &s.fields {
+            size += match (field.name.as_str(), field.ttype.as_str()) {
+                (name, _t) if name.starts_with("*") => 8,
+                (name, t) if name.ends_with("]") => {
+                    let mut arr_size = 1;
+                    for (start, _) in field.name.match_indices("[") {
+                        let end = start + field.name[start..].find("]").unwrap();
+                        arr_size *= &field.name[start + 1..end].parse::<usize>().unwrap();
+                    }
+                    let found = self.types.iter().enumerate().find(|(_, tt)| tt == &t);
+                    let type_size = if let Some(tt) = found {
+                        self.types_len[tt.0]
+                    } else {
+                        todo!()
+                    };
+                    //println!("{} {}*{}", field.name, arr_size, type_size);
+                    arr_size * type_size
+                }
+                (_name, t) => {
+                    let found = self.types.iter().enumerate().find(|(_, tt)| tt == &t);
+                    if let Some(tt) = found {
+                        //println!("{} {}", field.name, self.types_len[tt.0]);
+                        self.types_len[tt.0]
+                    } else {
+                        todo!()
+                    }
+                }
+            }
+        }
+        size
+    }
+}
+
 pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
     let mut blend = Blend::default();
 
@@ -150,7 +188,16 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
             "REND" => {}
             "DATA" => {
                 if blend.dna.structs[block.sdna_idx].name.as_str() == "MVert" {
-                    //    let mut r = Cursor::new(&block.data);
+                    let mut r = Cursor::new(&block.data);
+                    let mvert_size = blend.dna.get_struct_size("MVert") as u64;
+                    println!("MVert count: {}, size: {}", block.count, mvert_size);
+                    for _ in 0..block.count {
+                        let _x = read_f32_le(&mut r)?;
+                        let _y = read_f32_le(&mut r)?;
+                        let _z = read_f32_le(&mut r)?;
+                        r.set_position(r.position() + (mvert_size - 3 * 4));
+                        //println!("{}, {}, {}", x, y, z);
+                    }
                 }
             }
             "DNA1" => {}
