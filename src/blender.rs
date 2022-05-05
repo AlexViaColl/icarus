@@ -20,6 +20,11 @@ pub struct DnaField {
     pub name: String,
 }
 
+#[derive(Debug, Default)]
+pub struct Blend {
+    pub dna: Dna,
+}
+
 pub fn parse_dna(bytes: &[u8]) -> std::io::Result<Dna> {
     let mut reader = Cursor::new(bytes);
     let sdna_tag = read_tag(&mut reader)?;
@@ -88,6 +93,10 @@ fn align_to(mut r: &mut Cursor<&[u8]>, n: usize) -> std::io::Result<()> {
     Ok(())
 }
 
+pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
+    todo!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -102,6 +111,15 @@ mod tests {
         println!("#types:   {}", dna.types.len());
         println!("#structs: {}", dna.structs.len());
 
+        Ok(())
+    }
+
+    #[test]
+    fn blend() -> std::io::Result<()> {
+        let bytes = fs::read("/home/alex/thirdparty/blender-git/blender/release/datafiles/startup.blend").unwrap();
+        let bytes = fs::read("/home/alex/tmp/base_model.blend").unwrap();
+        assert!(bytes.len() != 0);
+        let _ = parse_blend(&bytes)?;
         Ok(())
     }
 }
