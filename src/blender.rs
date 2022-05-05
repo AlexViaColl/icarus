@@ -32,9 +32,7 @@ pub fn parse_dna(bytes: &[u8]) -> std::io::Result<Dna> {
         let name = read_str(&mut reader)?;
         names.push(name);
     }
-    while reader.position() & 3 != 0 {
-        _ = read_u8(&mut reader)?;
-    }
+    align_to(&mut reader, 4)?;
     let type_tag = read_tag(&mut reader)?;
     assert_eq!(type_tag, "TYPE");
     let types_count = read_u32_le(&mut reader)?;
@@ -43,9 +41,7 @@ pub fn parse_dna(bytes: &[u8]) -> std::io::Result<Dna> {
         let ttype = read_str(&mut reader)?;
         types.push(ttype);
     }
-    while reader.position() & 3 != 0 {
-        _ = read_u8(&mut reader)?;
-    }
+    align_to(&mut reader, 4)?;
     let tlen_tag = read_tag(&mut reader)?;
     assert_eq!(tlen_tag, "TLEN");
     let mut types_len = Vec::with_capacity(types_count as usize);
@@ -53,9 +49,7 @@ pub fn parse_dna(bytes: &[u8]) -> std::io::Result<Dna> {
         let tlen = read_u16_le(&mut reader)?;
         types_len.push(tlen as usize);
     }
-    while reader.position() & 3 != 0 {
-        _ = read_u8(&mut reader)?;
-    }
+    align_to(&mut reader, 4)?;
     let struct_tag = read_tag(&mut reader)?;
     assert_eq!(struct_tag, "STRC");
     let structs_count = read_u32_le(&mut reader)?;
@@ -84,6 +78,14 @@ pub fn parse_dna(bytes: &[u8]) -> std::io::Result<Dna> {
         types_len,
         structs,
     })
+}
+fn align_to(mut r: &mut Cursor<&[u8]>, n: usize) -> std::io::Result<()> {
+    assert!(n == 2 || n == 4 || n == 8 || n == 16);
+    let n = n as u64;
+    while r.position() & (n - 1) != 0 {
+        _ = read_u8(&mut r)?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]
