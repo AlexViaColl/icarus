@@ -1,4 +1,5 @@
 pub mod alsa;
+pub mod blender;
 pub mod color;
 pub mod glyph;
 pub mod input;
