@@ -33,6 +33,7 @@ pub struct BlendBlock {
     pub addr: usize,
     pub sdna_idx: usize,
     pub count: usize,
+    pub data: Vec<u8>,
 }
 
 pub fn parse_dna(bytes: &[u8]) -> std::io::Result<Dna> {
@@ -122,28 +123,27 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
         let sdna_idx = read_u32_le(&mut reader)? as usize;
         let count = read_u32_le(&mut reader)? as usize;
 
+        let mut data = vec![0; block_size];
+        reader.read_exact(&mut data)?;
+
+        if tag == "DNA1" {
+            dna = Some(parse_dna(&data)?);
+        }
+
         blend.blocks.push(BlendBlock {
             tag: tag.clone(),
             size: block_size,
             addr,
             sdna_idx,
             count,
+            data,
         });
 
-        if tag == "DNA1" {
-            let mut data = vec![0; block_size];
-            reader.read_exact(&mut data)?;
-            dna = Some(parse_dna(&data)?);
-        } else {
-            reader.set_position(reader.position() + block_size as u64);
-        }
-
         if tag == "ENDB" {
-            //println!("#blocks: {}", blend.blocks.len());
             break;
         }
     }
-    blend.dna = dna.unwrap();
+    blend.dna = dna.expect("Could not find required DNA1 block in .blend file");
 
     Ok(blend)
 }
