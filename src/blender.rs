@@ -166,6 +166,8 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
     assert_eq!(&b[..7], b"BLENDER");
     assert_eq!(b[7], '-' as u8); // TODO: We only support 8 byte pointers
     assert_eq!(b[8], 'v' as u8); // TODO: We only support little endian
+    let version = std::str::from_utf8(&b[9..12]).unwrap().parse::<usize>().unwrap();
+    assert!(version > 280);
 
     let mut dna = None;
     loop {
