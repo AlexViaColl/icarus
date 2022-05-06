@@ -200,6 +200,10 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
     blend.dna = dna.expect("Could not find required DNA1 block in .blend file");
 
     let mut data_structs_set = std::collections::BTreeSet::new();
+    let mut verts = vec![];
+    let mut edges = vec![];
+    let mut loops = vec![];
+    let mut polys = vec![];
     for block in &blend.blocks {
         match block.tag.as_str() {
             "REND" => {
@@ -226,30 +230,61 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
                 let sname = blend.dna.structs[block.sdna_idx].name.as_str();
                 data_structs_set.insert(sname.to_string());
                 //println!("[{}] sdna: {} {}", block.tag.as_str(), block.sdna_idx, sname);
-                if sname == "MVert" {
-                    let mut r = Cursor::new(&block.data);
-                    let mvert_size = blend.dna.get_struct_size("MVert") as u64;
-                    println!("MVert count: {}, size: {}", block.count, mvert_size);
-                    for _ in 0..block.count {
-                        let _x = read_f32_le(&mut r)?;
-                        let _y = read_f32_le(&mut r)?;
-                        let _z = read_f32_le(&mut r)?;
-                        r.set_position(r.position() + (mvert_size - 3 * 4));
-                        //println!("{}, {}, {}", x, y, z);
+
+                let mut r = Cursor::new(&block.data);
+                let block_size = blend.dna.get_struct_size(sname) as u64;
+                if sname == "MVert" || sname == "MEdge" || sname == "MLoop" || sname == "MPoly" {
+                    println!("[{}]", sname);
+                }
+                for _ in 0..block.count {
+                    let pos = r.position();
+                    match sname {
+                        "MVert" => {
+                            let x = read_f32_le(&mut r)?;
+                            let y = read_f32_le(&mut r)?;
+                            let z = read_f32_le(&mut r)?;
+                            println!("  {}, {}, {}", x, y, z);
+                            verts.push((x, y, z));
+                        }
+                        "MEdge" => {
+                            let v1 = read_u32_le(&mut r)? as usize;
+                            let v2 = read_u32_le(&mut r)? as usize;
+                            println!("  v1: {:?}, v2: {:?}", verts[v1], verts[v2]);
+                            edges.push((v1, v2));
+                        }
+                        "MLoop" => {
+                            let v = read_u32_le(&mut r)? as usize;
+                            let e = read_u32_le(&mut r)? as usize;
+                            let _v1 = verts[edges[e].0];
+                            let _v2 = verts[edges[e].1];
+                            println!("  v: {:?}, e: {:?} -> {:?}", verts[v], _v1, _v2);
+                            loops.push((v, e));
+                        }
+                        "MPoly" => {
+                            let loopstart = read_u32_le(&mut r)? as usize;
+                            let totloop = read_u32_le(&mut r)?;
+                            println!("  loopstart: {}, totloop: {}", loopstart, totloop);
+                            polys.push((loopstart, totloop));
+                        }
+                        _ => {}
                     }
+                    let total_bytes_read = r.position() - pos;
+                    r.set_position(r.position() + (block_size - total_bytes_read));
                 }
             }
             "DNA1" => {}
             "GLOB" => {
+                // FileGlobal
                 //println!("[{}] sdna: {} {:#?}", block.tag.as_str(), block.sdna_idx, blend.dna.structs[block.sdna_idx]);
             }
             "TEST" => {
                 // Thumbnail
                 let mut r = Cursor::new(&block.data);
-                let width = read_u32_le(&mut r)?;
-                let height = read_u32_le(&mut r)?;
-                let pixels = &block.data[8..];
-                println!("Thumbnail: {}x{}, pixels: {}\n", width, height, pixels.len());
+                let _width = read_u32_le(&mut r)?;
+                let _height = read_u32_le(&mut r)?;
+                let _pixels = &block.data[8..];
+                //println!("Thumbnail: {}x{}, pixels: {}\n", width, height, pixels.len());
+
                 // Write as .ppm
                 //let pixels = data[8..].chunks(4).map(|c| &c[..3]).flatten().map(|b| *b).collect::<Vec<_>>();
                 //let mut file = fs::File::create("/home/alex/blendthumb.ppm")?;
@@ -345,7 +380,7 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
 mod tests {
     use super::*;
     use std::fs;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     #[test]
     fn dna() -> std::io::Result<()> {
@@ -361,7 +396,11 @@ mod tests {
 
     #[test]
     fn blend() -> std::io::Result<()> {
-        let test_files = [Path::new(env!("CARGO_MANIFEST_DIR")).join("test/startup.blend")];
+        let test_files = [
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("test/startup.blend"),
+            //PathBuf::from("/home/alex/tmp/base_model.blend"),
+            //PathBuf::from("/home/alex/tmp/base_model.blend1"),
+        ];
         for path in test_files {
             println!("{:?}", path);
             let bytes = fs::read(path).unwrap();
