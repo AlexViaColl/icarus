@@ -1,7 +1,9 @@
 #![allow(non_camel_case_types)]
 
+use std::ffi::c_void;
 #[link(name = "pulse-simple")]
 extern "C" {
+    // Simple API
     pub fn pa_simple_new(
         server: *const i8,
         name: *const i8,
@@ -17,8 +19,13 @@ extern "C" {
     pub fn pa_simple_drain(s: *mut pa_simple, error: *mut i32) -> i32;
     pub fn pa_simple_flush(s: *mut pa_simple, error: *mut i32) -> i32;
     pub fn pa_simple_get_latency(s: *mut pa_simple, error: *mut i32) -> pa_usec_t;
-    pub fn pa_simple_read(s: *mut pa_simple, data: *mut std::ffi::c_void, bytes: usize, error: *mut i32) -> i32;
-    pub fn pa_simple_write(s: *mut pa_simple, data: *const std::ffi::c_void, bytes: usize, error: *mut i32) -> i32;
+    pub fn pa_simple_read(s: *mut pa_simple, data: *mut c_void, bytes: usize, error: *mut i32) -> i32;
+    pub fn pa_simple_write(s: *mut pa_simple, data: *const c_void, bytes: usize, error: *mut i32) -> i32;
+}
+
+#[link(name = "pulse")]
+extern "C" {
+    // Context
 }
 
 #[cfg(test)]
@@ -27,7 +34,7 @@ mod tests {
     use std::ptr;
 
     #[test]
-    fn pulseaudio() {
+    fn simple() {
         let ss = pa_sample_spec {
             format: PA_SAMPLE_S16LE,
             rate: 44100,
@@ -55,7 +62,7 @@ mod tests {
             buffer[2 * i] = (10000.0 * (2.0 * std::f32::consts::PI * 200.0 * (i as f32 / 44100.0)).sin()) as i16;
             buffer[2 * i + 1] = (10000.0 * (2.0 * std::f32::consts::PI * 200.0 * (i as f32 / 44100.0)).sin()) as i16;
         }
-        unsafe { pa_simple_write(s, buffer.as_ptr() as *const std::ffi::c_void, buffer.len() * 2, ptr::null_mut()) };
+        unsafe { pa_simple_write(s, buffer.as_ptr() as *const c_void, buffer.len() * 2, ptr::null_mut()) };
 
         unsafe { pa_simple_drain(s, ptr::null_mut()) };
         unsafe { pa_simple_free(s) };
