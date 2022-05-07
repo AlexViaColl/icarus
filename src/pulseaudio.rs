@@ -54,6 +54,17 @@ extern "C" {
     ) -> i32;
     pub fn pa_context_disconnect(c: *mut pa_context);
 
+    // Main Loop
+    pub fn pa_mainloop_new() -> *mut pa_mainloop;
+    pub fn pa_mainloop_free(m: *mut pa_mainloop);
+    pub fn pa_mainloop_get_api(m: *mut pa_mainloop) -> *mut pa_mainloop_api;
+    pub fn pa_mainloop_prepare(m: *mut pa_mainloop, timeout: i32) -> i32;
+    pub fn pa_mainloop_poll(m: *mut pa_mainloop) -> i32;
+    pub fn pa_mainloop_dispatch(m: *mut pa_mainloop) -> i32;
+    pub fn pa_mainloop_iterate(m: *mut pa_mainloop, block: i32, retval: *mut i32) -> i32;
+    pub fn pa_mainloop_run(m: *mut pa_mainloop, retval: *mut i32) -> i32;
+    pub fn pa_mainloop_quit(m: *mut pa_mainloop, retval: i32);
+
 }
 
 opaque!(pa_context, pa_context_);
