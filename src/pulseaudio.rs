@@ -65,6 +65,18 @@ extern "C" {
     pub fn pa_mainloop_run(m: *mut pa_mainloop, retval: *mut i32) -> i32;
     pub fn pa_mainloop_quit(m: *mut pa_mainloop, retval: i32);
 
+    pub fn pa_threaded_mainloop_new() -> *mut pa_threaded_mainloop;
+    pub fn pa_threaded_mainloop_free(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_start(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_stop(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_lock(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_unlock(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_wait(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_signal(m: *mut pa_threaded_mainloop, wait_for_accept: i32);
+    pub fn pa_threaded_mainloop_accept(m: *mut pa_threaded_mainloop);
+    pub fn pa_threaded_mainloop_get_retval(m: *mut pa_threaded_mainloop) -> i32;
+    pub fn pa_threaded_mainloop_get_api(m: *mut pa_threaded_mainloop) -> *mut pa_mainloop_api;
+
 }
 
 opaque!(pa_context, pa_context_);
