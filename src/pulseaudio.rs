@@ -152,9 +152,37 @@ extern "C" {
     // Source Outputs
     // Statistics
 
+    // Proplist
+    pub fn pa_proplist_to_string(p: *const pa_proplist) -> *mut i8;
 }
 
 opaque!(pa_context, pa_context_);
+
+pub type pa_context_notify_cb_t = extern "C" fn(c: *mut pa_context, userdata: *mut c_void);
+pub type pa_context_success_cb_t = extern "C" fn(c: *mut pa_context, success: i32, userdata: *mut c_void);
+pub type pa_context_subscribe_cb_t =
+    extern "C" fn(c: *mut pa_context, t: pa_subscription_event_type_t, idx: u32, userdata: *mut c_void);
+
+#[repr(C)]
+#[derive(Debug)]
+pub enum pa_context_state_t {
+    PA_CONTEXT_UNCONNECTED,
+    PA_CONTEXT_CONNECTING,
+    PA_CONTEXT_AUTHORIZING,
+    PA_CONTEXT_SETTING_NAME,
+    PA_CONTEXT_READY,
+    PA_CONTEXT_FAILED,
+    PA_CONTEXT_TERMINATED,
+}
+pub use pa_context_state_t::*;
+
+#[repr(C)]
+pub enum pa_context_flags_t {
+    PA_CONTEXT_NOFLAGS = 0x0000,
+    PA_CONTEXT_NOAUTOSPAWN = 0x0001,
+    PA_CONTEXT_NOFAIL = 0x0002,
+}
+
 #[repr(C)]
 pub enum pa_subscription_mask_t {
     PA_SUBSCRIPTION_MASK_NULL = 0x0000,
@@ -169,6 +197,342 @@ pub enum pa_subscription_mask_t {
     PA_SUBSCRIPTION_MASK_AUTOLOAD = 0x0100,
     PA_SUBSCRIPTION_MASK_CARD = 0x0200,
     PA_SUBSCRIPTION_MASK_ALL = 0x02ff,
+}
+pub use pa_subscription_mask_t::*;
+
+bitflag_struct!(pa_subscription_event_type_t: pa_subscription_event_type_t_bits);
+bitflag_enum!(pa_subscription_event_type_t_bits {
+    PA_SUBSCRIPTION_EVENT_SINK = 0x0000,
+    PA_SUBSCRIPTION_EVENT_SOURCE = 0x0001,
+    PA_SUBSCRIPTION_EVENT_SINK_INPUT = 0x0002,
+    PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT = 0x0003,
+    PA_SUBSCRIPTION_EVENT_MODULE = 0x0004,
+    PA_SUBSCRIPTION_EVENT_CLIENT = 0x0005,
+    PA_SUBSCRIPTION_EVENT_SAMPLE_CACHE = 0x0006,
+    PA_SUBSCRIPTION_EVENT_SERVER = 0x0007,
+    PA_SUBSCRIPTION_EVENT_AUTOLOAD = 0x0008,
+    PA_SUBSCRIPTION_EVENT_CARD = 0x0009,
+    PA_SUBSCRIPTION_EVENT_FACILITY_MASK = 0x000F,
+    //PA_SUBSCRIPTION_EVENT_NEW = 0x0000,
+    PA_SUBSCRIPTION_EVENT_CHANGE = 0x0010,
+    PA_SUBSCRIPTION_EVENT_REMOVE = 0x0020,
+    PA_SUBSCRIPTION_EVENT_TYPE_MASK = 0x0030,
+});
+//#[repr(C)]
+//#[derive(Debug)]
+//pub enum pa_subscription_event_type_t {
+//    PA_SUBSCRIPTION_EVENT_SINK = 0x0000,
+//    PA_SUBSCRIPTION_EVENT_SOURCE = 0x0001,
+//    PA_SUBSCRIPTION_EVENT_SINK_INPUT = 0x0002,
+//    PA_SUBSCRIPTION_EVENT_SOURCE_OUTPUT = 0x0003,
+//    PA_SUBSCRIPTION_EVENT_MODULE = 0x0004,
+//    PA_SUBSCRIPTION_EVENT_CLIENT = 0x0005,
+//    PA_SUBSCRIPTION_EVENT_SAMPLE_CACHE = 0x0006,
+//    PA_SUBSCRIPTION_EVENT_SERVER = 0x0007,
+//    PA_SUBSCRIPTION_EVENT_AUTOLOAD = 0x0008,
+//    PA_SUBSCRIPTION_EVENT_CARD = 0x0009,
+//    PA_SUBSCRIPTION_EVENT_FACILITY_MASK = 0x000F,
+//    //PA_SUBSCRIPTION_EVENT_NEW = 0x0000,
+//    PA_SUBSCRIPTION_EVENT_CHANGE = 0x0010,
+//    PA_SUBSCRIPTION_EVENT_REMOVE = 0x0020,
+//    PA_SUBSCRIPTION_EVENT_TYPE_MASK = 0x0030,
+//}
+
+#[repr(C)]
+pub struct pa_spawn_api {
+    pub prefork: extern "C" fn(),
+    pub postfork: extern "C" fn(),
+    pub atfork: extern "C" fn(),
+}
+
+opaque!(pa_mainloop, pa_mainloop_);
+#[repr(C)]
+pub struct pa_mainloop_api {
+    pub userdata: *mut c_void,
+    pub io_new: extern "C" fn(
+        a: *mut pa_mainloop_api,
+        fd: i32,
+        events: pa_io_event_flags_t,
+        cb: pa_io_event_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_io_event,
+    pub io_enable: extern "C" fn(e: *mut pa_io_event, events: pa_io_event_flags_t),
+    pub io_free: extern "C" fn(e: *mut pa_io_event),
+    pub io_set_destroy: extern "C" fn(e: *mut pa_io_event, cb: pa_io_event_destroy_cb_t),
+    pub time_new: extern "C" fn(
+        a: *mut pa_mainloop_api,
+        tv: *const timeval,
+        cb: pa_time_event_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_time_event,
+    pub time_restart: extern "C" fn(e: *mut pa_time_event, tv: *const timeval),
+    pub time_free: extern "C" fn(e: *mut pa_time_event),
+    pub time_set_destroy: extern "C" fn(e: *mut pa_time_event, cb: pa_time_event_destroy_cb_t),
+    pub defer_new:
+        extern "C" fn(a: *mut pa_mainloop_api, cb: pa_defer_event_cb_t, userdata: *mut c_void) -> *mut pa_defer_event,
+    pub defer_enable: extern "C" fn(e: *mut pa_defer_event, b: i32),
+    pub defer_free: extern "C" fn(e: *mut pa_defer_event),
+    pub defer_set_destroy: extern "C" fn(e: *mut pa_defer_event, cb: pa_defer_event_destroy_cb_t),
+    pub quit: extern "C" fn(a: *mut pa_mainloop_api, retval: i32),
+}
+
+opaque!(pa_io_event, pa_io_event_);
+#[repr(C)]
+pub enum pa_io_event_flags_t {
+    PA_IO_EVENT_NULL = 0,
+    PA_IO_EVENT_INPUT = 1,
+    PA_IO_EVENT_OUTPUT = 2,
+    PA_IO_EVENT_HANGUP = 4,
+    PA_IO_EVENT_ERROR = 8,
+}
+pub type pa_io_event_cb_t = extern "C" fn(
+    a: *mut pa_mainloop_api,
+    e: *mut pa_io_event,
+    fd: i32,
+    events: pa_io_event_flags_t,
+    userdata: *mut c_void,
+);
+pub type pa_io_event_destroy_cb_t = extern "C" fn(a: *mut pa_mainloop_api, e: *mut pa_io_event, userdata: *mut c_void);
+
+opaque!(pa_time_event, pa_time_event_);
+pub type pa_time_event_cb_t =
+    extern "C" fn(a: *mut pa_mainloop_api, e: *mut pa_time_event, tv: *const timeval, userdata: *mut c_void);
+pub type pa_time_event_destroy_cb_t =
+    extern "C" fn(a: *mut pa_mainloop_api, e: *mut pa_time_event, userdata: *mut c_void);
+
+opaque!(pa_defer_event, pa_defer_event_);
+pub type pa_defer_event_cb_t = extern "C" fn(a: *mut pa_mainloop_api, e: *mut pa_defer_event, userdata: *mut c_void);
+pub type pa_defer_event_destroy_cb_t =
+    extern "C" fn(a: *mut pa_mainloop_api, e: *mut pa_defer_event, userdata: *mut c_void);
+
+opaque!(pa_threaded_mainloop, pa_threaded_mainloop_);
+
+opaque!(pa_operation, pa_operation_);
+pub type pa_sink_info_cb_t =
+    extern "C" fn(c: *mut pa_context, i: *const pa_sink_info, eol: i32, user_data: *mut c_void);
+pub type pa_sink_input_info_cb_t =
+    extern "C" fn(c: *mut pa_context, i: *const pa_sink_input_info, eol: i32, userdata: *mut c_void);
+pub type pa_source_info_cb_t =
+    extern "C" fn(c: *mut pa_context, i: *const pa_source_info, eol: i32, userdata: *mut c_void);
+pub type pa_source_output_info_cb_t =
+    extern "C" fn(c: *mut pa_context, i: *const pa_source_output_info, eol: i32, userdata: *mut c_void);
+pub type pa_server_info_cb_t = extern "C" fn(c: *mut pa_context, i: *const pa_server_info, userdata: *mut c_void);
+pub type pa_module_info_cb_t =
+    extern "C" fn(c: *mut pa_context, i: *const pa_module_info, eol: i32, userdata: *mut c_void);
+pub type pa_client_info_cb_t =
+    extern "C" fn(c: *mut pa_context, i: *const pa_client_info, eol: i32, userdata: *mut c_void);
+
+#[repr(C)]
+pub struct pa_sink_info {
+    pub name: *const i8,
+    pub index: u32,
+    pub description: *const i8,
+    pub sample_spec: pa_sample_spec,
+    pub channel_map: pa_channel_map,
+    pub owner_module: u32,
+    pub volume: pa_cvolume,
+    pub mute: i32,
+    pub monitor_source: u32,
+    pub monitor_source_name: *const i8,
+    pub latency: pa_usec_t,
+    pub driver: *const i8,
+    pub flags: pa_sink_flags_t,
+    pub proplist: *mut pa_proplist,
+    pub configured_latency: pa_usec_t,
+    pub base_volume: pa_volume_t,
+    pub state: pa_sink_state_t,
+    pub n_volume_steps: u32,
+    pub card: u32,
+    pub n_ports: u32,
+    pub ports: *mut *mut pa_sink_port_info,
+    pub active_port: *mut pa_sink_port_info,
+    pub n_formats: u8,
+    pub formats: *mut *mut pa_format_info,
+}
+
+#[repr(C)]
+pub struct pa_sink_input_info {
+    pub index: u32,
+    pub name: *const i8,
+    pub owner_module: u32,
+    pub client: u32,
+    pub sink: u32,
+    pub sample_spec: pa_sample_spec,
+    pub channel_map: pa_channel_map,
+    pub volume: pa_cvolume,
+    pub buffer_usec: pa_usec_t,
+    pub sink_usec: pa_usec_t,
+    pub resample_method: *const i8,
+    pub driver: *const i8,
+    pub mute: i32,
+    pub proplist: *mut pa_proplist,
+    pub corked: i32,
+    pub has_volume: i32,
+    pub volume_writable: i32,
+    pub format: *mut pa_format_info,
+}
+
+#[repr(C)]
+pub struct pa_source_info {
+    pub name: *const i8,
+    pub index: u32,
+    pub description: *const i8,
+    pub sample_spec: pa_sample_spec,
+    pub channel_map: pa_channel_map,
+    pub owner_module: u32,
+    pub volume: pa_cvolume,
+    pub mute: i32,
+    pub monitor_of_sink: u32,
+    pub monitor_of_sink_name: *const i8,
+    pub latency: pa_usec_t,
+    pub driver: *const i8,
+    pub flags: pa_source_flags_t,
+    pub proplist: *mut pa_proplist,
+    pub configured_latency: pa_usec_t,
+    pub base_volume: pa_volume_t,
+    pub state: pa_source_state_t,
+    pub n_volume_steps: u32,
+    pub card: u32,
+    pub n_ports: u32,
+    pub ports: *mut *mut pa_source_port_info,
+    pub active_port: *mut pa_source_port_info,
+    pub n_formats: u8,
+    pub formats: *mut *mut pa_format_info,
+}
+
+#[repr(C)]
+pub struct pa_source_output_info {
+    pub index: u32,
+    pub name: *const i8,
+    pub owner_module: u32,
+    pub client: u32,
+    pub source: u32,
+    pub sample_spec: pa_sample_spec,
+    pub channel_map: pa_channel_map,
+    pub buffer_usec: pa_usec_t,
+    pub source_usec: pa_usec_t,
+    pub resample_method: *const i8,
+    pub driver: *const i8,
+    pub proplist: *mut pa_proplist,
+    pub corked: i32,
+    pub volume: pa_cvolume,
+    pub mute: i32,
+    pub has_volume: i32,
+    pub volume_writable: i32,
+    pub format: *mut pa_format_info,
+}
+
+#[repr(C)]
+pub struct pa_server_info {
+    pub user_name: *const i8,           /*< User name of the daemon process */
+    pub host_name: *const i8,           /*< Host name the daemon is running on */
+    pub server_version: *const i8,      /*< Version string of the daemon */
+    pub server_name: *const i8,         /*< Server package name (usually "pulseaudio") */
+    pub sample_spec: pa_sample_spec,    /*< Default sample specification */
+    pub default_sink_name: *const i8,   /*< Name of default sink. */
+    pub default_source_name: *const i8, /*< Name of default source. */
+    pub cookie: u32,                    /*< A random cookie for identifying this instance of PulseAudio. */
+    pub channel_map: pa_channel_map,    /*< Default channel map. \since 0.9.15 */
+}
+impl std::fmt::Debug for pa_server_info {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("pa_server_info")
+            .field("user_name", &unsafe { cstr_to_string(self.user_name) })
+            .field("host_name", &unsafe { cstr_to_string(self.host_name) })
+            .field("server_version", &unsafe { cstr_to_string(self.server_version) })
+            .field("server_name", &unsafe { cstr_to_string(self.server_name) })
+            .field("sample_spec", &self.sample_spec)
+            .field("default_sink_name", &unsafe { cstr_to_string(self.default_sink_name) })
+            .field("default_source_name", &unsafe { cstr_to_string(self.default_source_name) })
+            .field("cookie", &self.cookie)
+            //.field("channel_map", &self.channel_map)
+            .finish()
+    }
+}
+
+#[repr(C)]
+pub struct pa_module_info {
+    pub index: u32,
+    pub name: *const i8,
+    pub argument: *const i8,
+    pub n_used: u32,
+    pub auto_unload: i32,
+    pub proplist: *mut pa_proplist,
+}
+
+#[repr(C)]
+pub struct pa_client_info {
+    pub index: u32,
+    pub name: *const i8,
+    pub owner_module: u32,
+    pub driver: *const i8,
+    pub proplist: *mut pa_proplist,
+}
+
+opaque!(pa_proplist, pa_proplist_);
+
+#[repr(C)]
+pub struct pa_cvolume {
+    pub channels: u8,
+    pub values: [pa_volume_t; PA_CHANNELS_MAX],
+}
+pub type pa_volume_t = u32;
+
+#[repr(C)]
+pub struct pa_sink_port_info {
+    pub name: *const i8,
+    pub description: *const i8,
+    pub priority: u32,
+    pub available: i32,
+    pub availability_group: *const i8,
+    pub ttype: u32,
+}
+
+#[repr(C)]
+pub struct pa_source_port_info {
+    pub name: *const i8,
+    pub description: *const i8,
+    pub priority: u32,
+    pub available: i32,
+    pub available_group: *const i8,
+    pub ttype: u32,
+}
+
+#[repr(C)]
+pub struct pa_format_info {
+    pub encoding: pa_encoding_t,
+    pub plist: *mut pa_proplist,
+}
+
+#[repr(C)]
+pub enum pa_encoding_t {
+    PA_ENCODING_ANY,
+    PA_ENCODING_PCM,
+    PA_ENCODING_AC3_IEC61937,
+    PA_ENCODING_EAC3_IEC61937,
+    PA_ENCODING_MPEG_IEC61937,
+    PA_ENCODING_DTS_IEC61937,
+    PA_ENCODING_MPEG2_AAC_IEC61937,
+    PA_ENCODING_TRUEHD_IEC61937,
+    PA_ENCODING_DTSHD_IEC61937,
+    PA_ENCODING_MAX,
+    PA_ENCODING_INVALID = -1,
+}
+
+#[repr(C)]
+pub enum pa_sink_flags_t {
+    PA_SINK_NOFLAGS = 0x0000,
+    PA_SINK_HW_VOLUME_CTRL = 0x0001,
+    PA_SINK_LATENCY = 0x0002,
+    PA_SINK_HARDWARE = 0x0004,
+    PA_SINK_NETWORK = 0x0008,
+    PA_SINK_HW_MUTE_CTRL = 0x0010,
+    PA_SINK_DECIBEL_VOLUME = 0x0020,
+    PA_SINK_FLAT_VOLUME = 0x0040,
+    PA_SINK_DYNAMIC_LATENCY = 0x0080,
+    PA_SINK_SET_FORMATS = 0x0100,
+    PA_SINK_SHARE_VOLUME_WITH_MASTER = 0x1000000,
+    PA_SINK_DEFERRED_VOLUME = 0x2000000,
 }
 
 #[repr(C)]
