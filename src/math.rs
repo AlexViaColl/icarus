@@ -332,6 +332,12 @@ impl Mul<f32> for Vec4 {
         Vec4::new(self.x * rhs, self.y * rhs, self.z * rhs, self.w * rhs)
     }
 }
+impl Mul<Vec4> for Vec4 {
+    type Output = Self;
+    fn mul(self, rhs: Self) -> Self {
+        Vec4::new(self.x * rhs.x, self.y * rhs.y, self.z * rhs.z, self.w * rhs.z)
+    }
+}
 
 impl Mat4 {
     pub const fn new(e: [f32; 16]) -> Self {
