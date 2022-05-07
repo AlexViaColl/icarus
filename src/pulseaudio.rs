@@ -86,6 +86,72 @@ extern "C" {
     ) -> *mut pa_operation;
     pub fn pa_context_set_subscribe_callback(c: *mut pa_context, cb: pa_context_subscribe_cb_t, userdata: *mut c_void);
 
+    // Introspection
+    // Sinks
+    pub fn pa_context_get_sink_info_list(
+        c: *mut pa_context,
+        cb: pa_sink_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+    pub fn pa_context_get_sink_input_info_list(
+        c: *mut pa_context,
+        cb: pa_sink_input_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+    pub fn pa_context_move_sink_input_by_name(
+        c: *mut pa_context,
+        idx: u32,
+        sink_name: *const i8,
+        cb: pa_context_success_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+    pub fn pa_context_move_sink_input_by_index(
+        c: *mut pa_context,
+        idx: u32,
+        sink_idx: u32,
+        cb: pa_context_success_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+
+    // Sources
+    pub fn pa_context_get_source_info_list(
+        c: *mut pa_context,
+        cb: pa_source_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+    pub fn pa_context_get_source_output_info_list(
+        c: *mut pa_context,
+        cb: pa_source_output_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+
+    // Server
+    pub fn pa_context_get_server_info(
+        c: *mut pa_context,
+        cb: pa_server_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+
+    // Modules
+    pub fn pa_context_get_module_info_list(
+        c: *mut pa_context,
+        cb: pa_module_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+
+    // Messages
+    // Clients
+    pub fn pa_context_get_client_info_list(
+        c: *mut pa_context,
+        cb: pa_client_info_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+
+    // Cards
+    // Sink Inputs
+    // Source Outputs
+    // Statistics
+
 }
 
 opaque!(pa_context, pa_context_);
