@@ -46,6 +46,8 @@ extern "C" {
     //) -> *mut pa_context;
     pub fn pa_context_set_state_callback(c: *mut pa_context, cb: pa_context_notify_cb_t, userdata: *mut c_void);
     pub fn pa_context_get_state(c: *mut pa_context) -> pa_context_state_t;
+    pub fn pa_context_errno(c: *mut pa_context) -> i32;
+    pub fn pa_strerror(error: i32) -> *const i8;
     pub fn pa_context_connect(
         c: *mut pa_context,
         server: *const i8,
@@ -601,7 +603,11 @@ mod tests {
                         ptr::null_mut(),
                     );
                 }
-                PA_CONTEXT_FAILED | PA_CONTEXT_TERMINATED => {}
+                PA_CONTEXT_FAILED | PA_CONTEXT_TERMINATED => {
+                    let error = pa_context_errno(c);
+                    let error_msg = cstr_to_string(pa_strerror(error));
+                    panic!("pa_context_errno(): {} {}", error, error_msg);
+                }
                 _ => {}
             }
         }
