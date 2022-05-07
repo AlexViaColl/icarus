@@ -38,6 +38,22 @@ extern "C" {
 #[link(name = "pulse")]
 extern "C" {
     // Context
+    pub fn pa_context_new(mainloop: *mut pa_mainloop_api, name: *const i8) -> *mut pa_context;
+    //pub fn pa_context_new_with_proplist(
+    //    mainloop: *mut pa_mainloop_api,
+    //    name: *const i8,
+    //    proplist: *const pa_proplist,
+    //) -> *mut pa_context;
+    pub fn pa_context_set_state_callback(c: *mut pa_context, cb: pa_context_notify_cb_t, userdata: *mut c_void);
+    pub fn pa_context_get_state(c: *mut pa_context) -> pa_context_state_t;
+    pub fn pa_context_connect(
+        c: *mut pa_context,
+        server: *const i8,
+        flags: u32, //pa_context_flags_t,
+        api: *const pa_spawn_api,
+    ) -> i32;
+    pub fn pa_context_disconnect(c: *mut pa_context);
+
 }
 
 opaque!(pa_context, pa_context_);
