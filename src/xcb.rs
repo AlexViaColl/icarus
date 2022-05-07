@@ -28,7 +28,7 @@ extern "C" {
         value_mask: u32,
         value_list: *const c_void,
     ) -> xcb_void_cookie_t;
-    pub fn xcb_destroy_window();
+    pub fn xcb_destroy_window(c: *mut xcb_connection_t, window: xcb_window_t) -> xcb_void_cookie_t;
     pub fn xcb_map_window(c: *mut xcb_connection_t, window: xcb_window_t) -> xcb_void_cookie_t;
     pub fn xcb_intern_atom(
         c: *mut xcb_connection_t,
@@ -64,6 +64,14 @@ extern "C" {
         e: *mut *mut xcb_generic_error_t,
     ) -> *mut xcb_get_keyboard_mapping_reply_t;
 
+}
+
+#[link(name = "xcb-keysyms")]
+extern "C" {
+    // xcb_keysyms.h
+    pub fn xcb_key_symbols_alloc(c: *mut xcb_connection_t) -> *mut xcb_key_symbols_t;
+    pub fn xcb_key_symbols_free(syms: *mut xcb_key_symbols_t);
+    pub fn xcb_key_symbols_get_keysym(syms: *mut xcb_key_symbols_t, keycode: xcb_keycode_t, col: i32) -> xcb_keysym_t;
 }
 
 opaque!(xcb_connection_t, xcb_connection_t_);
@@ -303,3 +311,164 @@ pub const XCB_PROP_MODE_APPEND: u8 = 2;
 pub const XCB_ATOM_STRING: u32 = 31;
 pub const XCB_ATOM_WM_NAME: u32 = 39;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::x11::*;
+    use std::ptr;
+
+    #[test]
+    #[ignore]
+    fn xcb() {
+        unsafe {
+            let mut scr = 0;
+            let c = xcb_connect(ptr::null(), &mut scr);
+            assert_ne!(c, ptr::null_mut());
+            assert_eq!(xcb_connection_has_error(c), 0);
+
+            let setup = xcb_get_setup(c);
+            //println!("{:#?}", *setup);
+            let mut iter = xcb_setup_roots_iterator(setup);
+            loop {
+                //println!("Screen: {}", scr);
+                if scr <= 0 {
+                    break;
+                }
+                scr -= 1;
+                xcb_screen_next(&mut iter);
+            }
+            let screen = iter.data;
+
+            //println!("{:#?}", *screen);
+
+            let window = xcb_generate_id(c);
+            //println!("window: {}", window);
+            let value_list = [
+                (*screen).black_pixel,
+                XCB_EVENT_MASK_KEY_PRESS
+                    | XCB_EVENT_MASK_KEY_RELEASE
+                    | XCB_EVENT_MASK_EXPOSURE
+                    | XCB_EVENT_MASK_STRUCTURE_NOTIFY
+                    | XCB_EVENT_MASK_POINTER_MOTION
+                    | XCB_EVENT_MASK_BUTTON_PRESS
+                    | XCB_EVENT_MASK_BUTTON_RELEASE,
+            ];
+            xcb_create_window(
+                c,
+                XCB_COPY_FROM_PARENT,
+                window,
+                (*screen).root,
+                0,
+                0,
+                1280,
+                720,
+                0,
+                XCB_WINDOW_CLASS_INPUT_OUTPUT,
+                (*screen).root_visual,
+                XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK,
+                value_list.as_ptr() as *const c_void,
+            );
+
+            let atom_name = b"WM_PROTOCOLS\0";
+            let cookie = xcb_intern_atom(c, 1, atom_name.len() as u16, atom_name.as_ptr() as *const i8);
+            let atom_wm_protocols = xcb_intern_atom_reply(c, cookie, ptr::null_mut());
+
+            let atom_name = b"WM_DELETE_WINDOW\0";
+            let cookie = xcb_intern_atom(c, 0, atom_name.len() as u16, atom_name.as_ptr() as *const i8);
+            let atom_wm_delete_window = xcb_intern_atom_reply(c, cookie, ptr::null_mut());
+
+            xcb_change_property(
+                c,
+                XCB_PROP_MODE_REPLACE,
+                window,
+                (*atom_wm_protocols).atom,
+                4,
+                32,
+                1,
+                &(*atom_wm_delete_window).atom as *const _ as *const c_void,
+            );
+            let title = b"XCB Test\0";
+            xcb_change_property(
+                c,
+                XCB_PROP_MODE_REPLACE,
+                window,
+                XCB_ATOM_WM_NAME,
+                XCB_ATOM_STRING,
+                8,
+                title.len() as u32,
+                title.as_ptr() as *const c_void,
+            );
+
+            xcb_map_window(c, window);
+            xcb_flush(c);
+            let mut quit = false;
+            while !quit {
+                loop {
+                    let event = xcb_poll_for_event(c);
+                    if event.is_null() {
+                        break;
+                    }
+
+                    match (*event).response_type & 0x7f {
+                        XCB_CLIENT_MESSAGE => {
+                            let event = *(event as *mut xcb_client_message_event_t);
+                            if event.data.data32[0] == (*atom_wm_delete_window).atom {
+                                quit = true;
+                            } else {
+                                println!("[XCB_CLIENT_MESSAGE] type: {}, data: {:x?}", event.ttype, event.data.data32);
+                            }
+                        }
+                        XCB_KEY_PRESS => {
+                            // xcbcommon-keysyms.h
+                            // xcb_get_keyboard_mapping
+                            let event = event as *mut xcb_key_press_event_t;
+                            println!("keycode: {}", (*event).detail);
+
+                            let key_symbols = xcb_key_symbols_alloc(c);
+                            let keysym = xcb_key_symbols_get_keysym(key_symbols, (*event).detail, 0);
+                            println!("keysym: 0x{:04x}", keysym);
+                            xcb_key_symbols_free(key_symbols);
+
+                            if keysym == XK_Escape as xcb_keysym_t {
+                                quit = true;
+                            }
+
+                            let min_keycode = (*setup).min_keycode;
+                            let max_keycode = (*setup).max_keycode;
+                            let keyboard_mapping = xcb_get_keyboard_mapping_reply(
+                                c,
+                                xcb_get_keyboard_mapping(c, min_keycode, max_keycode - (min_keycode - 1)),
+                                ptr::null_mut(),
+                            );
+                            let keysyms = keyboard_mapping.offset(1) as *mut xcb_keysym_t;
+                            for keycode_idx in 0..(*keyboard_mapping).length as isize {
+                                for keysym_idx in 0..(*keyboard_mapping).keysyms_per_keycode as isize {
+                                    let keysym = keysyms.offset(
+                                        keysym_idx + keycode_idx * (*keyboard_mapping).keysyms_per_keycode as isize,
+                                    );
+                                    if *keysym != 0 {
+                                        //println!(
+                                        //    "keycode: {} - keysym: 0x{:08x}",
+                                        //    (*setup).min_keycode as isize + keycode_idx,
+                                        //    *keysym
+                                        //);
+                                        break;
+                                    }
+                                }
+                            }
+                            //println!("{:#?}", *keyboard_mapping);
+                            //quit = true;
+                        }
+                        XCB_EXPOSE => {
+                            //println!("XCB_EXPOSE");
+                        }
+                        _ => {}
+                    }
+                }
+            }
+
+            xcb_destroy_window(c, window);
+            xcb_disconnect(c);
+        }
+    }
+}
