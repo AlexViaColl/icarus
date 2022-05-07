@@ -18,8 +18,8 @@ jobs:
       with:
         submodules: true
 
-    - name: Install libasound2
-      run: sudo apt-get install -y libasound2-dev libpulse-dev
+    - name: Install dependencies
+      run: sudo apt-get install -y libasound2-dev libpulse-dev pulseaudio
     
     - name: Setup Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.0
