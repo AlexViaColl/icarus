@@ -1,6 +1,18 @@
 #![allow(non_camel_case_types)]
 
+use crate::string_util::cstr_to_string;
+use crate::{bitflag_enum, bitflag_struct, opaque};
+
 use std::ffi::c_void;
+
+pub type time_t = i64;
+pub type suseconds_t = i64;
+#[repr(C)]
+pub struct timeval {
+    pub tv_sec: time_t,
+    pub tv_usec: suseconds_t,
+}
+
 #[link(name = "pulse-simple")]
 extern "C" {
     // Simple API
@@ -26,6 +38,58 @@ extern "C" {
 #[link(name = "pulse")]
 extern "C" {
     // Context
+}
+
+opaque!(pa_context, pa_context_);
+#[repr(C)]
+pub enum pa_subscription_mask_t {
+    PA_SUBSCRIPTION_MASK_NULL = 0x0000,
+    PA_SUBSCRIPTION_MASK_SINK = 0x0001,
+    PA_SUBSCRIPTION_MASK_SOURCE = 0x0002,
+    PA_SUBSCRIPTION_MASK_SINK_INPUT = 0x0004,
+    PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT = 0x0008,
+    PA_SUBSCRIPTION_MASK_MODULE = 0x0010,
+    PA_SUBSCRIPTION_MASK_CLIENT = 0x0020,
+    PA_SUBSCRIPTION_MASK_SAMPLE_CACHE = 0x0040,
+    PA_SUBSCRIPTION_MASK_SERVER = 0x0080,
+    PA_SUBSCRIPTION_MASK_AUTOLOAD = 0x0100,
+    PA_SUBSCRIPTION_MASK_CARD = 0x0200,
+    PA_SUBSCRIPTION_MASK_ALL = 0x02ff,
+}
+
+#[repr(C)]
+pub enum pa_source_flags_t {
+    PA_SOURCE_NOFLAGS = 0x0000,
+    PA_SOURCE_HW_VOLUME_CTRL = 0x0001,
+    PA_SOURCE_LATENCY = 0x0002,
+    PA_SOURCE_HARDWARE = 0x0004,
+    PA_SOURCE_NETWORK = 0x0008,
+    PA_SOURCE_HW_MUTE_CTRL = 0x0010,
+    PA_SOURCE_DECIBEL_VOLUME = 0x0020,
+    PA_SOURCE_DYNAMIC_LATENCY = 0x0040,
+    PA_SOURCE_FLAT_VOLUME = 0x0080,
+    PA_SOURCE_SHARE_VOLUME_WITH_MASTER = 0x1000000,
+    PA_SOURCE_DEFERRED_VOLUME = 0x2000000,
+}
+
+#[repr(C)]
+pub enum pa_sink_state_t {
+    PA_SINK_INVALID_STATE = -1,
+    PA_SINK_RUNNING = 0,
+    PA_SINK_IDLE = 1,
+    PA_SINK_SUSPENDED = 2,
+    PA_SINK_INIT = -2,
+    PA_SINK_UNLINKED = -3,
+}
+
+#[repr(C)]
+pub enum pa_source_state_t {
+    PA_SOURCE_INVALID_STATE = -1,
+    PA_SOURCE_RUNNING = 0,
+    PA_SOURCE_IDLE = 1,
+    PA_SOURCE_SUSPENDED = 2,
+    PA_SOURCE_INIT = -2,
+    PA_SOURCE_UNLINKED = -3,
 }
 
 #[cfg(test)]
@@ -86,6 +150,7 @@ impl Default for pa_simple {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct pa_sample_spec {
     pub format: pa_sample_format_t,
     pub rate: u32,
@@ -95,6 +160,7 @@ pub struct pa_sample_spec {
 pub const PA_CHANNELS_MAX: usize = 32;
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct pa_channel_map {
     pub channels: u8,
     pub map: [pa_channel_position_t; PA_CHANNELS_MAX],
