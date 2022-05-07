@@ -51,7 +51,7 @@ pub struct Ray {
 // Mat4 stores its elements as row-major
 #[repr(C)]
 #[derive(PartialEq, Clone, Copy, Default)]
-pub struct Mat4([f32; 16]);
+pub struct Mat4(pub [f32; 16]);
 
 /// Linear interpolation between A and B by a "normalized percentage" T.
 /// Panics if T is not in the range from 0 to 1.
