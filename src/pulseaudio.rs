@@ -575,6 +575,218 @@ mod tests {
     use super::*;
     use std::ptr;
 
+    extern "C" fn state_changed_callback(c: *mut pa_context, userdata: *mut c_void) {
+        unsafe {
+            let state = pa_context_get_state(c);
+            println!("[state_changed] {:?}", state);
+            match state {
+                PA_CONTEXT_READY => {
+                    pa_context_subscribe(c, PA_SUBSCRIPTION_MASK_ALL, success_callback, ptr::null_mut());
+                    pa_context_set_subscribe_callback(c, subscribe_callback, ptr::null_mut());
+
+                    pa_context_get_server_info(c, server_info_callback, ptr::null_mut());
+                    pa_context_get_client_info_list(c, client_info_callback, ptr::null_mut());
+                    pa_context_get_module_info_list(c, module_info_callback, ptr::null_mut());
+                    pa_context_get_sink_info_list(c, sink_info_callback, ptr::null_mut());
+                    pa_context_get_sink_input_info_list(c, sink_input_info_callback, ptr::null_mut());
+                    pa_context_get_source_info_list(c, source_info_callback, ptr::null_mut());
+                    pa_context_get_source_output_info_list(c, source_output_info_callback, ptr::null_mut());
+
+                    pa_context_move_sink_input_by_name(
+                        c,
+                        394,
+                        //b"alsa_output.pci-0000_0a_00.1.hdmi-stereo\0".as_ptr() as *const i8,
+                        b"alsa_output.pci-0000_0c_00.4.analog-stereo\0".as_ptr() as *const i8,
+                        success_callback,
+                        ptr::null_mut(),
+                    );
+                }
+                PA_CONTEXT_FAILED | PA_CONTEXT_TERMINATED => {}
+                _ => {}
+            }
+        }
+    }
+
+    extern "C" fn subscribe_callback(
+        c: *mut pa_context,
+        t: pa_subscription_event_type_t,
+        idx: u32,
+        userdata: *mut c_void,
+    ) {
+        let obj: pa_subscription_event_type_t = (t.value & PA_SUBSCRIPTION_EVENT_FACILITY_MASK).into();
+        let ttype: pa_subscription_event_type_t = (t.value & PA_SUBSCRIPTION_EVENT_TYPE_MASK).into();
+        println!("[subscribe_info] event type: {:?}, obj: {:?}, idx: {}", ttype, obj, idx);
+    }
+
+    extern "C" fn success_callback(c: *mut pa_context, success: i32, userdata: *mut c_void) {
+        println!("[success_info] success: {}", success);
+    }
+
+    extern "C" fn sink_info_callback(c: *mut pa_context, i: *const pa_sink_info, eol: i32, userdata: *mut c_void) {
+        if eol == 1 {
+            return;
+        }
+        unsafe {
+            println!("[sink_info] index: {}, name: {}", (*i).index, cstr_to_string((*i).name));
+        }
+    }
+
+    extern "C" fn sink_input_info_callback(
+        c: *mut pa_context,
+        i: *const pa_sink_input_info,
+        eol: i32,
+        userdata: *mut c_void,
+    ) {
+        if eol == 1 {
+            return;
+        }
+        unsafe {
+            println!(
+                "[sink_input_info] index: {}, name: {}, driver: {}, client: {}",
+                (*i).index,
+                cstr_to_string((*i).name),
+                cstr_to_string((*i).driver),
+                (*i).client,
+            );
+        }
+    }
+
+    extern "C" fn source_info_callback(c: *mut pa_context, i: *const pa_source_info, eol: i32, userdata: *mut c_void) {
+        if eol == 1 {
+            return;
+        }
+        unsafe {
+            println!("[source_info] index: {}, name: {}", (*i).index, cstr_to_string((*i).name));
+        }
+    }
+
+    extern "C" fn source_output_info_callback(
+        c: *mut pa_context,
+        i: *const pa_source_output_info,
+        eol: i32,
+        userdata: *mut c_void,
+    ) {
+        if eol == 1 {
+            return;
+        }
+        unsafe {
+            println!("[source_output_info] index: {}, name: {}", (*i).index, cstr_to_string((*i).name));
+        }
+    }
+
+    extern "C" fn server_info_callback(c: *mut pa_context, i: *const pa_server_info, userdata: *mut c_void) {
+        unsafe {
+            println!("[server_info] name: {}", cstr_to_string((*i).server_name));
+        }
+    }
+
+    extern "C" fn module_info_callback(c: *mut pa_context, i: *const pa_module_info, eol: i32, userdata: *mut c_void) {
+        if eol == 1 {
+            return;
+        }
+        unsafe {
+            println!(
+                "[module_info] index: {}, name: {}, argument: {}",
+                (*i).index,
+                cstr_to_string((*i).name),
+                if (*i).argument.is_null() {
+                    String::from("no argument")
+                } else {
+                    cstr_to_string((*i).argument)
+                }
+            );
+            println!("[module_info] proplist:\n{}", cstr_to_string(pa_proplist_to_string((*i).proplist)));
+        }
+    }
+
+    extern "C" fn client_info_callback(c: *mut pa_context, i: *const pa_client_info, eol: i32, userdata: *mut c_void) {
+        if eol == 1 {
+            return;
+        }
+        unsafe {
+            println!("[client_info] index: {}, name: {}", (*i).index, cstr_to_string((*i).name));
+            //println!("[client_info] proplist:\n{}", cstr_to_string(pa_proplist_to_string((*i).proplist)));
+        }
+    }
+
+    #[test]
+    fn mainloop() {
+        unsafe {
+            let mainloop = pa_mainloop_new();
+            assert!(!mainloop.is_null());
+
+            let api = pa_mainloop_get_api(mainloop);
+            assert!(!api.is_null());
+
+            let c = pa_context_new(api, b"mainloop test\0".as_ptr() as *const i8);
+            assert!(!c.is_null());
+
+            pa_context_set_state_callback(c, state_changed_callback, ptr::null_mut());
+
+            let res = pa_context_connect(c, ptr::null(), 0, ptr::null());
+            assert!(res >= 0);
+
+            // Option 1
+            //pa_mainloop_run(mainloop, ptr::null_mut());
+
+            // Option 2
+            //loop {
+            //    if pa_mainloop_iterate(mainloop, 0, ptr::null_mut()) < 0 {
+            //        break;
+            //    }
+            //}
+
+            // Option 3
+            let mut n = 0;
+            loop {
+                if pa_mainloop_prepare(mainloop, 1000 /*1000 microseconds = 1ms*/) < 0 {
+                    break;
+                }
+                if pa_mainloop_poll(mainloop) < 0 {
+                    break;
+                }
+                if pa_mainloop_dispatch(mainloop) < 0 {
+                    break;
+                }
+
+                // Exit after 1000 ms
+                if n > 1000 {
+                    pa_mainloop_quit(mainloop, 1);
+                }
+                n += 1;
+            }
+
+            pa_mainloop_free(mainloop);
+        }
+    }
+
+    #[test]
+    fn introspection() {
+        unsafe {
+            let mainloop = pa_threaded_mainloop_new();
+            assert!(!mainloop.is_null());
+
+            let api = pa_threaded_mainloop_get_api(mainloop);
+            assert!(!api.is_null());
+
+            let c = pa_context_new(api, b"introspection test\0".as_ptr() as *const i8);
+            assert!(!c.is_null());
+
+            pa_context_set_state_callback(c, state_changed_callback, ptr::null_mut());
+
+            let res = pa_context_connect(c, ptr::null(), 0, ptr::null());
+            assert!(res >= 0);
+
+            pa_threaded_mainloop_start(mainloop);
+
+            std::thread::sleep(std::time::Duration::from_millis(100));
+
+            pa_threaded_mainloop_stop(mainloop);
+            pa_context_disconnect(c);
+            pa_threaded_mainloop_free(mainloop);
+        }
+    }
+
     #[test]
     fn simple() {
         let ss = pa_sample_spec {
