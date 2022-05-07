@@ -77,6 +77,15 @@ extern "C" {
     pub fn pa_threaded_mainloop_get_retval(m: *mut pa_threaded_mainloop) -> i32;
     pub fn pa_threaded_mainloop_get_api(m: *mut pa_threaded_mainloop) -> *mut pa_mainloop_api;
 
+    // Event Subscription / Notifications
+    pub fn pa_context_subscribe(
+        c: *mut pa_context,
+        m: pa_subscription_mask_t,
+        cb: pa_context_success_cb_t,
+        userdata: *mut c_void,
+    ) -> *mut pa_operation;
+    pub fn pa_context_set_subscribe_callback(c: *mut pa_context, cb: pa_context_subscribe_cb_t, userdata: *mut c_void);
+
 }
 
 opaque!(pa_context, pa_context_);
