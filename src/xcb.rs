@@ -238,6 +238,23 @@ pub struct xcb_key_button_press_event_t {
 }
 pub type xcb_button_release_event_t = xcb_key_button_press_event_t;
 pub type xcb_button_t = u8;
+#[repr(C)]
+pub struct xcb_motion_notify_event_t {
+    pub response_type: u8,
+    pub detail: u8,
+    pub sequence: u16,
+    pub time: xcb_timestamp_t,
+    pub root: xcb_window_t,
+    pub event: xcb_window_t,
+    pub child: xcb_window_t,
+    pub root_x: i16,
+    pub root_y: i16,
+    pub event_x: i16,
+    pub event_y: i16,
+    pub state: u16,
+    pub same_screen: u8,
+    pub pad0: u8,
+}
 
 opaque!(xcb_key_symbols_t, _XCBKeySymbols);
 
