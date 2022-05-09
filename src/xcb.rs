@@ -238,6 +238,12 @@ pub struct xcb_button_press_event_t {
 }
 pub type xcb_button_release_event_t = xcb_button_press_event_t;
 pub type xcb_button_t = u8;
+pub const XCB_BUTTON_INDEX_ANY: u8 = 0;
+pub const XCB_BUTTON_INDEX_1: u8 = 1;
+pub const XCB_BUTTON_INDEX_2: u8 = 2;
+pub const XCB_BUTTON_INDEX_3: u8 = 3;
+pub const XCB_BUTTON_INDEX_4: u8 = 4;
+pub const XCB_BUTTON_INDEX_5: u8 = 5;
 #[repr(C)]
 pub struct xcb_motion_notify_event_t {
     pub response_type: u8,

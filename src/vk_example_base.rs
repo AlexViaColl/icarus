@@ -677,8 +677,30 @@ impl<T: Render> VulkanExampleBase<T> {
                     let event = event as *const xcb_motion_notify_event_t;
                     self.handle_mouse_move((*event).event_x as i32, (*event).event_y as i32);
                 }
-                XCB_BUTTON_PRESS => {}
-                XCB_BUTTON_RELEASE => {}
+                XCB_BUTTON_PRESS => {
+                    let event = event as *const xcb_button_press_event_t;
+                    if (*event).detail == XCB_BUTTON_INDEX_1 {
+                        self.mouse_buttons.0 = true;
+                    }
+                    if (*event).detail == XCB_BUTTON_INDEX_2 {
+                        self.mouse_buttons.1 = true;
+                    }
+                    if (*event).detail == XCB_BUTTON_INDEX_3 {
+                        self.mouse_buttons.2 = true;
+                    }
+                }
+                XCB_BUTTON_RELEASE => {
+                    let event = event as *const xcb_button_release_event_t;
+                    if (*event).detail == XCB_BUTTON_INDEX_1 {
+                        self.mouse_buttons.0 = false;
+                    }
+                    if (*event).detail == XCB_BUTTON_INDEX_2 {
+                        self.mouse_buttons.1 = false;
+                    }
+                    if (*event).detail == XCB_BUTTON_INDEX_3 {
+                        self.mouse_buttons.2 = false;
+                    }
+                }
                 XCB_KEY_PRESS => {}
                 XCB_KEY_RELEASE => {}
                 XCB_DESTROY_NOTIFY => {
