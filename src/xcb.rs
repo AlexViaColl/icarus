@@ -310,6 +310,7 @@ pub const XCB_PROP_MODE_APPEND: u8 = 2;
 
 pub const XCB_ATOM_STRING: u32 = 31;
 pub const XCB_ATOM_WM_NAME: u32 = 39;
+pub const XCB_ATOM_WM_CLASS: u32 = 67;
 
 #[cfg(test)]
 mod tests {
