@@ -730,7 +730,16 @@ impl<T: Render> VulkanExampleBase<T> {
                 XCB_DESTROY_NOTIFY => {
                     self.quit = true;
                 }
-                XCB_CONFIGURE_NOTIFY => {}
+                XCB_CONFIGURE_NOTIFY => {
+                    let event = event as *const xcb_configure_notify_event_t;
+                    if self.prepared && ((*event).width as u32 != self.width || (*event).height as u32 != self.height) {
+                        self.dest_width = (*event).width as u32;
+                        self.dest_height = (*event).height as u32;
+                        if self.dest_width > 0 && self.dest_height > 0 {
+                            self.window_resize();
+                        }
+                    }
+                }
                 _ => {}
             }
         }
@@ -971,8 +980,51 @@ impl<T: Render> VulkanExampleBase<T> {
         }
     }
     pub fn get_enabled_features(&self) {}
-    pub fn window_resize(&self) {
-        todo!()
+    pub fn window_resize(&mut self) {
+        if !self.prepared {
+            return;
+        }
+        self.prepared = false;
+        self.resized = true;
+
+        unsafe {
+            vkDeviceWaitIdle(self.device);
+
+            self.width = self.dest_width;
+            self.height = self.dest_height;
+            self.setup_swapchain();
+
+            vkDestroyImageView(self.device, self.depth_stencil.2, ptr::null());
+            vkDestroyImage(self.device, self.depth_stencil.0, ptr::null());
+            vkFreeMemory(self.device, self.depth_stencil.1, ptr::null());
+            self.setup_depth_stencil();
+            for i in 0..self.frame_buffers.len() {
+                vkDestroyFramebuffer(self.device, self.frame_buffers[i], ptr::null());
+            }
+            self.setup_frame_buffer();
+
+            if self.width > 0 && self.height > 0 {
+                if self.settings.overlay {
+                    // self.ui_overlay.resize(self.width, self.height);
+                    todo!();
+                }
+            }
+
+            self.destroy_command_buffers();
+            self.create_command_buffers();
+            self.build_command_buffers();
+
+            vkDeviceWaitIdle(self.device);
+
+            if self.width > 0 && self.height > 0 {
+                self.camera.update_aspect_ratio(self.width as f32 / self.height as f32);
+            }
+
+            self.window_resized();
+            self.view_changed();
+
+            self.prepared = true;
+        }
     }
     pub fn handle_mouse_move(&self, _x: i32, _y: i32) {
         eprintln!("TODO: implement handle_mouse_move");
@@ -1130,6 +1182,16 @@ impl<T: Render> VulkanExampleBase<T> {
                 self.draw_cmd_buffers.as_mut_ptr()
             ));
         }
+    }
+    pub fn destroy_command_buffers(&mut self) {
+        unsafe {
+            vkFreeCommandBuffers(
+                self.device,
+                self.cmd_pool,
+                self.draw_cmd_buffers.len() as u32,
+                self.draw_cmd_buffers.as_ptr(),
+            )
+        };
     }
     pub fn get_shaders_path(&self) -> String {
         format!("{}shaders/{}/", get_asset_path(), self.shader_dir)
@@ -1313,8 +1375,12 @@ impl Camera {
         eprintln!("WARNING: Remove this!");
         self.matrices_perspective = Mat4::identity();
     }
-    pub fn update_aspect_ratio(&mut self, _aspect: f32) {
-        todo!()
+    pub fn update_aspect_ratio(&mut self, aspect: f32) {
+        let radians = |a| a * (std::f32::consts::PI / 180.0);
+        self.matrices_perspective = Mat4::perspective(radians(self.fov), aspect, self.znear, self.zfar);
+        if self.flip_y {
+            self.matrices_perspective.0[5] *= -1.0;
+        }
     }
     pub fn set_position(&mut self, position: Vec3) {
         self.position = position;

@@ -261,6 +261,22 @@ pub struct xcb_motion_notify_event_t {
     pub same_screen: u8,
     pub pad0: u8,
 }
+#[repr(C)]
+pub struct xcb_configure_notify_event_t {
+    pub response_type: u8,
+    pub pad0: u8,
+    pub sequence: u16,
+    pub event: xcb_window_t,
+    pub window: xcb_window_t,
+    pub above_sibling: xcb_window_t,
+    pub x: i16,
+    pub y: i16,
+    pub width: u16,
+    pub height: u16,
+    pub border_width: u16,
+    pub override_redirect: u8,
+    pub pad1: u8,
+}
 
 opaque!(xcb_key_symbols_t, _XCBKeySymbols);
 
