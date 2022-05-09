@@ -2292,6 +2292,18 @@ impl Default for VkXlibSurfaceCreateInfoKHR {
     }
 }
 
+impl Default for VkXcbSurfaceCreateInfoKHR {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
+            pNext: ptr::null(),
+            flags: 0,
+            connection: ptr::null_mut(),
+            window: 0,
+        }
+    }
+}
+
 impl Default for VkPhysicalDeviceProperties {
     fn default() -> Self {
         Self {
@@ -2709,6 +2721,18 @@ impl Default for VkPipelineDynamicStateCreateInfo {
             flags: 0,
             dynamicStateCount: 0,
             pDynamicStates: ptr::null(),
+        }
+    }
+}
+
+impl Default for VkPipelineCacheCreateInfo {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+            pNext: ptr::null(),
+            flags: 0.into(),
+            initialDataSize: 0,
+            pInitialData: ptr::null(),
         }
     }
 }
