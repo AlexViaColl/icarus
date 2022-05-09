@@ -673,7 +673,10 @@ impl<T: Render> VulkanExampleBase<T> {
                         self.quit = true;
                     }
                 }
-                XCB_MOTION_NOTIFY => {}
+                XCB_MOTION_NOTIFY => {
+                    let event = event as *const xcb_motion_notify_event_t;
+                    self.handle_mouse_move((*event).event_x as i32, (*event).event_y as i32);
+                }
                 XCB_BUTTON_PRESS => {}
                 XCB_BUTTON_RELEASE => {}
                 XCB_KEY_PRESS => {}
