@@ -664,7 +664,27 @@ impl<T: Render> VulkanExampleBase<T> {
         }
     }
     pub fn handle_event(&mut self, event: *const xcb_generic_event_t) {
-        //todo!()
+        unsafe {
+            match (*event).response_type & 0x7f {
+                XCB_CLIENT_MESSAGE => {
+                    if (*(event as *const xcb_client_message_event_t)).data.data32[0]
+                        == (*self.atom_wm_delete_window).atom
+                    {
+                        self.quit = true;
+                    }
+                }
+                XCB_MOTION_NOTIFY => {}
+                XCB_BUTTON_PRESS => {}
+                XCB_BUTTON_RELEASE => {}
+                XCB_KEY_PRESS => {}
+                XCB_KEY_RELEASE => {}
+                XCB_DESTROY_NOTIFY => {
+                    self.quit = true;
+                }
+                XCB_CONFIGURE_NOTIFY => {}
+                _ => {}
+            }
+        }
     }
 
     pub fn create_instance(&mut self, enable_validation: bool) -> VkResult {
