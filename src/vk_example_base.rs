@@ -701,8 +701,32 @@ impl<T: Render> VulkanExampleBase<T> {
                         self.mouse_buttons.2 = false;
                     }
                 }
-                XCB_KEY_PRESS => {}
-                XCB_KEY_RELEASE => {}
+                XCB_KEY_PRESS => {
+                    let event = event as *const xcb_key_press_event_t;
+                    match (*event).detail {
+                        25/*W*/ => self.camera.keys_up = true,
+                        39/*S*/ => self.camera.keys_down = true,
+                        38/*A*/ => self.camera.keys_left = true,
+                        40/*D*/ => self.camera.keys_right = true,
+                        33/*P*/ => self.paused = !self.paused,
+                        67/*F1*/ => if self.settings.overlay {
+                            self.settings.overlay = !self.settings.overlay;
+                        }
+                        //n => println!("{}", n),
+                        _ => {}
+                    }
+                }
+                XCB_KEY_RELEASE => {
+                    let event = event as *const xcb_key_release_event_t;
+                    match (*event).detail {
+                        25/*W*/ => self.camera.keys_up = false,
+                        39/*S*/ => self.camera.keys_down = false,
+                        38/*A*/ => self.camera.keys_left = false,
+                        40/*D*/ => self.camera.keys_right = false,
+                        9/*ESC*/ => self.quit = true,
+                        _ => {}
+                    }
+                }
                 XCB_DESTROY_NOTIFY => {
                     self.quit = true;
                 }
@@ -951,7 +975,7 @@ impl<T: Render> VulkanExampleBase<T> {
         todo!()
     }
     pub fn handle_mouse_move(&self, _x: i32, _y: i32) {
-        todo!()
+        eprintln!("TODO: implement handle_mouse_move");
     }
     pub fn window_resized(&self) {}
     pub fn init_swapchain(&mut self) {
