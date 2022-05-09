@@ -479,6 +479,34 @@ impl Mat4 {
                               0.0,           0.0,                      -1.0,                       0.0,
         ])
     }
+
+    pub fn rotate_acum<T: Into<Vec3>>(&self, angle_rad: f32, axis: T) -> Mat4 {
+        let a = angle_rad;
+        let c = a.cos();
+        let s = a.sin();
+        let axis = axis.into().normalize();
+        let temp = axis * (1.0 - c);
+
+        let mut rotate = Mat4::default();
+        rotate.0[0] = c + temp.x * axis.x;
+        rotate.0[1] = temp.x * axis.y + s * axis.z;
+        rotate.0[2] = temp.x * axis.z - s * axis.y;
+
+        rotate.0[4] = temp.y * axis.x - s * axis.z;
+        rotate.0[5] = c + temp.y * axis.y;
+        rotate.0[6] = temp.y * axis.z + s * axis.x;
+
+        rotate.0[8] = temp.z * axis.x + s * axis.y;
+        rotate.0[9] = temp.z * axis.y - s * axis.x;
+        rotate.0[10] = c + temp.z * axis.z;
+
+        let mut result = Mat4::default();
+        // result[0] = self[0] * rotate[0][0] + self[1] * rotate[0][1] + self[2] * rotate[0][2];
+        // result[1] = self[0] * rotate[1][0] + self[1] * rotate[1][1] + self[2] * rotate[1][2];
+        // result[2] = self[0] * rotate[2][0] + self[1] * rotate[2][1] + self[2] * rotate[2][2];
+        // result[3] = self[3];
+        result
+    }
 }
 
 impl Mul<Vec4> for Mat4 {
