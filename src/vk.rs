@@ -377,7 +377,12 @@ extern "C" {
     //pub fn vkCreateAndroidSurfaceKHR(...) -> VkResult;
     //pub fn vkCreateWaylandSurfaceKHR(...) -> VkResult;
     //pub fn vkCreateWin32SurfaceKHR(...) -> VkResult;
-    //pub fn vkCreateXcbSurfaceKHR(...) -> VkResult;
+    pub fn vkCreateXcbSurfaceKHR(
+        instance: VkInstance,
+        pCreateInfo: *const VkXcbSurfaceCreateInfoKHR,
+        pAllocator: *const VkAllocationCallbacks,
+        pSurface: *mut VkSurfaceKHR,
+    ) -> VkResult;
     pub fn vkCreateXlibSurfaceKHR(
         instance: VkInstance,
         pCreateInfo: *const VkXlibSurfaceCreateInfoKHR,
@@ -822,6 +827,7 @@ pub const VK_EXT_VALIDATION_FLAGS_EXTENSION_NAME: *const i8 = cstr!("VK_EXT_vali
 pub const VK_KHR_SWAPCHAIN_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_swapchain");
 pub const VK_KHR_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_surface");
 pub const VK_KHR_XLIB_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_xlib_surface");
+pub const VK_KHR_XCB_SURFACE_EXTENSION_NAME: *const i8 = cstr!("VK_KHR_xcb_surface");
 
 // For some reason there are no constants for layer names in the vulkan headers
 pub const VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME: *const i8 = cstr!("VK_LAYER_KHRONOS_validation");
@@ -1370,6 +1376,16 @@ pub struct VkXlibSurfaceCreateInfoKHR {
     pub flags: VkXlibSurfaceCreateFlagsKHR,
     pub dpy: *mut crate::x11::Display,
     pub window: crate::x11::Window,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct VkXcbSurfaceCreateInfoKHR {
+    pub sType: VkStructureType,
+    pub pNext: *const c_void,
+    pub flags: VkXcbSurfaceCreateFlagsKHR,
+    pub connection: *mut crate::xcb::xcb_connection_t,
+    pub window: crate::xcb::xcb_window_t,
 }
 
 #[repr(C)]
@@ -2171,7 +2187,7 @@ pub struct VkPresentInfoKHR {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct VkBufferCopy {
     pub srcOffset: VkDeviceSize,
     pub dstOffset: VkDeviceSize,
@@ -3315,6 +3331,7 @@ bitflag_enum!(VkDeviceQueueCreateFlagBits {
 });
 
 pub type VkXlibSurfaceCreateFlagsKHR = VkFlags;
+pub type VkXcbSurfaceCreateFlagsKHR = VkFlags;
 
 bitflag_struct!(VkSwapchainCreateFlagsKHR: VkSwapchainCreateFlagBitsKHR);
 bitflag_enum!(VkSwapchainCreateFlagBitsKHR {
@@ -3895,7 +3912,7 @@ bitflag_enum!(VkPipelineCacheCreateFlagBits {
 });
 
 #[repr(C)]
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub enum VkFormat {
     VK_FORMAT_UNDEFINED = 0,
     VK_FORMAT_R4G4_UNORM_PACK8 = 1,
