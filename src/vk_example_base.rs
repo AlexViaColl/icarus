@@ -22,6 +22,7 @@ extern "C" {
 
 pub trait Render {
     fn render(&mut self);
+    fn view_changed(&mut self);
 }
 
 pub struct VulkanExampleBase<T: Render> {
@@ -789,7 +790,6 @@ impl<T: Render> VulkanExampleBase<T> {
             vkCreateInstance(&instance_create_info, ptr::null(), &mut self.instance)
         }
     }
-    pub fn view_changed(&self) {}
     pub fn key_pressed(&self, _key: u32) {}
     pub fn mouse_moved(&self, _x: f64, _y: f64, _handled: &mut bool) {}
     pub fn build_command_buffers(&self) {}
@@ -1027,7 +1027,7 @@ impl<T: Render> VulkanExampleBase<T> {
             }
 
             self.window_resized();
-            self.view_changed();
+            (*self.example).view_changed(); // virtual!
 
             self.prepared = true;
         }
@@ -1120,7 +1120,7 @@ impl<T: Render> VulkanExampleBase<T> {
                 let tstart = Instant::now();
                 if self.view_updated {
                     self.view_updated = false;
-                    self.view_changed();
+                    (*self.example).view_changed(); // virtual
                 }
                 loop {
                     let event = xcb_poll_for_event(self.connection);
@@ -1402,7 +1402,7 @@ impl Camera {
         self.znear = znear;
         self.zfar = zfar;
         let radians = |a| a * (std::f32::consts::PI / 180.0);
-        self.matrices_perspective = Mat4::perspective(radians(fov), aspect, znear, zfar);
+        self.matrices_perspective = Mat4::perspective(radians(fov), aspect, znear, zfar).transpose();
         if self.flip_y {
             self.matrices_perspective.0[5] *= -1.0;
         }
@@ -1762,7 +1762,6 @@ impl VulkanSwapChain {
             self.queue_node_index = graphics_queue_node_index;
 
             let mut format_count = 0;
-            println!("physical_device: {:?}, surface: {:?}", self.physical_device, self.surface);
             check!(vkGetPhysicalDeviceSurfaceFormatsKHR(
                 self.physical_device,
                 self.surface,

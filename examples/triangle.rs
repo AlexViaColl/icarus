@@ -56,6 +56,9 @@ impl Render for VulkanExample {
         }
         self.draw();
     }
+    fn view_changed(&mut self) {
+        self.update_uniform_buffers();
+    }
 }
 
 impl VulkanExample {
@@ -714,7 +717,7 @@ impl VulkanExample {
     }
     pub fn update_uniform_buffers(&mut self) {
         self.ubo_vs.projection_matrix = self.base.camera.matrices_perspective;
-        self.ubo_vs.view_matrix = self.base.camera.matrices_view;
+        self.ubo_vs.view_matrix = self.base.camera.matrices_view.transpose();
         self.ubo_vs.model_matrix = Mat4::identity();
         println!("{:#?}", self.ubo_vs.projection_matrix);
         println!("{:#?}", self.ubo_vs.view_matrix);
@@ -745,9 +748,6 @@ impl VulkanExample {
         self.setup_descriptor_set();
         self.build_command_buffers();
         self.base.prepared = true;
-    }
-    pub fn view_changed(&self) {
-        todo!()
     }
 }
 
