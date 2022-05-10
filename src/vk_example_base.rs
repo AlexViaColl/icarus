@@ -1381,7 +1381,7 @@ impl Camera {
         if self.ttype == CameraType::FirstPerson {
             self.matrices_view = rot_m * trans_m;
         } else {
-            //self.matrices_view = trans_m * rot_m;
+            self.matrices_view = dbg!(trans_m) * dbg!(rot_m);
         }
 
         self.view_pos =

@@ -716,12 +716,13 @@ impl VulkanExample {
         }
     }
     pub fn update_uniform_buffers(&mut self) {
+        println!("update_uniform_buffers");
         self.ubo_vs.projection_matrix = self.base.camera.matrices_perspective;
         self.ubo_vs.view_matrix = self.base.camera.matrices_view.transpose();
         self.ubo_vs.model_matrix = Mat4::identity();
-        println!("{:#?}", self.ubo_vs.projection_matrix);
-        println!("{:#?}", self.ubo_vs.view_matrix);
-        println!("{:#?}", self.ubo_vs.model_matrix);
+        println!("viewMatrix: {:#?}", self.ubo_vs.view_matrix);
+        println!("projectionMatrix: {:#?}", self.ubo_vs.projection_matrix);
+        //        println!("modelMatrix: {:#?}", self.ubo_vs.model_matrix);
 
         unsafe {
             let mut data = ptr::null_mut();
