@@ -1032,8 +1032,37 @@ impl<T: Render> VulkanExampleBase<T> {
             self.prepared = true;
         }
     }
-    pub fn handle_mouse_move(&self, _x: i32, _y: i32) {
-        eprintln!("TODO: implement handle_mouse_move");
+    pub fn handle_mouse_move(&mut self, x: i32, y: i32) {
+        let dx = self.mouse_pos.x as i32 - x;
+        let dy = self.mouse_pos.y as i32 - y;
+
+        let mut handled = false;
+        if self.settings.overlay {
+            todo!();
+        }
+        self.mouse_moved(x as f64, y as f64, &mut handled);
+        if handled {
+            self.mouse_pos = Vec2::new(x as f32, y as f32);
+            return;
+        }
+
+        if self.mouse_buttons.left {
+            self.camera.rotate(Vec3::new(
+                dy as f32 * self.camera.rotation_speed,
+                -dx as f32 * self.camera.rotation_speed,
+                0.0,
+            ));
+            self.view_updated = true;
+        }
+        if self.mouse_buttons.right {
+            self.camera.translate(Vec3::new(-0.0, 0.0, dy as f32 * 0.005));
+            self.view_updated = true;
+        }
+        if self.mouse_buttons.middle {
+            self.camera.translate(Vec3::new(-dx as f32 * 0.01, -dy as f32 * 0.01, 0.0));
+            self.view_updated = true;
+        }
+        self.mouse_pos = Vec2::new(x as f32, y as f32);
     }
     pub fn window_resized(&self) {}
     pub fn init_swapchain(&mut self) {
