@@ -470,14 +470,24 @@ impl Mat4 {
     }
 
     #[rustfmt::skip]
+    // perspective RH
     pub fn perspective(fovy_radians: f32, aspect: f32, near: f32, far: f32) -> Self {
-        let focal_length = 1.0 / (fovy_radians / 2.0).tan();
-        Self([
-            focal_length / aspect,           0.0,                       0.0,                       0.0,
-                              0.0, -focal_length,                       0.0,                       0.0,
-                              0.0,           0.0,       near / (far - near),     near*far/(far - near),
-                              0.0,           0.0,                      -1.0,                       0.0,
-        ])
+        // let tan_half_fovy = tan(fovy / 2.0);
+        // let mut result = Mat4::default();
+        // result[0][0] = 1.0 / aspect * tan_half_fovy;
+        // result[1][1] = 1.0 / tan_half_fovy;
+        // result[2][3] = -1.0
+        // result[2][2] = far / (near - far);
+        // result[3][2] = -(far * near) / (far - near);
+
+        let tan_half_fovy = (fovy_radians / 2.0).tan();
+        let mut result = Mat4::default();
+        result.0[0] /*[0][0]*/ = 1.0 / (aspect * tan_half_fovy);
+        result.0[5] /*[1][1]*/ = 1.0 / tan_half_fovy;
+        result.0[14]/*[2][3]*/ = -1.0;
+        result.0[10]/*[2][2]*/ = far / (near - far);
+        result.0[11]/*[3][2]*/ = -(far * near) / (far - near);
+        result
     }
 
     pub fn rotate_acum<T: Into<Vec3>>(&self, angle_rad: f32, axis: T) -> Mat4 {
@@ -489,22 +499,48 @@ impl Mat4 {
 
         let mut rotate = Mat4::default();
         rotate.0[0] = c + temp.x * axis.x;
-        rotate.0[1] = temp.x * axis.y + s * axis.z;
-        rotate.0[2] = temp.x * axis.z - s * axis.y;
+        rotate.0[4] = temp.x * axis.y + s * axis.z;
+        rotate.0[8] = temp.x * axis.z - s * axis.y;
 
-        rotate.0[4] = temp.y * axis.x - s * axis.z;
+        rotate.0[1] = temp.y * axis.x - s * axis.z;
         rotate.0[5] = c + temp.y * axis.y;
-        rotate.0[6] = temp.y * axis.z + s * axis.x;
+        rotate.0[9] = temp.y * axis.z + s * axis.x;
 
-        rotate.0[8] = temp.z * axis.x + s * axis.y;
-        rotate.0[9] = temp.z * axis.y - s * axis.x;
+        rotate.0[2] = temp.z * axis.x + s * axis.y;
+        rotate.0[6] = temp.z * axis.y - s * axis.x;
         rotate.0[10] = c + temp.z * axis.z;
 
         let mut result = Mat4::default();
         // result[0] = self[0] * rotate[0][0] + self[1] * rotate[0][1] + self[2] * rotate[0][2];
         // result[1] = self[0] * rotate[1][0] + self[1] * rotate[1][1] + self[2] * rotate[1][2];
         // result[2] = self[0] * rotate[2][0] + self[1] * rotate[2][1] + self[2] * rotate[2][2];
-        // result[3] = self[3];
+
+        // First row
+        let row = self.row(0) * rotate.0[0] + self.row(1) * rotate.0[4] + self.row(2) * rotate.0[8];
+        result.0[0] = row.x;
+        result.0[1] = row.y;
+        result.0[2] = row.z;
+        result.0[3] = row.w;
+
+        // Second row
+        let row = self.row(0) * rotate.0[1] + self.row(1) * rotate.0[5] + self.row(2) * rotate.0[9];
+        result.0[4] = row.x;
+        result.0[5] = row.y;
+        result.0[6] = row.z;
+        result.0[7] = row.w;
+
+        // Third row
+        let row = self.row(0) * rotate.0[2] + self.row(1) * rotate.0[6] + self.row(2) * rotate.0[10];
+        result.0[8] = row.x;
+        result.0[9] = row.y;
+        result.0[10] = row.z;
+        result.0[11] = row.w;
+
+        // Last row
+        result.0[12] = self.0[12];
+        result.0[13] = self.0[13];
+        result.0[14] = self.0[14];
+        result.0[15] = self.0[15];
         result
     }
 }
