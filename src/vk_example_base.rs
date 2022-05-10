@@ -91,7 +91,7 @@ pub struct VulkanExampleBase<T: Render> {
     pub api_version: u32,
     pub depth_stencil: (VkImage, VkDeviceMemory, VkImageView), // (image, mem, view)
     pub game_pad_state: (Vec2, Vec2),
-    pub mouse_buttons: (bool, bool, bool), // (left, right, middle)
+    pub mouse_buttons: Buttons,
 
     // Platform Specific
     pub quit: bool,
@@ -169,7 +169,7 @@ impl<T: Render> Default for VulkanExampleBase<T> {
             api_version: VK_API_VERSION_1_0,
             depth_stencil: (VkImage::default(), VkDeviceMemory::default(), VkImageView::default()), // (image, mem, view)
             game_pad_state: (Vec2::default(), Vec2::default()),
-            mouse_buttons: (false, false, false), // (left, right, middle)
+            mouse_buttons: Buttons::default(),
 
             // Platform Specific
             quit: false,
@@ -179,6 +179,12 @@ impl<T: Render> Default for VulkanExampleBase<T> {
             atom_wm_delete_window: ptr::null_mut(),
         }
     }
+}
+#[derive(Default)]
+pub struct Buttons {
+    pub left: bool,
+    pub right: bool,
+    pub middle: bool,
 }
 pub struct Settings {
     pub validation: bool,
@@ -680,25 +686,25 @@ impl<T: Render> VulkanExampleBase<T> {
                 XCB_BUTTON_PRESS => {
                     let event = event as *const xcb_button_press_event_t;
                     if (*event).detail == XCB_BUTTON_INDEX_1 {
-                        self.mouse_buttons.0 = true;
+                        self.mouse_buttons.left = true;
                     }
                     if (*event).detail == XCB_BUTTON_INDEX_2 {
-                        self.mouse_buttons.1 = true;
+                        self.mouse_buttons.middle = true;
                     }
                     if (*event).detail == XCB_BUTTON_INDEX_3 {
-                        self.mouse_buttons.2 = true;
+                        self.mouse_buttons.right = true;
                     }
                 }
                 XCB_BUTTON_RELEASE => {
                     let event = event as *const xcb_button_release_event_t;
                     if (*event).detail == XCB_BUTTON_INDEX_1 {
-                        self.mouse_buttons.0 = false;
+                        self.mouse_buttons.left = false;
                     }
                     if (*event).detail == XCB_BUTTON_INDEX_2 {
-                        self.mouse_buttons.1 = false;
+                        self.mouse_buttons.middle = false;
                     }
                     if (*event).detail == XCB_BUTTON_INDEX_3 {
-                        self.mouse_buttons.2 = false;
+                        self.mouse_buttons.right = false;
                     }
                 }
                 XCB_KEY_PRESS => {
