@@ -1425,14 +1425,16 @@ impl Camera {
         self.rotation = rotation;
         self.update_view_matrix();
     }
-    pub fn rotate(&mut self, _delta: Vec3) {
-        todo!()
+    pub fn rotate(&mut self, delta: Vec3) {
+        self.rotation = self.rotation + delta;
+        self.update_view_matrix();
     }
     pub fn set_translation(&mut self, _translation: Vec3) {
         todo!()
     }
-    pub fn translate(&mut self, _delta: Vec3) {
-        todo!()
+    pub fn translate(&mut self, delta: Vec3) {
+        self.position = self.position + delta;
+        self.update_view_matrix();
     }
     pub fn set_rotation_speed(&mut self, rotation_speed: f32) {
         self.rotation_speed = rotation_speed;
