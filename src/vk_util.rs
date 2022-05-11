@@ -2827,6 +2827,18 @@ impl Default for VkMemoryAllocateInfo {
     }
 }
 
+impl Default for VkMappedMemoryRange {
+    fn default() -> Self {
+        Self {
+            sType: VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE,
+            pNext: ptr::null(),
+            memory: VkDeviceMemory::default(),
+            offset: 0,
+            size: 0,
+        }
+    }
+}
+
 impl Default for VkSemaphoreCreateInfo {
     fn default() -> Self {
         Self {
