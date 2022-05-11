@@ -1697,6 +1697,28 @@ impl VulkanDevice {
         }
     }
 
+    pub fn create_command_buffer(&self, level: VkCommandBufferLevel, begin: bool) -> VkCommandBuffer {
+        unsafe {
+            let mut cmd_buffer = VkCommandBuffer::default();
+            check!(vkAllocateCommandBuffers(
+                self.logical_device,
+                &VkCommandBufferAllocateInfo {
+                    commandPool: self.command_pool,
+                    level,
+                    commandBufferCount: 1,
+                    ..VkCommandBufferAllocateInfo::default()
+                },
+                &mut cmd_buffer
+            ));
+
+            if begin {
+                check!(vkBeginCommandBuffer(cmd_buffer, &VkCommandBufferBeginInfo::default()));
+            }
+
+            cmd_buffer
+        }
+    }
+
     pub fn create_vk_buffer(
         &self,
         _usage_flags: VkBufferUsageFlags,
