@@ -1721,25 +1721,124 @@ impl VulkanDevice {
 
     pub fn create_vk_buffer(
         &self,
-        _usage_flags: VkBufferUsageFlags,
-        _memory_property_flags: VkMemoryPropertyFlags,
-        _size: VkDeviceSize,
-        _buffer: *mut VkBuffer,
-        _memory: *mut VkDeviceMemory,
-        _data: *mut c_void,
+        usage_flags: VkBufferUsageFlags,
+        memory_property_flags: VkMemoryPropertyFlags,
+        size: VkDeviceSize,
+        buffer: *mut VkBuffer,
+        memory: *mut VkDeviceMemory,
+        data: *mut c_void,
     ) -> VkResult {
-        todo!()
+        unsafe {
+            check!(vkCreateBuffer(
+                self.logical_device,
+                &VkBufferCreateInfo {
+                    usage: usage_flags,
+                    size: dbg!(size),
+                    sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                    ..VkBufferCreateInfo::default()
+                },
+                ptr::null(),
+                buffer
+            ));
+            let mut mem_reqs = VkMemoryRequirements::default();
+            vkGetBufferMemoryRequirements(self.logical_device, *buffer, &mut mem_reqs);
+            check!(vkAllocateMemory(
+                self.logical_device,
+                &VkMemoryAllocateInfo {
+                    allocationSize: mem_reqs.size,
+                    memoryTypeIndex: self.get_memory_type(
+                        mem_reqs.memoryTypeBits,
+                        memory_property_flags,
+                        ptr::null_mut()
+                    ),
+                    pNext: ptr::null(), // TODO: VkMemoryAllocateFlgsInfoKHR
+                    ..VkMemoryAllocateInfo::default()
+                },
+                ptr::null(),
+                memory
+            ));
+
+            if !data.is_null() {
+                let mut mapped = ptr::null_mut();
+                check!(vkMapMemory(self.logical_device, *memory, 0, size, 0, &mut mapped));
+                ptr::copy(data as *const u8, mapped as *mut u8, size as usize);
+                if memory_property_flags.value & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT == 0 {
+                    vkFlushMappedMemoryRanges(
+                        self.logical_device,
+                        1,
+                        &VkMappedMemoryRange {
+                            memory: *memory,
+                            offset: 0,
+                            size,
+                            ..VkMappedMemoryRange::default()
+                        },
+                    );
+                }
+                vkUnmapMemory(self.logical_device, *memory);
+            }
+
+            check!(vkBindBufferMemory(self.logical_device, *buffer, *memory, 0));
+
+            VK_SUCCESS
+        }
     }
 
     pub fn create_buffer(
         &self,
-        _usage_flags: VkBufferUsageFlags,
-        _memory_property_flags: VkMemoryPropertyFlags,
-        _buffer: *mut Buffer,
-        _size: VkDeviceSize,
-        _data: *mut c_void,
+        usage_flags: VkBufferUsageFlags,
+        memory_property_flags: VkMemoryPropertyFlags,
+        buffer: *mut Buffer,
+        size: VkDeviceSize,
+        data: *mut c_void,
     ) -> VkResult {
-        todo!()
+        unsafe {
+            (*buffer).device = self.logical_device;
+            check!(vkCreateBuffer(
+                self.logical_device,
+                &VkBufferCreateInfo {
+                    usage: usage_flags,
+                    size,
+                    ..VkBufferCreateInfo::default()
+                },
+                ptr::null(),
+                &mut (*buffer).buffer
+            ));
+            let mut mem_reqs = VkMemoryRequirements::default();
+            vkGetBufferMemoryRequirements(self.logical_device, (*buffer).buffer, &mut mem_reqs);
+            check!(vkAllocateMemory(
+                self.logical_device,
+                &VkMemoryAllocateInfo {
+                    allocationSize: mem_reqs.size,
+                    memoryTypeIndex: self.get_memory_type(
+                        mem_reqs.memoryTypeBits,
+                        memory_property_flags,
+                        ptr::null_mut()
+                    ),
+                    pNext: ptr::null(), // TODO: VkMemoryAllocateFlagsInfoKHR
+                    ..VkMemoryAllocateInfo::default()
+                },
+                ptr::null(),
+                &mut (*buffer).memory
+            ));
+
+            (*buffer).alignment = mem_reqs.alignment;
+            (*buffer).size = mem_reqs.size;
+            (*buffer).usage_flags = usage_flags;
+            (*buffer).memory_property_flags = memory_property_flags;
+
+            if !data.is_null() {
+                check!((*buffer).map(VK_WHOLE_SIZE, 0));
+                ptr::copy(data as *const u8, (*buffer).mapped as *mut u8, size as usize);
+                if memory_property_flags.value & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT == 0 {
+                    (*buffer).flush(VK_WHOLE_SIZE, 0);
+                }
+                (*buffer).unmap();
+            }
+
+            (*buffer).setup_descriptor(VK_WHOLE_SIZE, 0);
+
+            (*buffer).bind(0)
+        }
     }
 
     pub fn copy_buffer(&self, _src: *mut Buffer, _dst: *mut Buffer, _queue: VkQueue, _copy_region: *mut VkBufferCopy) {
