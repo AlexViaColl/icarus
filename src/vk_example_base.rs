@@ -801,10 +801,12 @@ impl<T: Render> VulkanExampleBase<T> {
                 instance_extensions.push(ext.as_ptr() as *const i8);
             }
 
+            let application_name = CString::new(self.name.clone()).unwrap();
+            let engine_name = CString::new(self.name.clone()).unwrap();
             let instance_create_info = VkInstanceCreateInfo {
                 pApplicationInfo: &VkApplicationInfo {
-                    pApplicationName: CString::new(self.name.clone()).unwrap().as_ptr() as *const i8,
-                    pEngineName: CString::new(self.name.clone()).unwrap().as_ptr() as *const i8,
+                    pApplicationName: application_name.as_ptr() as *const i8,
+                    pEngineName: engine_name.as_ptr() as *const i8,
                     apiVersion: self.api_version,
                     ..VkApplicationInfo::default()
                 },
