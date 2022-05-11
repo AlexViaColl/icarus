@@ -601,6 +601,7 @@ impl<T: Render> VulkanExampleBase<T> {
     }
     pub fn setup_window(&mut self) -> xcb_window_t {
         unsafe {
+            assert!(!self.connection.is_null());
             self.window = xcb_generate_id(self.connection);
             let value_mask = XCB_CW_BACK_PIXEL | XCB_CW_EVENT_MASK;
             let value_list = [
@@ -1121,16 +1122,23 @@ impl<T: Render> VulkanExampleBase<T> {
         if self.settings.overlay {
             todo!();
             //self.ui_overlay.device = self.vulkan_device;
-            self.ui_overlay.queue = self.queue;
-            self.ui_overlay.shaders = vec![
-                //self.load_shader(self.get_shaders_path()
-            ];
+            //self.ui_overlay.queue = self.queue;
+            //self.ui_overlay.shaders = vec![
+            //self.load_shader(self.get_shaders_path()
+            //];
             //self.ui_overlay.prepare_resources();
             //self.ui_overlay.prepare_pipeline(self.pipeline_cache, self.render_pass);
         }
     }
-    pub fn load_shader(&self, _filename: &str, _stage: VkShaderStageFlagBits) -> VkPipelineShaderStageCreateInfo {
-        todo!()
+    pub fn load_shader(&mut self, filename: &str, stage: VkShaderStageFlagBits) -> VkPipelineShaderStageCreateInfo {
+        let shader_stage = VkPipelineShaderStageCreateInfo {
+            stage: (stage as u32).into(),
+            pName: b"main\0".as_ptr() as *const i8,
+            module: load_shader(filename, self.device),
+            ..VkPipelineShaderStageCreateInfo::default()
+        };
+        self.shader_modules.push(shader_stage.module);
+        shader_stage
     }
     pub fn render_loop(&mut self) {
         unsafe {
