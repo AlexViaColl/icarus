@@ -339,6 +339,29 @@ impl Mul<Vec4> for Vec4 {
     }
 }
 
+impl Quaternion {
+    pub fn new(x: f32, y: f32, z: f32, w: f32) -> Self {
+        Self {
+            x,
+            y,
+            z,
+            w,
+        }
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for Quaternion {
+    fn from(item: (f32, f32, f32, f32)) -> Self {
+        Self::new(item.0, item.1, item.2, item.3)
+    }
+}
+
+impl From<[f32; 4]> for Quaternion {
+    fn from(item: [f32; 4]) -> Self {
+        Self::new(item[0], item[1], item[2], item[3])
+    }
+}
+
 impl Mat4 {
     pub const fn new(e: [f32; 16]) -> Self {
         Self(e)
