@@ -399,6 +399,23 @@ impl Default for Buffer {
     }
 }
 
+pub fn load_shader(filename: &str, device: VkDevice) -> VkShaderModule {
+    let data = std::fs::read(filename).expect(&format!("Failed to read file {}", filename));
+    let mut shader_module = VkShaderModule::default();
+    unsafe {
+        vkCreateShaderModule(
+            device,
+            &VkShaderModuleCreateInfo {
+                codeSize: data.len(),
+                pCode: data.as_ptr() as *const u32,
+                ..VkShaderModuleCreateInfo::default()
+            },
+            ptr::null(),
+            &mut shader_module,
+        )
+    };
+    shader_module
+}
 pub fn get_asset_path() -> String {
     String::from("/home/alex/dev/SaschaWillemsVulkan/data/")
 }
