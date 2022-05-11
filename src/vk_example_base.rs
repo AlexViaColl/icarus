@@ -372,7 +372,6 @@ pub struct SwapChainBuffer {
     pub image: VkImage,
     pub view: VkImageView,
 }
-#[derive(Default)]
 pub struct Buffer {
     pub device: VkDevice,
     pub buffer: VkBuffer,
@@ -380,9 +379,24 @@ pub struct Buffer {
     pub descriptor: VkDescriptorBufferInfo,
     pub size: VkDeviceSize,
     pub alignment: VkDeviceSize,
-    pub mapped: Option<*mut c_void>,
+    pub mapped: *mut c_void,
     pub usage_flags: VkBufferUsageFlags,
     pub memory_property_flags: VkMemoryPropertyFlags,
+}
+impl Default for Buffer {
+    fn default() -> Self {
+        Self {
+            device: VkDevice::default(),
+            buffer: VkBuffer::default(),
+            memory: VkDeviceMemory::default(),
+            descriptor: VkDescriptorBufferInfo::default(),
+            size: 0,
+            alignment: 0,
+            mapped: ptr::null_mut(),
+            usage_flags: 0.into(),
+            memory_property_flags: 0.into(),
+        }
+    }
 }
 
 pub fn get_asset_path() -> String {
