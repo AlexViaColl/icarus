@@ -1217,11 +1217,27 @@ impl<T: Render> VulkanExampleBase<T> {
     pub fn draw_ui(&self, _command_buffer: VkCommandBuffer) {
         todo!()
     }
-    pub fn prepare_frame(&self) {
-        todo!()
+    pub fn prepare_frame(&mut self) {
+        let result = self.swapchain.acquire_next_image(self.present_complete_semaphore, &mut self.current_buffer);
+        if result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR {
+            self.window_resize();
+        } else {
+            check!(result);
+        }
     }
-    pub fn submit_frame(&self) {
-        todo!()
+    pub fn submit_frame(&mut self) {
+        let result = self.swapchain.queue_present(self.queue, self.current_buffer, self.render_complete_semaphore);
+        if !(result == VK_SUCCESS || result == VK_SUBOPTIMAL_KHR) {
+            if result == VK_ERROR_OUT_OF_DATE_KHR {
+                self.window_resize();
+                return;
+            } else {
+                check!(result);
+            }
+        }
+        unsafe {
+            check!(vkQueueWaitIdle(self.queue));
+        }
     }
     pub fn render_frame(&self) {
         todo!()
@@ -1391,8 +1407,6 @@ impl CommandLineParser {
 
 impl Camera {
     pub fn update_view_matrix(&mut self) {
-        let rot_m = Mat4::identity();
-
         let dir = if self.flip_y {
             -1.0
         } else {
@@ -1414,7 +1428,7 @@ impl Camera {
         if self.ttype == CameraType::FirstPerson {
             self.matrices_view = rot_m * trans_m;
         } else {
-            self.matrices_view = dbg!(trans_m) * dbg!(rot_m);
+            self.matrices_view = trans_m * rot_m;
         }
 
         self.view_pos =
@@ -1638,8 +1652,10 @@ impl VulkanDevice {
                 self.queue_family_indices.2 = self.queue_family_indices.0;
             }
 
+            let device_extensions =
+                enabled_extensions.iter().map(|e| CString::new(e.clone()).unwrap()).collect::<Vec<_>>();
             let mut device_extensions: Vec<*const i8> =
-                enabled_extensions.iter().map(|e| CString::new(e.clone()).unwrap().as_ptr() as *const i8).collect();
+                device_extensions.iter().map(|e| e.as_ptr() as *const i8).collect();
             if use_swap_chain {
                 device_extensions.push(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
             }
