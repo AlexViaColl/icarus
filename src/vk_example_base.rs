@@ -1766,6 +1766,32 @@ impl VulkanDevice {
             cmd_pool
         }
     }
+
+    pub fn flush_command_buffer(&self, command_buffer: VkCommandBuffer, queue: VkQueue, free: bool) {
+        if command_buffer == VkCommandBuffer::default() {
+            return;
+        }
+        unsafe {
+            check!(vkEndCommandBuffer(command_buffer));
+            let mut fence = VkFence::default();
+            check!(vkCreateFence(self.logical_device, &VkFenceCreateInfo::default(), ptr::null(), &mut fence));
+            check!(vkQueueSubmit(
+                queue,
+                1,
+                &VkSubmitInfo {
+                    commandBufferCount: 1,
+                    pCommandBuffers: &command_buffer,
+                    ..VkSubmitInfo::default()
+                },
+                fence
+            ));
+            check!(vkWaitForFences(self.logical_device, 1, &fence, VK_TRUE, DEFAULT_FENCE_TIMEOUT));
+            vkDestroyFence(self.logical_device, fence, ptr::null());
+            if free {
+                vkFreeCommandBuffers(self.logical_device, self.command_pool, 1, &command_buffer);
+            }
+        }
+    }
 }
 
 impl VulkanSwapChain {
