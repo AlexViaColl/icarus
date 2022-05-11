@@ -2089,6 +2089,40 @@ impl VulkanSwapChain {
     }
 }
 
+impl Buffer {
+    pub fn map(&mut self, size: VkDeviceSize /*VK_WHOLE_SIZE*/, offset: VkDeviceSize /*0*/) -> VkResult {
+        unsafe { vkMapMemory(self.device, self.memory, offset, size, 0, &mut self.mapped) }
+    }
+    pub fn unmap(&mut self) {
+        if !self.mapped.is_null() {
+            unsafe { vkUnmapMemory(self.device, self.memory) };
+            self.mapped = ptr::null_mut();
+        }
+    }
+    pub fn bind(&mut self, offset: VkDeviceSize) -> VkResult {
+        unsafe { vkBindBufferMemory(self.device, self.buffer, self.memory, offset) }
+    }
+    pub fn setup_descriptor(&mut self, size: VkDeviceSize, offset: VkDeviceSize) {
+        self.descriptor.offset = offset;
+        self.descriptor.buffer = self.buffer;
+        self.descriptor.range = size;
+    }
+    pub fn flush(&mut self, size: VkDeviceSize, offset: VkDeviceSize) -> VkResult {
+        unsafe {
+            vkFlushMappedMemoryRanges(
+                self.device,
+                1,
+                &VkMappedMemoryRange {
+                    memory: self.memory,
+                    offset,
+                    size,
+                    ..VkMappedMemoryRange::default()
+                },
+            )
+        }
+    }
+}
+
 pub fn get_supported_depth_format(physical_device: VkPhysicalDevice, depth_format: *mut VkFormat) -> VkBool32 {
     unsafe {
         let depth_formats = vec![
