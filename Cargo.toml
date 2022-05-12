@@ -9,4 +9,4 @@ edition = "2021"
 
 [dependencies.gltf]
 version = "1.0"
-features = ["extras", "names"]
+features = ["extras", "names", "import"]
