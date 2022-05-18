@@ -16,7 +16,7 @@ pub mod string_util;
 pub mod vk;
 pub mod vk_util;
 pub mod wavefront_loader;
-pub mod x11;
+pub mod x11_sys;
 pub mod xcb;
 
 pub mod vk_example_base;

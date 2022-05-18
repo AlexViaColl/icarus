@@ -1,5 +1,5 @@
 use crate::input::{ButtonId, InputState, KeyId};
-use crate::x11;
+use crate::x11_sys as x11;
 
 use std::ptr;
 
