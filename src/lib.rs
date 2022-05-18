@@ -13,7 +13,7 @@ pub mod shaderc;
 pub mod spirv;
 pub mod stb_image;
 pub mod string_util;
-pub mod vk;
+pub mod vk_sys;
 pub mod vk_util;
 pub mod wavefront_loader;
 pub mod x11_sys;

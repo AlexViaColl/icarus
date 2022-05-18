@@ -6,7 +6,7 @@ use crate::platform::Platform;
 use crate::spirv::ShaderModule;
 use crate::stb_image::*;
 use crate::string_util::*;
-use crate::vk::*;
+use crate::vk_sys::*;
 use crate::x11_sys::XCloseDisplay;
 use crate::xcb_sys::{xcb_connection_t, xcb_window_t};
 

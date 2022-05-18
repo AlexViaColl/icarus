@@ -2,8 +2,8 @@
 
 use icarus::check;
 use icarus::math::{Mat4, Vec3};
-use icarus::vk::*;
 use icarus::vk_example_base::{CameraType, Render, VulkanExampleBase, DEFAULT_FENCE_TIMEOUT};
+use icarus::vk_sys::*;
 
 use std::ptr;
 

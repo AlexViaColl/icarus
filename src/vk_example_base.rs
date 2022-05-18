@@ -3,7 +3,7 @@
 use crate::check;
 use crate::math::{Mat4, Vec2, Vec3, Vec4};
 use crate::string_util::cstr_to_string;
-use crate::vk::*;
+use crate::vk_sys::*;
 use crate::vk_util::vk_enumerate_instance_extension_properties;
 use crate::xcb_sys::*;
 

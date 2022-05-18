@@ -3,6 +3,8 @@
 
 use std::ffi::c_void;
 
+use crate::x11_sys;
+use crate::xcb_sys::{xcb_connection_t, xcb_window_t};
 use crate::{bitflag_enum, bitflag_struct, cstr, opaque};
 
 #[link(name = "vulkan")]
@@ -1374,8 +1376,8 @@ pub struct VkXlibSurfaceCreateInfoKHR {
     pub sType: VkStructureType,
     pub pNext: *const c_void,
     pub flags: VkXlibSurfaceCreateFlagsKHR,
-    pub dpy: *mut crate::x11::Display,
-    pub window: crate::x11::Window,
+    pub dpy: *mut x11_sys::Display,
+    pub window: x11_sys::Window,
 }
 
 #[repr(C)]
@@ -1384,8 +1386,8 @@ pub struct VkXcbSurfaceCreateInfoKHR {
     pub sType: VkStructureType,
     pub pNext: *const c_void,
     pub flags: VkXcbSurfaceCreateFlagsKHR,
-    pub connection: *mut crate::xcb::xcb_connection_t,
-    pub window: crate::xcb::xcb_window_t,
+    pub connection: *mut xcb_connection_t,
+    pub window: xcb_window_t,
 }
 
 #[repr(C)]
