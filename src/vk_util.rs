@@ -15,6 +15,7 @@ use std::ffi::CStr;
 use std::fmt;
 use std::fs;
 use std::mem;
+use std::path::Path;
 use std::ptr;
 
 // Shader Interface:
@@ -54,6 +55,91 @@ pub fn vk_version_to_string(version: u32) -> String {
     )
 }
 
+// Vulkan Helpers (No Context)
+pub fn vk_create_instance(layers: &[*const i8], extensions: &[*const i8]) -> VkInstance {
+    let mut instance = VkInstance::default();
+    unsafe {
+        check!(vkCreateInstance(
+            &VkInstanceCreateInfo {
+                pApplicationInfo: &VkApplicationInfo {
+                    ..VkApplicationInfo::default()
+                },
+                enabledLayerCount: layers.len() as u32,
+                ppEnabledLayerNames: layers.as_ptr(),
+                enabledExtensionCount: extensions.len() as u32,
+                ppEnabledExtensionNames: extensions.as_ptr(),
+                ..VkInstanceCreateInfo::default()
+            },
+            ptr::null(),
+            &mut instance,
+        ));
+        instance
+    }
+}
+pub fn vk_enumerate_physical_devices(instance: VkInstance) -> Vec<VkPhysicalDevice> {
+    unsafe {
+        let mut device_count = 0;
+        check!(vkEnumeratePhysicalDevices(instance, &mut device_count, ptr::null_mut()));
+        let mut physical_devices = vec![VkPhysicalDevice::default(); device_count as usize];
+        check!(vkEnumeratePhysicalDevices(instance, &mut device_count, physical_devices.as_mut_ptr()));
+        physical_devices
+    }
+}
+
+pub fn vk_create_device(
+    physical_device: VkPhysicalDevice,
+    queue_family_index: u32,
+    enabled_extensions: &[*const i8],
+) -> (VkDevice, VkQueue) {
+    unsafe {
+        let mut device = VkDevice::default();
+        check!(vkCreateDevice(
+            physical_device,
+            &VkDeviceCreateInfo {
+                queueCreateInfoCount: 1,
+                pQueueCreateInfos: [VkDeviceQueueCreateInfo {
+                    queueFamilyIndex: queue_family_index,
+                    queueCount: 1,
+                    pQueuePriorities: [1.0].as_ptr(),
+                    ..VkDeviceQueueCreateInfo::default()
+                }]
+                .as_ptr(),
+                enabledExtensionCount: enabled_extensions.len() as u32,
+                ppEnabledExtensionNames: enabled_extensions.as_ptr(),
+                pEnabledFeatures: &VkPhysicalDeviceFeatures {
+                    samplerAnisotropy: VK_TRUE, // TODO: Check if features are actually supported
+                    fillModeNonSolid: VK_TRUE,
+                    ..VkPhysicalDeviceFeatures::default()
+                },
+                ..VkDeviceCreateInfo::default()
+            },
+            ptr::null(),
+            &mut device,
+        ));
+
+        // We are assuming this queue supports presentation to the surface as well!
+        let mut queue = VkQueue::default();
+        vkGetDeviceQueue(device, queue_family_index, 0, &mut queue);
+
+        (device, queue)
+    }
+}
+pub fn vk_create_command_pool(device: VkDevice, queue_family_index: u32) -> VkCommandPool {
+    unsafe {
+        let mut cmd_pool = VkCommandPool::default();
+        check!(vkCreateCommandPool(
+            device,
+            &VkCommandPoolCreateInfo {
+                queueFamilyIndex: queue_family_index,
+                flags: VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT.into(),
+                ..VkCommandPoolCreateInfo::default()
+            },
+            ptr::null(),
+            &mut cmd_pool
+        ));
+        cmd_pool
+    }
+}
 pub fn vk_create_xcb_surface_khr(
     instance: VkInstance,
     connection: *mut xcb_connection_t,
@@ -74,6 +160,691 @@ pub fn vk_create_xcb_surface_khr(
         surface
     }
 }
+pub fn vk_create_swapchain_khr(
+    physical_device: VkPhysicalDevice,
+    device: VkDevice,
+    surface: VkSurfaceKHR,
+    old: VkSwapchainKHR,
+) -> VkSwapchainKHR {
+    unsafe {
+        let mut swapchain = VkSwapchainKHR::default();
+        let surf_caps = vk_get_physical_device_surface_capabilities_khr(physical_device, surface);
+        let min_image_count = if surf_caps.maxImageCount > 0 && surf_caps.minImageCount + 1 > surf_caps.maxImageCount {
+            surf_caps.maxImageCount
+        } else {
+            surf_caps.minImageCount + 1
+        };
+        let _surface_formats = vk_get_physical_device_surface_formats_khr(physical_device, surface);
+        let surface_format = VK_FORMAT_B8G8R8A8_UNORM; // VK_FORMAT_B8G8R8A8_SRGB
+        check!(vkCreateSwapchainKHR(
+            device,
+            &VkSwapchainCreateInfoKHR {
+                surface,
+                minImageCount: min_image_count,
+                imageFormat: surface_format,
+                imageColorSpace: VK_COLOR_SPACE_SRGB_NONLINEAR_KHR,
+                imageExtent: surf_caps.currentExtent,
+                imageUsage: VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT.into(),
+                preTransform: VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR.into(),
+                imageArrayLayers: 1,
+                imageSharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                presentMode: VK_PRESENT_MODE_FIFO_KHR,
+                oldSwapchain: old,
+                clipped: VK_TRUE,
+                compositeAlpha: VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR.into(),
+                ..VkSwapchainCreateInfoKHR::default()
+            },
+            ptr::null(),
+            &mut swapchain
+        ));
+
+        swapchain
+    }
+}
+pub fn vk_get_swapchain_images_khr(device: VkDevice, swapchain: VkSwapchainKHR) -> Vec<VkImage> {
+    unsafe {
+        let mut swapchain_image_count = 0;
+        check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, ptr::null_mut()));
+        let mut swapchain_images = vec![VkImage::default(); swapchain_image_count as usize];
+        check!(vkGetSwapchainImagesKHR(device, swapchain, &mut swapchain_image_count, swapchain_images.as_mut_ptr()));
+        swapchain_images
+    }
+}
+pub fn vk_create_image(device: VkDevice, format: VkFormat, usage: u32, width: u32, height: u32) -> VkImage {
+    unsafe {
+        let mut image = VkImage::default();
+        check!(vkCreateImage(
+            device,
+            &VkImageCreateInfo {
+                imageType: VK_IMAGE_TYPE_2D,
+                format,
+                extent: VkExtent3D {
+                    width: width,
+                    height: height,
+                    depth: 1
+                },
+                mipLevels: 1,
+                arrayLayers: 1,
+                samples: VK_SAMPLE_COUNT_1_BIT.into(),
+                tiling: VK_IMAGE_TILING_OPTIMAL,
+                usage: usage.into(),
+                ..VkImageCreateInfo::default()
+            },
+            ptr::null(),
+            &mut image,
+        ));
+        image
+    }
+}
+pub fn vk_create_image_view(device: VkDevice, image: VkImage, format: VkFormat, aspect: u32) -> VkImageView {
+    unsafe {
+        let mut image_view = VkImageView::default();
+        check!(vkCreateImageView(
+            device,
+            &VkImageViewCreateInfo {
+                image,
+                viewType: VK_IMAGE_VIEW_TYPE_2D,
+                format,
+                subresourceRange: VkImageSubresourceRange {
+                    aspectMask: aspect.into(),
+                    levelCount: 1,
+                    layerCount: 1,
+                    ..VkImageSubresourceRange::default()
+                },
+                ..VkImageViewCreateInfo::default()
+            },
+            ptr::null(),
+            &mut image_view
+        ));
+        image_view
+    }
+}
+pub fn vk_allocate_memory_for_image(
+    physical_device: VkPhysicalDevice,
+    device: VkDevice,
+    image: VkImage,
+    mem_props: u32,
+) -> VkDeviceMemory {
+    unsafe {
+        let mut memory = VkDeviceMemory::default();
+        let mut mem_reqs = VkMemoryRequirements::default();
+        vkGetImageMemoryRequirements(device, image, &mut mem_reqs);
+        check!(vkAllocateMemory(
+            device,
+            &VkMemoryAllocateInfo {
+                allocationSize: mem_reqs.size,
+                memoryTypeIndex: get_memory_type(physical_device, mem_reqs.memoryTypeBits, mem_props.into()),
+                ..VkMemoryAllocateInfo::default()
+            },
+            ptr::null(),
+            &mut memory,
+        ));
+        memory
+    }
+}
+pub fn vk_allocate_command_buffers(
+    device: VkDevice,
+    command_pool: VkCommandPool,
+    count: usize,
+) -> Vec<VkCommandBuffer> {
+    unsafe {
+        let mut command_buffers = vec![VkCommandBuffer::default(); count];
+        check!(vkAllocateCommandBuffers(
+            device,
+            &VkCommandBufferAllocateInfo {
+                commandPool: command_pool,
+                level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+                commandBufferCount: count as u32,
+                ..VkCommandBufferAllocateInfo::default()
+            },
+            command_buffers.as_mut_ptr(),
+        ));
+        command_buffers
+    }
+}
+pub fn vk_begin_command_buffer(cmd: VkCommandBuffer) {
+    check!(unsafe { vkBeginCommandBuffer(cmd, &VkCommandBufferBeginInfo::default()) });
+}
+pub fn vk_end_command_buffer(cmd: VkCommandBuffer) {
+    check!(unsafe { vkEndCommandBuffer(cmd) });
+}
+pub fn vk_create_semaphore(device: VkDevice) -> VkSemaphore {
+    unsafe {
+        let mut semaphore = VkSemaphore::default();
+        check!(vkCreateSemaphore(device, &VkSemaphoreCreateInfo::default(), ptr::null(), &mut semaphore,));
+        semaphore
+    }
+}
+pub fn vk_create_fence(device: VkDevice, flags: u32) -> VkFence {
+    unsafe {
+        let mut fence = VkFence::default();
+        check!(vkCreateFence(
+            device,
+            &VkFenceCreateInfo {
+                flags: flags.into(),
+                ..VkFenceCreateInfo::default()
+            },
+            ptr::null(),
+            &mut fence,
+        ));
+        fence
+    }
+}
+pub fn vk_destroy_fence(device: VkDevice, fence: VkFence) {
+    unsafe { vkDestroyFence(device, fence, ptr::null()) };
+}
+pub fn vk_wait_for_fences(device: VkDevice, fence: VkFence) {
+    unsafe {
+        check!(vkWaitForFences(device, 1, &fence, VK_TRUE, std::u64::MAX));
+    }
+}
+pub fn vk_reset_fences(device: VkDevice, fence: VkFence) {
+    unsafe {
+        check!(vkResetFences(device, 1, &fence));
+    }
+}
+pub fn vk_create_buffer<T>(
+    physical_device: VkPhysicalDevice,
+    device: VkDevice,
+    pool: VkCommandPool,
+    queue: VkQueue,
+    data: &[T],
+    usage: u32,
+) -> (VkBuffer, VkDeviceMemory) {
+    let staging_buffer = vk_create_buffer_cpu(physical_device, device, data);
+    let buffer = vk_create_buffer_gpu(physical_device, device, data, usage);
+
+    unsafe {
+        let cmd = vk_allocate_command_buffers(device, pool, 1)[0];
+        vk_begin_command_buffer(cmd);
+        let size = data.len() * mem::size_of_val(&data[0]);
+        vkCmdCopyBuffer(
+            cmd,
+            staging_buffer.0,
+            buffer.0,
+            1,
+            &VkBufferCopy {
+                size: size as VkDeviceSize,
+                ..VkBufferCopy::default()
+            },
+        );
+        vk_end_command_buffer(cmd);
+        let fence = vk_create_fence(device, 0);
+        let s = VkSemaphore::default();
+        vk_queue_submit(queue, cmd, s, s, fence);
+        vk_wait_for_fences(device, fence);
+        vk_destroy_fence(device, fence);
+
+        vkFreeMemory(device, staging_buffer.1, ptr::null());
+        vkDestroyBuffer(device, staging_buffer.0, ptr::null());
+    }
+
+    buffer
+}
+pub fn vk_create_buffer_cpu<T>(
+    physical_device: VkPhysicalDevice,
+    device: VkDevice,
+    data: &[T],
+) -> (VkBuffer, VkDeviceMemory) {
+    unsafe {
+        let mut buffer = VkBuffer::default();
+        let size = data.len() * mem::size_of_val(&data[0]);
+        check!(vkCreateBuffer(
+            device,
+            &VkBufferCreateInfo {
+                usage: VK_BUFFER_USAGE_TRANSFER_SRC_BIT.into(),
+                size: size as VkDeviceSize,
+                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                ..VkBufferCreateInfo::default()
+            },
+            ptr::null(),
+            &mut buffer
+        ));
+
+        let mut mem_reqs = VkMemoryRequirements::default();
+        vkGetBufferMemoryRequirements(device, buffer, &mut mem_reqs);
+
+        let mut memory = VkDeviceMemory::default();
+        check!(vkAllocateMemory(
+            device,
+            &VkMemoryAllocateInfo {
+                allocationSize: mem_reqs.size,
+                memoryTypeIndex: get_memory_type(
+                    physical_device,
+                    mem_reqs.memoryTypeBits,
+                    (VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT).into()
+                ),
+                ..VkMemoryAllocateInfo::default()
+            },
+            ptr::null(),
+            &mut memory
+        ));
+
+        if data.len() != 0 {
+            let mut mapped = ptr::null_mut();
+            check!(vkMapMemory(device, memory, 0, size as VkDeviceSize, 0, &mut mapped));
+            ptr::copy(data.as_ptr() as *const u8, mapped as *mut u8, size as usize);
+            vkUnmapMemory(device, memory);
+        }
+
+        check!(vkBindBufferMemory(device, buffer, memory, 0));
+
+        (buffer, memory)
+    }
+}
+pub fn vk_create_buffer_gpu<T>(
+    physical_device: VkPhysicalDevice,
+    device: VkDevice,
+    data: &[T],
+    usage: u32,
+) -> (VkBuffer, VkDeviceMemory) {
+    unsafe {
+        let mut buffer = VkBuffer::default();
+        let size = data.len() * mem::size_of_val(&data[0]);
+        check!(vkCreateBuffer(
+            device,
+            &VkBufferCreateInfo {
+                usage: (usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT).into(),
+                size: size as VkDeviceSize,
+                sharingMode: VK_SHARING_MODE_EXCLUSIVE,
+                ..VkBufferCreateInfo::default()
+            },
+            ptr::null(),
+            &mut buffer
+        ));
+
+        let mut mem_reqs = VkMemoryRequirements::default();
+        vkGetBufferMemoryRequirements(device, buffer, &mut mem_reqs);
+
+        let mut memory = VkDeviceMemory::default();
+        check!(vkAllocateMemory(
+            device,
+            &VkMemoryAllocateInfo {
+                allocationSize: mem_reqs.size,
+                memoryTypeIndex: get_memory_type(
+                    physical_device,
+                    mem_reqs.memoryTypeBits,
+                    VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT.into()
+                ),
+                ..VkMemoryAllocateInfo::default()
+            },
+            ptr::null(),
+            &mut memory
+        ));
+
+        check!(vkBindBufferMemory(device, buffer, memory, 0));
+
+        (buffer, memory)
+    }
+}
+pub fn vk_create_render_pass(device: VkDevice, color_format: VkFormat, depth_format: VkFormat) -> VkRenderPass {
+    unsafe {
+        let mut render_pass = VkRenderPass::default();
+        check!(vkCreateRenderPass(
+            device,
+            &VkRenderPassCreateInfo {
+                attachmentCount: 2,
+                pAttachments: [
+                    VkAttachmentDescription {
+                        flags: 0.into(),
+                        format: color_format,
+                        samples: VK_SAMPLE_COUNT_1_BIT.into(),
+                        loadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        storeOp: VK_ATTACHMENT_STORE_OP_STORE,
+                        stencilLoadOp: VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                        stencilStoreOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+                        finalLayout: VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                    },
+                    VkAttachmentDescription {
+                        flags: 0.into(),
+                        format: depth_format,
+                        samples: VK_SAMPLE_COUNT_1_BIT.into(),
+                        loadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        storeOp: VK_ATTACHMENT_STORE_OP_STORE,
+                        stencilLoadOp: VK_ATTACHMENT_LOAD_OP_CLEAR,
+                        stencilStoreOp: VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                        initialLayout: VK_IMAGE_LAYOUT_UNDEFINED,
+                        finalLayout: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    },
+                ]
+                .as_ptr(),
+                subpassCount: 1,
+                pSubpasses: &VkSubpassDescription {
+                    pipelineBindPoint: VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    colorAttachmentCount: 1,
+                    pColorAttachments: &VkAttachmentReference {
+                        attachment: 0,
+                        layout: VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    },
+                    pDepthStencilAttachment: &VkAttachmentReference {
+                        attachment: 1,
+                        layout: VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                    },
+                    ..VkSubpassDescription::default()
+                },
+                dependencyCount: 2,
+                pDependencies: [
+                    VkSubpassDependency {
+                        srcSubpass: VK_SUBPASS_EXTERNAL,
+                        dstSubpass: 0,
+                        srcStageMask: VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.into(),
+                        dstStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
+                        srcAccessMask: VK_ACCESS_MEMORY_READ_BIT.into(),
+                        dstAccessMask: (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                            .into(),
+                        dependencyFlags: VK_DEPENDENCY_BY_REGION_BIT.into(),
+                    },
+                    VkSubpassDependency {
+                        srcSubpass: 0,
+                        dstSubpass: VK_SUBPASS_EXTERNAL,
+                        srcStageMask: VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
+                        dstStageMask: VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT.into(),
+                        srcAccessMask: (VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+                            .into(),
+                        dstAccessMask: VK_ACCESS_MEMORY_READ_BIT.into(),
+                        dependencyFlags: VK_DEPENDENCY_BY_REGION_BIT.into(),
+                    },
+                ]
+                .as_ptr(),
+                ..VkRenderPassCreateInfo::default()
+            },
+            ptr::null(),
+            &mut render_pass
+        ));
+        render_pass
+    }
+}
+pub fn vk_create_framebuffer(
+    device: VkDevice,
+    render_pass: VkRenderPass,
+    attachments: &[VkImageView],
+    width: u32,
+    height: u32,
+) -> VkFramebuffer {
+    unsafe {
+        let mut framebuffer = VkFramebuffer::default();
+        check!(vkCreateFramebuffer(
+            device,
+            &VkFramebufferCreateInfo {
+                renderPass: render_pass,
+                attachmentCount: attachments.len() as u32,
+                pAttachments: attachments.as_ptr(),
+                width: width,
+                height: height,
+                layers: 1,
+                ..VkFramebufferCreateInfo::default()
+            },
+            ptr::null(),
+            &mut framebuffer,
+        ));
+        framebuffer
+    }
+}
+pub fn vk_create_shader_module<P: AsRef<Path>>(device: VkDevice, path: P) -> VkShaderModule {
+    let data = fs::read(path).unwrap();
+    let mut module = VkShaderModule::default();
+    unsafe {
+        vkCreateShaderModule(
+            device,
+            &VkShaderModuleCreateInfo {
+                codeSize: data.len(),
+                pCode: data.as_ptr() as *const u32,
+                ..VkShaderModuleCreateInfo::default()
+            },
+            ptr::null(),
+            &mut module,
+        )
+    };
+    module
+}
+pub fn vk_create_pipeline_cache(device: VkDevice) -> VkPipelineCache {
+    unsafe {
+        let mut pipeline_cache = VkPipelineCache::default();
+        check!(vkCreatePipelineCache(device, &VkPipelineCacheCreateInfo::default(), ptr::null(), &mut pipeline_cache));
+        pipeline_cache
+    }
+}
+pub fn vk_create_pipeline_layout(
+    device: VkDevice,
+    layouts: &[VkDescriptorSetLayout],
+    push_constants: &[VkPushConstantRange],
+) -> VkPipelineLayout {
+    unsafe {
+        let mut layout = VkPipelineLayout::default();
+        check!(vkCreatePipelineLayout(
+            device,
+            &VkPipelineLayoutCreateInfo {
+                setLayoutCount: layouts.len() as u32,
+                pSetLayouts: layouts.as_ptr(),
+                pushConstantRangeCount: push_constants.len() as u32,
+                pPushConstantRanges: push_constants.as_ptr(),
+                ..VkPipelineLayoutCreateInfo::default()
+            },
+            ptr::null(),
+            &mut layout
+        ));
+        layout
+    }
+}
+pub fn vk_create_graphics_pipelines(
+    device: VkDevice,
+    cache: VkPipelineCache,
+    layout: VkPipelineLayout,
+    render_pass: VkRenderPass,
+    shader_stages: &[VkShaderModule],
+    vertex_components: usize,
+    wireframe: bool,
+    topology: VkPrimitiveTopology,
+) -> VkPipeline {
+    unsafe {
+        let mut pipeline = VkPipeline::default();
+        check!(vkCreateGraphicsPipelines(
+            device,
+            cache,
+            1,
+            &VkGraphicsPipelineCreateInfo {
+                stageCount: shader_stages.len() as u32,
+                pStages: shader_stages
+                    .iter()
+                    .enumerate()
+                    .map(|(idx, module)| VkPipelineShaderStageCreateInfo {
+                        stage: if idx == 0 {
+                            VK_SHADER_STAGE_VERTEX_BIT.into()
+                        } else {
+                            VK_SHADER_STAGE_FRAGMENT_BIT.into()
+                        },
+                        pName: b"main\0".as_ptr() as *const i8,
+                        module: *module,
+                        ..VkPipelineShaderStageCreateInfo::default()
+                    })
+                    .collect::<Vec<_>>()
+                    .as_ptr(),
+                pVertexInputState: &VkPipelineVertexInputStateCreateInfo {
+                    vertexBindingDescriptionCount: 1,
+                    pVertexBindingDescriptions: &VkVertexInputBindingDescription {
+                        binding: 0,
+                        stride: (vertex_components * std::mem::size_of::<f32>()) as u32,
+                        inputRate: VK_VERTEX_INPUT_RATE_VERTEX,
+                    },
+                    vertexAttributeDescriptionCount: 1,
+                    pVertexAttributeDescriptions: [
+                        VkVertexInputAttributeDescription {
+                            binding: 0,
+                            location: 0,
+                            format: if vertex_components == 2 {
+                                VK_FORMAT_R32G32_SFLOAT
+                            } else if vertex_components == 3 {
+                                VK_FORMAT_R32G32B32_SFLOAT
+                            } else {
+                                panic!()
+                            },
+                            offset: 0,
+                        },
+                        VkVertexInputAttributeDescription {
+                            binding: 0,
+                            location: 1,
+                            format: VK_FORMAT_R32G32B32_SFLOAT,
+                            offset: 3 * std::mem::size_of::<f32>() as u32,
+                        },
+                    ]
+                    .as_ptr(),
+                    ..VkPipelineVertexInputStateCreateInfo::default()
+                },
+                pInputAssemblyState: &VkPipelineInputAssemblyStateCreateInfo {
+                    topology, //: VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+                    ..VkPipelineInputAssemblyStateCreateInfo::default()
+                },
+                pRasterizationState: &VkPipelineRasterizationStateCreateInfo {
+                    polygonMode: if wireframe {
+                        VK_POLYGON_MODE_LINE
+                    } else {
+                        VK_POLYGON_MODE_FILL
+                    },
+                    cullMode: VK_CULL_MODE_BACK_BIT.into(),
+                    frontFace: VK_FRONT_FACE_COUNTER_CLOCKWISE,
+                    depthClampEnable: VK_FALSE,
+                    rasterizerDiscardEnable: VK_FALSE,
+                    depthBiasEnable: VK_FALSE,
+                    lineWidth: 1.0,
+                    ..VkPipelineRasterizationStateCreateInfo::default()
+                },
+                pColorBlendState: &VkPipelineColorBlendStateCreateInfo {
+                    attachmentCount: 1,
+                    pAttachments: &VkPipelineColorBlendAttachmentState {
+                        colorWriteMask: VkColorComponentFlags {
+                            value: 0xf,
+                        },
+                        blendEnable: VK_FALSE,
+                        ..VkPipelineColorBlendAttachmentState::default()
+                    },
+                    ..VkPipelineColorBlendStateCreateInfo::default()
+                },
+                pMultisampleState: &VkPipelineMultisampleStateCreateInfo {
+                    rasterizationSamples: VK_SAMPLE_COUNT_1_BIT.into(),
+                    ..VkPipelineMultisampleStateCreateInfo::default()
+                },
+                pViewportState: &VkPipelineViewportStateCreateInfo {
+                    viewportCount: 1,
+                    scissorCount: 1,
+                    ..VkPipelineViewportStateCreateInfo::default()
+                },
+                pDepthStencilState: &VkPipelineDepthStencilStateCreateInfo {
+                    depthTestEnable: VK_TRUE,
+                    depthWriteEnable: VK_TRUE,
+                    depthCompareOp: VK_COMPARE_OP_LESS_OR_EQUAL,
+                    depthBoundsTestEnable: VK_FALSE,
+                    back: VkStencilOpState {
+                        failOp: VK_STENCIL_OP_KEEP,
+                        passOp: VK_STENCIL_OP_KEEP,
+                        compareOp: VK_COMPARE_OP_ALWAYS,
+                        ..VkStencilOpState::default()
+                    },
+                    stencilTestEnable: VK_FALSE,
+                    front: VkStencilOpState {
+                        failOp: VK_STENCIL_OP_KEEP,
+                        passOp: VK_STENCIL_OP_KEEP,
+                        compareOp: VK_COMPARE_OP_ALWAYS,
+                        ..VkStencilOpState::default()
+                    },
+                    ..VkPipelineDepthStencilStateCreateInfo::default()
+                },
+                pDynamicState: &VkPipelineDynamicStateCreateInfo {
+                    dynamicStateCount: 2,
+                    pDynamicStates: [VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR].as_ptr(),
+                    ..VkPipelineDynamicStateCreateInfo::default()
+                },
+                layout,
+                renderPass: render_pass,
+                ..VkGraphicsPipelineCreateInfo::default()
+            },
+            ptr::null(),
+            &mut pipeline,
+        ));
+
+        pipeline
+    }
+}
+pub fn vk_acquire_next_image_khr(device: VkDevice, swapchain: VkSwapchainKHR, semaphore: VkSemaphore) -> u32 {
+    unsafe {
+        let mut image_index = 0;
+        vkAcquireNextImageKHR(device, swapchain, std::u64::MAX, semaphore, VkFence::default(), &mut image_index);
+        image_index
+    }
+}
+pub fn vk_queue_submit(queue: VkQueue, cmd: VkCommandBuffer, wait: VkSemaphore, signal: VkSemaphore, fence: VkFence) {
+    unsafe {
+        check!(vkQueueSubmit(
+            queue,
+            1,
+            &VkSubmitInfo {
+                commandBufferCount: 1,
+                pCommandBuffers: &cmd,
+                pWaitDstStageMask: &VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT.into(),
+                waitSemaphoreCount: if wait == VkSemaphore::default() {
+                    0
+                } else {
+                    1
+                },
+                pWaitSemaphores: &wait,
+                signalSemaphoreCount: if wait == VkSemaphore::default() {
+                    0
+                } else {
+                    1
+                },
+                pSignalSemaphores: &signal,
+                ..VkSubmitInfo::default()
+            },
+            fence,
+        ));
+    }
+}
+pub fn vk_queue_present_khr(queue: VkQueue, swapchain: VkSwapchainKHR, index: u32, semaphore: VkSemaphore) -> VkResult {
+    unsafe {
+        vkQueuePresentKHR(
+            queue,
+            &VkPresentInfoKHR {
+                swapchainCount: 1,
+                pSwapchains: &swapchain,
+                pImageIndices: &index,
+                waitSemaphoreCount: if semaphore != VkSemaphore::default() {
+                    1
+                } else {
+                    0
+                },
+                pWaitSemaphores: &semaphore,
+                ..VkPresentInfoKHR::default()
+            },
+        )
+    }
+}
+pub fn vk_cmd_begin_render_pass(
+    cmd: VkCommandBuffer,
+    render_pass: VkRenderPass,
+    framebuffer: VkFramebuffer,
+    width: u32,
+    height: u32,
+    color: [f32; 4],
+) {
+    unsafe {
+        vkCmdBeginRenderPass(
+            cmd,
+            &VkRenderPassBeginInfo {
+                renderPass: render_pass,
+                renderArea: VkRect2D::new(0, 0, width, height),
+                clearValueCount: 2,
+                pClearValues: [VkClearColorValue::new(color), VkClearDepthStencilValue::new(1.0, 0)].as_ptr(),
+                framebuffer,
+                ..VkRenderPassBeginInfo::default()
+            },
+            VK_SUBPASS_CONTENTS_INLINE,
+        );
+    }
+}
+pub fn vk_cmd_end_render_pass(cmd: VkCommandBuffer) {
+    unsafe { vkCmdEndRenderPass(cmd) };
+}
+
 // Push Renderer API
 // Rect, depth (Z), color, text, alignment/layout
 
@@ -208,16 +979,16 @@ pub fn push_str_color(
 // Vulkan Context
 #[derive(Default, Debug, Clone)]
 pub struct VkPhysicalDeviceMeta {
-    physical_device: VkPhysicalDevice,
-    props: VkPhysicalDeviceProperties,
-    features: VkPhysicalDeviceFeatures,
-    extensions: Vec<VkExtensionProperties>,
-    queue_families: Vec<VkQueueFamilyProperties>,
-    queue_surface_support: Vec<VkBool32>,
-    mem_props: VkPhysicalDeviceMemoryProperties,
-    surface_caps: VkSurfaceCapabilitiesKHR,
-    surface_formats: Vec<VkSurfaceFormatKHR>,
-    surface_present_modes: Vec<VkPresentModeKHR>,
+    pub physical_device: VkPhysicalDevice,
+    pub props: VkPhysicalDeviceProperties,
+    pub features: VkPhysicalDeviceFeatures,
+    pub extensions: Vec<VkExtensionProperties>,
+    pub queue_families: Vec<VkQueueFamilyProperties>,
+    pub queue_surface_support: Vec<VkBool32>,
+    pub mem_props: VkPhysicalDeviceMemoryProperties,
+    pub surface_caps: VkSurfaceCapabilitiesKHR,
+    pub surface_formats: Vec<VkSurfaceFormatKHR>,
+    pub surface_present_modes: Vec<VkPresentModeKHR>,
 }
 
 const MAX_FRAMES_IN_FLIGHT: usize = 2;
@@ -650,22 +1421,7 @@ impl VkContext {
     }
 
     fn create_instance(&mut self, layers: &[*const i8], extensions: &[*const i8]) {
-        unsafe {
-            check!(vkCreateInstance(
-                &VkInstanceCreateInfo {
-                    pApplicationInfo: &VkApplicationInfo {
-                        ..VkApplicationInfo::default()
-                    },
-                    enabledLayerCount: layers.len() as u32,
-                    ppEnabledLayerNames: layers.as_ptr(),
-                    enabledExtensionCount: extensions.len() as u32,
-                    ppEnabledExtensionNames: extensions.as_ptr(),
-                    ..VkInstanceCreateInfo::default()
-                },
-                self.allocator,
-                &mut self.instance,
-            ));
-        }
+        self.instance = vk_create_instance(layers, extensions);
     }
 
     fn destroy_instance(&mut self) {
@@ -733,13 +1489,7 @@ impl VkContext {
     }
 
     fn enumerate_physical_devices(&self) -> Vec<VkPhysicalDevice> {
-        unsafe {
-            let mut device_count = 0;
-            check!(vkEnumeratePhysicalDevices(self.instance, &mut device_count, ptr::null_mut()));
-            let mut physical_devices = vec![VkPhysicalDevice::default(); device_count as usize];
-            check!(vkEnumeratePhysicalDevices(self.instance, &mut device_count, physical_devices.as_mut_ptr()));
-            physical_devices
-        }
+        vk_enumerate_physical_devices(self.instance)
     }
 
     fn pick_physical_device(&mut self) {
@@ -825,39 +1575,8 @@ impl VkContext {
                 .iter()
                 .any(|e| unsafe { cstr_to_string(e.extensionName.as_ptr()) } == unsafe { cstr_to_string(*extension) }));
         }
-        unsafe {
-            check!(vkCreateDevice(
-                self.physical_device,
-                &VkDeviceCreateInfo {
-                    queueCreateInfoCount: 1,
-                    pQueueCreateInfos: [VkDeviceQueueCreateInfo {
-                        queueFamilyIndex: self.graphics_family_index,
-                        queueCount: 1,
-                        pQueuePriorities: [1.0].as_ptr(),
-                        ..VkDeviceQueueCreateInfo::default()
-                    }]
-                    .as_ptr(),
-                    enabledExtensionCount: enabled_extensions.len() as u32,
-                    ppEnabledExtensionNames: enabled_extensions.as_ptr(),
-                    pEnabledFeatures: &VkPhysicalDeviceFeatures {
-                        samplerAnisotropy: {
-                            let supported = self.physical_device_meta.features.samplerAnisotropy;
-                            if supported != VK_TRUE {
-                                println!("Sampler Anisotropy is NOT supported");
-                            }
-                            supported
-                        },
-                        ..VkPhysicalDeviceFeatures::default()
-                    },
-                    ..VkDeviceCreateInfo::default()
-                },
-                self.allocator,
-                &mut self.device,
-            ));
-
-            // We are assuming this queue supports presentation to the surface as well!
-            vkGetDeviceQueue(self.device, self.graphics_family_index, 0, &mut self.graphics_queue);
-        }
+        (self.device, self.graphics_queue) =
+            vk_create_device(self.physical_device, self.graphics_family_index, enabled_extensions);
     }
 
     fn destroy_device(&mut self) {
@@ -947,18 +1666,7 @@ impl VkContext {
     }
 
     fn get_swapchain_images_khr(&self) -> Vec<VkImage> {
-        unsafe {
-            let mut swapchain_image_count = 0;
-            check!(vkGetSwapchainImagesKHR(self.device, self.swapchain, &mut swapchain_image_count, ptr::null_mut()));
-            let mut swapchain_images = vec![VkImage::default(); swapchain_image_count as usize];
-            check!(vkGetSwapchainImagesKHR(
-                self.device,
-                self.swapchain,
-                &mut swapchain_image_count,
-                swapchain_images.as_mut_ptr()
-            ));
-            swapchain_images
-        }
+        vk_get_swapchain_images_khr(self.device, self.swapchain)
     }
 
     fn create_descriptor_set_layout(&mut self) {
@@ -1342,18 +2050,7 @@ impl VkContext {
     }
 
     fn create_command_pool(&mut self) {
-        unsafe {
-            check!(vkCreateCommandPool(
-                self.device,
-                &VkCommandPoolCreateInfo {
-                    flags: VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT.into(),
-                    queueFamilyIndex: self.graphics_family_index,
-                    ..VkCommandPoolCreateInfo::default()
-                },
-                self.allocator,
-                &mut self.command_pool
-            ));
-        }
+        self.command_pool = vk_create_command_pool(self.device, self.graphics_family_index);
     }
 
     fn destroy_command_pool(&mut self) {
@@ -1361,18 +2058,7 @@ impl VkContext {
     }
 
     fn allocate_command_buffers(&mut self) {
-        unsafe {
-            check!(vkAllocateCommandBuffers(
-                self.device,
-                &VkCommandBufferAllocateInfo {
-                    commandPool: self.command_pool,
-                    level: VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-                    commandBufferCount: self.command_buffers.len() as u32,
-                    ..VkCommandBufferAllocateInfo::default()
-                },
-                self.command_buffers.as_mut_ptr(),
-            ));
-        }
+        vk_allocate_command_buffers(self.device, self.command_pool, self.command_buffers.len());
     }
 
     #[allow(dead_code)]
@@ -1388,30 +2074,10 @@ impl VkContext {
     }
 
     fn create_sync_objects(&mut self) {
-        unsafe {
-            for i in 0..MAX_FRAMES_IN_FLIGHT {
-                check!(vkCreateSemaphore(
-                    self.device,
-                    &VkSemaphoreCreateInfo::default(),
-                    self.allocator,
-                    &mut self.image_available_semaphores[i]
-                ));
-                check!(vkCreateSemaphore(
-                    self.device,
-                    &VkSemaphoreCreateInfo::default(),
-                    self.allocator,
-                    &mut self.render_finished_semaphores[i]
-                ));
-                check!(vkCreateFence(
-                    self.device,
-                    &VkFenceCreateInfo {
-                        flags: VK_FENCE_CREATE_SIGNALED_BIT.into(),
-                        ..VkFenceCreateInfo::default()
-                    },
-                    self.allocator,
-                    &mut self.in_flight_fences[i],
-                ));
-            }
+        for i in 0..MAX_FRAMES_IN_FLIGHT {
+            self.image_available_semaphores[i] = vk_create_semaphore(self.device);
+            self.render_finished_semaphores[i] = vk_create_semaphore(self.device);
+            self.in_flight_fences[i] = vk_create_fence(self.device, VK_FENCE_CREATE_SIGNALED_BIT);
         }
     }
 
@@ -1441,24 +2107,15 @@ impl VkContext {
     }
 
     fn create_framebuffers(&mut self) {
-        unsafe {
-            self.framebuffers = vec![VkFramebuffer::default(); self.swapchain_image_views.len()];
-            for i in 0..self.swapchain_image_views.len() {
-                check!(vkCreateFramebuffer(
-                    self.device,
-                    &VkFramebufferCreateInfo {
-                        renderPass: self.render_pass,
-                        attachmentCount: 2,
-                        pAttachments: [self.swapchain_image_views[i], self.depth_image.view].as_ptr(),
-                        width: self.surface_caps.currentExtent.width,
-                        height: self.surface_caps.currentExtent.height,
-                        layers: 1,
-                        ..VkFramebufferCreateInfo::default()
-                    },
-                    ptr::null(),
-                    &mut self.framebuffers[i]
-                ));
-            }
+        self.framebuffers = vec![VkFramebuffer::default(); self.swapchain_image_views.len()];
+        for i in 0..self.swapchain_image_views.len() {
+            self.framebuffers[i] = vk_create_framebuffer(
+                self.device,
+                self.render_pass,
+                &[self.swapchain_image_views[i], self.depth_image.view],
+                self.surface_caps.currentExtent.width,
+                self.surface_caps.currentExtent.height,
+            );
         }
 
         self.frame_width = self.surface_caps.currentExtent.width as f32;
@@ -1499,27 +2156,7 @@ impl VkContext {
     }
 
     fn create_image_view(&self, image: VkImage, format: VkFormat, aspect: VkImageAspectFlags) -> VkImageView {
-        unsafe {
-            let mut image_view = VkImageView::default();
-            check!(vkCreateImageView(
-                self.device,
-                &VkImageViewCreateInfo {
-                    image,
-                    viewType: VK_IMAGE_VIEW_TYPE_2D,
-                    format,
-                    subresourceRange: VkImageSubresourceRange {
-                        aspectMask: aspect,
-                        levelCount: 1,
-                        layerCount: 1,
-                        ..VkImageSubresourceRange::default()
-                    },
-                    ..VkImageViewCreateInfo::default()
-                },
-                self.allocator,
-                &mut image_view
-            ));
-            image_view
-        }
+        vk_create_image_view(self.device, image, format, aspect.value)
     }
 
     fn create_buffer(&self, size: usize, usage: VkBufferUsageFlags, properties: VkMemoryPropertyFlags) -> Buffer {
@@ -1842,17 +2479,7 @@ impl VkContext {
 
     fn begin_single_time_commands(&self) -> VkCommandBuffer {
         unsafe {
-            let mut command_buffer = VkCommandBuffer::default();
-            check!(vkAllocateCommandBuffers(
-                self.device,
-                &VkCommandBufferAllocateInfo {
-                    commandPool: self.command_pool,
-                    commandBufferCount: 1,
-                    ..VkCommandBufferAllocateInfo::default()
-                },
-                &mut command_buffer
-            ));
-
+            let command_buffer = vk_allocate_command_buffers(self.device, self.command_pool, 1)[0];
             check!(vkBeginCommandBuffer(
                 command_buffer,
                 &VkCommandBufferBeginInfo {
@@ -1860,7 +2487,6 @@ impl VkContext {
                     ..VkCommandBufferBeginInfo::default()
                 }
             ));
-
             command_buffer
         }
     }
@@ -1949,6 +2575,19 @@ impl VkContext {
 }
 
 // Utility Functions
+fn get_memory_type(physical_device: VkPhysicalDevice, type_filter: u32, properties: VkMemoryPropertyFlags) -> u32 {
+    let mem_properties = vk_get_physical_device_memory_properties(physical_device);
+    for i in 0..mem_properties.memoryTypeCount {
+        if type_filter & (1 << i) != 0
+            && mem_properties.memoryTypes[i as usize].propertyFlags.value & properties.value == properties.value
+        {
+            return i;
+        }
+    }
+
+    panic!("Failed to find suitable memory type!");
+}
+
 fn find_memory_type(vk_ctx: &VkContext, type_filter: u32, properties: VkMemoryPropertyFlags) -> u32 {
     let mem_properties = &vk_ctx.physical_device_meta.mem_props;
 
@@ -2163,17 +2802,29 @@ impl Image {
     }
 }
 
+impl VkExtent2D {
+    fn new(width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+        }
+    }
+}
+
+impl VkOffset2D {
+    fn new(x: i32, y: i32) -> Self {
+        Self {
+            x,
+            y,
+        }
+    }
+}
+
 impl VkRect2D {
     pub fn new(x: i32, y: i32, width: u32, height: u32) -> Self {
         Self {
-            offset: VkOffset2D {
-                x,
-                y,
-            },
-            extent: VkExtent2D {
-                width,
-                height,
-            },
+            offset: VkOffset2D::new(x, y),
+            extent: VkExtent2D::new(width, height),
         }
     }
 }
