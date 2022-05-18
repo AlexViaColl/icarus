@@ -151,4 +151,12 @@ impl Xcb {
             }
         }
     }
+    pub fn next_event(&self) -> Option<*mut xcb_generic_event_t> {
+        let event = unsafe { xcb_poll_for_event(self.connection) };
+        if event.is_null() {
+            None
+        } else {
+            Some(event)
+        }
+    }
 }
