@@ -494,22 +494,27 @@ impl Mat4 {
 
     #[rustfmt::skip]
     // perspective RH
-    pub fn perspective(fovy_radians: f32, aspect: f32, near: f32, far: f32) -> Self {
-        // let tan_half_fovy = tan(fovy / 2.0);
-        // let mut result = Mat4::default();
-        // result[0][0] = 1.0 / aspect * tan_half_fovy;
-        // result[1][1] = 1.0 / tan_half_fovy;
-        // result[2][3] = -1.0
-        // result[2][2] = far / (near - far);
-        // result[3][2] = -(far * near) / (far - near);
+    pub fn perspective(fovy_radians: f32, aspect: f32, n: f32, f: f32) -> Self {
+        assert!(n < f);
 
-        let tan_half_fovy = (fovy_radians / 2.0).tan();
-        let mut result = Mat4::default();
-        result.0[0] /*[0][0]*/ = 1.0 / (aspect * tan_half_fovy);
-        result.0[5] /*[1][1]*/ = 1.0 / tan_half_fovy;
-        result.0[14]/*[2][3]*/ = -1.0;
-        result.0[10]/*[2][2]*/ = far / (near - far);
-        result.0[11]/*[3][2]*/ = -(far * near) / (far - near);
+        let tan_half_fovy = (fovy_radians * 0.5).tan();
+
+        // https://vincent-p.github.io/posts/vulkan_perspective_matrix/
+        let result = Mat4::new([
+            1.0 / (aspect * tan_half_fovy), 0.0,                  0.0,         0.0,
+            0.0,                            -1.0 / tan_half_fovy, 0.0,         0.0,
+            0.0,                            0.0,                  n / (f - n), n*f / (f - n),
+            0.0,                            0.0,                  -1.0,        0.0,
+        ]);
+
+        // Vulkan Examples (GLM)
+        let _result = Mat4::new([
+            1.0 / (aspect * tan_half_fovy), 0.0,                 0.0,         0.0,
+            0.0,                            1.0 / tan_half_fovy, 0.0,         0.0,
+            0.0,                            0.0,                 f / (n - f), -(f * n) / (f - n),
+            0.0,                            0.0,                 -1.0,        0.0,
+        ]);
+
         result
     }
 
