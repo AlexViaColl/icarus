@@ -18,5 +18,6 @@ pub mod vk_util;
 pub mod wavefront_loader;
 pub mod x11_sys;
 pub mod xcb;
+pub mod xcb_sys;
 
 pub mod vk_example_base;

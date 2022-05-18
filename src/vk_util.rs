@@ -8,6 +8,7 @@ use crate::stb_image::*;
 use crate::string_util::*;
 use crate::vk::*;
 use crate::x11_sys::XCloseDisplay;
+use crate::xcb_sys::{xcb_connection_t, xcb_window_t};
 
 use core::ffi::c_void;
 use std::ffi::CStr;
@@ -53,6 +54,26 @@ pub fn vk_version_to_string(version: u32) -> String {
     )
 }
 
+pub fn vk_create_xcb_surface_khr(
+    instance: VkInstance,
+    connection: *mut xcb_connection_t,
+    window: xcb_window_t,
+) -> VkSurfaceKHR {
+    unsafe {
+        let mut surface = VkSurfaceKHR::default();
+        check!(vkCreateXcbSurfaceKHR(
+            instance,
+            &VkXcbSurfaceCreateInfoKHR {
+                connection,
+                window,
+                ..VkXcbSurfaceCreateInfoKHR::default()
+            },
+            ptr::null(),
+            &mut surface,
+        ));
+        surface
+    }
+}
 // Push Renderer API
 // Rect, depth (Z), color, text, alignment/layout
 
