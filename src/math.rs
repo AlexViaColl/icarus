@@ -1,5 +1,5 @@
 use std::fmt;
-use std::ops::{Add, Mul, Neg, Sub};
+use std::ops::{Add, AddAssign, Mul, Neg, Sub};
 
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
@@ -46,6 +46,21 @@ pub struct Quaternion {
 pub struct Ray {
     pub origin: Vec3,
     pub dir: Vec3,
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Frame {
+    pub u: Vec3, // Pointing rightward
+    pub v: Vec3, // Pointing upward
+    pub w: Vec3, // Pointing backward (opposite to the view direction)
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Sphere {
+    pub c: Vec3, // Center of the sphere
+    pub r: f32,  // Radius
 }
 
 // Mat4 stores its elements as row-major
@@ -235,6 +250,16 @@ impl Add for Vec3 {
     type Output = Self;
     fn add(self, rhs: Self) -> Self {
         Vec3::new(self.x + rhs.x, self.y + rhs.y, self.z + rhs.z)
+    }
+}
+
+impl AddAssign for Vec3 {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = Self {
+            x: self.x + rhs.x,
+            y: self.y + rhs.y,
+            z: self.z + rhs.z,
+        }
     }
 }
 
@@ -470,10 +495,10 @@ impl Mat4 {
 
         // TODO
         Self([
-              right.x,   right.y,   right.z, 0.0,
-                 up.x,      up.y,      up.z, 0.0,
-            forward.x, forward.y, forward.z, 0.0,
-                eye.x,     eye.y,     eye.z, 1.0,
+            right.x, up.x, forward.x, eye.x,
+            right.y, up.y, forward.y, eye.y,
+            right.z, up.z, forward.z, eye.z,
+                0.0,  0.0,       0.0,   1.0,
         ])
     }
 
