@@ -3,8 +3,8 @@ use std::ffi::CStr;
 /// # Safety
 ///
 /// This function should be called with ptr always pointing to a valid null-terminated C-string.
-pub unsafe fn cstr_to_string(ptr: *const i8) -> String {
-    CStr::from_ptr(ptr).to_string_lossy().into_owned()
+pub unsafe fn cstr_to_string<T>(ptr: *const T) -> String {
+    CStr::from_ptr(ptr as *const i8).to_string_lossy().into_owned()
 }
 
 pub fn format_uuid(arr: [u8; 16]) -> String {
