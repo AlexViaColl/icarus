@@ -1,3 +1,8 @@
+extern "C" {
+    fn rand() -> i32;
+}
+const RAND_MAX: i32 = 2147483647;
+
 #[derive(Default)]
 pub struct Rand {
     seed: usize,
@@ -20,6 +25,13 @@ impl Rand {
         let res = RND_TABLE[self.seed];
         self.seed = (self.seed + 1) % RND_TABLE.len();
         res
+    }
+
+    pub fn next_f32(&mut self) -> f32 {
+        unsafe { rand() as f32 / (RAND_MAX as f32 + 1.0) }
+    }
+    pub fn next_f32_range(&mut self, min: f32, max: f32) -> f32 {
+        min + (max - min) * self.next_f32()
     }
 }
 
