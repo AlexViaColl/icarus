@@ -1,6 +1,7 @@
 pub mod alsa;
 pub mod blender;
 pub mod color;
+pub mod gl_sys;
 pub mod glx_sys;
 pub mod glyph;
 pub mod input;
