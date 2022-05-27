@@ -338,7 +338,7 @@ extern "C" {
     ) -> VkResult;
     pub fn vkUpdateDescriptorSets(
         device: VkDevice,
-        descriptorWriteCOunt: u32,
+        descriptorWriteCount: u32,
         pDescriptorWrites: *const VkWriteDescriptorSet,
         descriptorCopyCount: u32,
         pDescriptorCopies: *const VkCopyDescriptorSet,
