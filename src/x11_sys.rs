@@ -1,6 +1,9 @@
 #![allow(non_upper_case_globals)]
 #![allow(dead_code)]
 
+use std::ffi::c_void;
+use std::ptr;
+
 #[link(name = "X11")]
 extern "C" {
     pub fn XInitThreads() -> Status;
@@ -32,8 +35,16 @@ extern "C" {
     pub fn XFillRectangle(display: *mut Display, d: Drawable, gc: GC, x: i32, y: i32, width: u32, height: u32) -> i32;
     pub fn XGetClassHint(display: *mut Display, w: Window, class_hints_return: *mut XClassHint) -> Status;
     pub fn XSetClassHint(display: *mut Display, w: Window, class_hints: *mut XClassHint) -> i32;
+    pub fn XFree(data: *mut c_void) -> i32;
+    pub fn XGetVisualInfo(
+        display: *mut Display,
+        vinfo_mask: i64,
+        vinfo_template: *mut XVisualInfo,
+        nitems_return: *mut i32,
+    ) -> *mut XVisualInfo;
 }
 
+pub type XPointer = *mut i8;
 pub type Status = i32;
 pub type Bool = i32;
 pub type XID = u64;
@@ -42,11 +53,63 @@ pub type Window = XID;
 pub type Time = CARD32;
 pub type KeySym = XID;
 pub type Drawable = XID;
+pub type Font = XID;
+pub type Pixmap = XID;
 
 #[repr(C)]
 pub struct Display {
     _data: [u8; 0],
     _marker: core::marker::PhantomData<(*mut u8, core::marker::PhantomPinned)>,
+}
+
+#[repr(C)]
+#[derive(Debug)]
+pub struct XVisualInfo {
+    pub visual: *mut Visual,
+    pub visualid: VisualID,
+    pub screen: i32,
+    pub depth: i32,
+    pub class: i32,
+    pub red_mask: u64,
+    pub green_mask: u64,
+    pub blue_mask: u64,
+    pub colormap_size: i32,
+    pub bits_per_rgb: i32, // log base 2 of the number of distinct color values (individually) of red, green, and blue.
+}
+impl Default for XVisualInfo {
+    fn default() -> Self {
+        Self {
+            visual: ptr::null_mut(),
+            visualid: 0,
+            screen: 0,
+            depth: 0,
+            class: 0,
+            red_mask: 0,
+            green_mask: 0,
+            blue_mask: 0,
+            colormap_size: 0,
+            bits_per_rgb: 0,
+        }
+    }
+}
+#[repr(C)]
+pub struct Visual {
+    pub ext_data: *mut XExtData,
+    pub visualid: VisualID,
+    pub class: i32,
+    pub red_mask: u64,
+    pub green_mask: u64,
+    pub blue_mask: u64,
+    pub bits_per_rgb: i32,
+    pub map_entries: i32,
+}
+pub type VisualID = u64;
+#[repr(C)]
+pub struct XExtData {
+    pub number: i32,
+    pub next: *mut XExtData,
+    pub free_private: extern "C" fn(extension: *mut XExtData) -> i32,
+    pub private_data: XPointer,
 }
 
 #[repr(C)]
@@ -209,6 +272,11 @@ pub const MotionNotify: i32 = 6;
 // ...
 pub const Expose: i32 = 12;
 pub const ConfigureNotify: i32 = 22;
+
+pub const VisualNoMask: i64 = 0x0;
+pub const VisualIDMask: i64 = 0x1;
+pub const VisualScreenMask: i64 = 0x2;
+pub const VisualDepthMask: i64 = 0x4;
 
 pub const Button1: u32 = 1;
 pub const Button2: u32 = 2;
