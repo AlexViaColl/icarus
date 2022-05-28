@@ -20,6 +20,20 @@ extern "C" {
         border: u64,
         background: u64,
     ) -> Window;
+    pub fn XCreateWindow(
+        display: *mut Display,
+        parent: Window,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        border: u32,
+        depth: i32,
+        class: u32,
+        visual: *mut Visual,
+        valuemask: u64,
+        attributes: *mut XSetWindowAttributes,
+    ) -> Window;
     pub fn XDefaultRootWindow(display: *mut Display) -> Window;
     pub fn XRootWindow(display: *mut Display, screen_number: i32) -> Window;
     pub fn XDefaultScreen(display: *mut Display) -> i32;
@@ -42,6 +56,8 @@ extern "C" {
         vinfo_template: *mut XVisualInfo,
         nitems_return: *mut i32,
     ) -> *mut XVisualInfo;
+    pub fn XSync(display: *mut Display, discard: Bool) -> i32;
+    pub fn XCreateColormap(display: *mut Display, w: Window, visual: *mut Visual, alloc: i32) -> Colormap;
 }
 
 pub type XPointer = *mut i8;
@@ -55,6 +71,8 @@ pub type KeySym = XID;
 pub type Drawable = XID;
 pub type Font = XID;
 pub type Pixmap = XID;
+pub type Cursor = XID;
+pub type Colormap = XID;
 
 #[repr(C)]
 pub struct Display {
@@ -110,6 +128,26 @@ pub struct XExtData {
     pub next: *mut XExtData,
     pub free_private: extern "C" fn(extension: *mut XExtData) -> i32,
     pub private_data: XPointer,
+}
+
+#[repr(C)]
+#[derive(Default)]
+pub struct XSetWindowAttributes {
+    pub background_pixmap: Pixmap,
+    pub background_pixel: u64,
+    pub border_pixmap: Pixmap,
+    pub border_pixel: u64,
+    pub bit_gravity: i32,
+    pub win_gravity: i32,
+    pub backing_store: i32,
+    pub backing_planes: u64,
+    pub backing_pixel: u64,
+    pub save_under: Bool,
+    pub event_mask: i64,
+    pub do_not_propagate_mask: i64,
+    pub override_redirect: Bool,
+    pub colormap: Colormap,
+    pub cursor: Cursor,
 }
 
 #[repr(C)]
@@ -251,6 +289,22 @@ pub struct XErrorEvent {
     pub request_code: u8,
     pub minor_code: u8,
 }
+
+pub const False: i32 = 0;
+pub const True: i32 = 1;
+
+// Window classes
+pub const InputOutput: u32 = 1;
+pub const InputOnly: u32 = 2;
+
+// Window attributes
+pub const CWBorderPixel: u64 = 1 << 3;
+pub const CWEventMask: u64 = 1 << 11;
+pub const CWColormap: u64 = 1 << 13;
+
+// XCreateColormap
+pub const AllocNone: i32 = 0;
+pub const AllocAll: i32 = 1;
 
 pub const NoEventMask: i64 = 0;
 pub const KeyPressMask: i64 = 1 << 0;
