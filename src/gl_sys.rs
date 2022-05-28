@@ -318,6 +318,15 @@ extern "C" {
     // Extensions
 }
 
+pub const GL_MAJOR_VERSION: GLenum = 0x821B;
+pub const GL_MINOR_VERSION: GLenum = 0x821C;
+pub const GL_NUM_EXTENSIONS: GLenum = 0x821D;
+pub const GL_CONTEXT_FLAGS: GLenum = 0x821E;
+pub const GL_CONTEXT_PROFILE_MASK: GLenum = 0x9126; // GL_CONTEXT_CORE_PROFILE_BIT or GL_CONTEXT_COMPATIBILITY_PROFILE_BIT
+
+pub const GL_CONTEXT_CORE_PROFILE_BIT: GLint = 0x00000001;
+pub const GL_CONTEXT_COMPATIBILITY_PROFILE_BIT: GLint = 0x00000002;
+
 #[cfg(test)]
 mod tests {
     use super::*;

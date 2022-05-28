@@ -19,7 +19,7 @@ jobs:
         submodules: true
 
     - name: Install dependencies
-      run: sudo apt-get install -y libasound2-dev libpulse-dev libxcb-keysyms1-dev libglx-dev libgl-dev
+      run: sudo apt-get install -y libasound2-dev libpulse-dev libxcb-keysyms1-dev libglx-dev libgl-dev libegl-dev
     
     - name: Setup Vulkan SDK
       uses: humbletim/setup-vulkan-sdk@v1.2.0

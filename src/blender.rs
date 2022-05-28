@@ -380,6 +380,7 @@ pub fn parse_blend(bytes: &[u8]) -> std::io::Result<Blend> {
 mod tests {
     use super::*;
     use std::fs;
+    #[allow(unused_imports)]
     use std::path::{Path, PathBuf};
 
     #[test]
