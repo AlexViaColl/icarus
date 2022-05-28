@@ -267,7 +267,7 @@ mod tests {
             assert!(!ctx.is_null());
 
             let display = XOpenDisplay(ptr::null());
-            let window = XCreateSimpleWindow(display, XDefaultRootWindow(display), 0, 0, 800, 600, 0, 0, 0);
+            let _window = XCreateSimpleWindow(display, XDefaultRootWindow(display), 0, 0, 800, 600, 0, 0, 0);
             //let surface = eglCreateWindowSurface(dpy, config, window, ptr::null());
             //assert!(!surface.is_null());
 

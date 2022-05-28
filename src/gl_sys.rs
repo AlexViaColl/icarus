@@ -329,17 +329,18 @@ pub const GL_CONTEXT_COMPATIBILITY_PROFILE_BIT: GLint = 0x00000002;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::string_util::cstr_to_string;
+    //use super::*;
+    //use crate::string_util::cstr_to_string;
 
     #[test]
+    #[ignore]
     fn it_works() {
-        unsafe {
-            //println!("glGetError: {}", glGetError());
-            //println!("{:?}", glGetString(GL_VENDOR));
-            //println!("glGetError: {}", glGetError());
-            //println!("{}", cstr_to_string(glGetString(GL_VENDOR) as *const i8));
-            //glClearColor(1.0, 1.0, 1.0, 1.0);
-        }
+        //unsafe {
+        //    println!("glGetError: {}", glGetError());
+        //    println!("{:?}", glGetString(GL_VENDOR));
+        //    println!("glGetError: {}", glGetError());
+        //    println!("{}", cstr_to_string(glGetString(GL_VENDOR) as *const i8));
+        //    glClearColor(1.0, 1.0, 1.0, 1.0);
+        //}
     }
 }
