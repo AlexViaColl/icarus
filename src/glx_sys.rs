@@ -74,7 +74,25 @@ extern "C" {
     // 1.4
     pub fn glXGetProcAddres(procname: *const GLubyte) -> *mut c_void;
 
-    // Extensions
+    // Extensions:
+    // GLX_ARB_create_context
+    pub fn glXCreateContextAttribsARB(
+        dpy: *mut Display,
+        config: GLXFBConfig,
+        share_context: GLXContext,
+        direct: Bool,
+        attrib_list: *const i32,
+    ) -> GLXContext;
+
+    // GLX_NV_vertex_array_range
+    // pub fn glXAllocateMemoryNV(...);
+    // pub fn glXFreeMemoryNV(...);
+
+    // GLX_ARB_render_texture
+    // GLX_NV_float_buffer
+    // GLX_MESA_swap_frame_usage
+    // GLX_MESA_swap_control
+    // GLX_EXT_texture_from_pixmap
 }
 
 opaque!(GLXContext, __GLXcontextRec);
@@ -112,7 +130,26 @@ pub const GLX_X_VISUAL_TYPE: i32 = 0x22;
 
 pub const GLX_DRAWABLE_TYPE: i32 = 0x8010;
 pub const GLX_RENDER_TYPE: i32 = 0x8011;
+pub const GLX_X_RENDERABLE: i32 = 0x8012;
 pub const GLX_FBCONFIG_ID: i32 = 0x8013;
+
+pub const GLX_WINDOW_BIT: i32 = 0x00000001;
+pub const GLX_PIXMAP_BIT: i32 = 0x00000002;
+pub const GLX_PBUFFER_BIT: i32 = 0x00000004;
+pub const GLX_AUX_BUFFERS_BIT: i32 = 0x00000010;
+
+pub const GLX_RGBA_BIT: i32 = 0x00000001;
+pub const GLX_COLOR_INDEX_BIT: i32 = 0x00000002;
+
+pub const GLX_SLOW_CONFIG: i32 = 0x8001;
+pub const GLX_TRUE_COLOR: i32 = 0x8002;
+pub const GLX_DIRECT_COLOR: i32 = 0x8003;
+pub const GLX_PSEUDO_COLOR: i32 = 0x8004;
+pub const GLX_STATIC_COLOR: i32 = 0x8005;
+pub const GLX_GRAY_SCALE: i32 = 0x8006;
+pub const GLX_STATIC_GRAY: i32 = 0x8007;
+pub const GLX_TRANSPARENT_RGB: i32 = 0x8008;
+pub const GLX_TRANSPARENT_INDEX: i32 = 0x8009;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -210,6 +247,19 @@ pub struct __GLXFBConfigRec {
     pub maxAlpha: GLdouble,
 }
 
+pub const GLX_CONTEXT_DEBUG_BIT_ARB: i32 = 0x00000001;
+pub const GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB: i32 = 0x00000002;
+pub const GLX_CONTEXT_MAJOR_VERSION_ARB: i32 = 0x2091;
+pub const GLX_CONTEXT_MINOR_VERSION_ARB: i32 = 0x2092;
+pub const GLX_CONTEXT_FLAGS_ARG: i32 = 0x2094;
+
+pub const GLX_CONTEXT_CORE_PROFILE_BIT_ARB: i32 = 0x00000001;
+pub const GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARG: i32 = 0x00000002;
+pub const GLX_CONTEXT_PROFILE_MASK_ARB: i32 = 0x9126;
+
+pub const GLX_CONTEXT_ES_PROFILE_BIT_EXT: i32 = 0x00000004;
+pub const GLX_CONTEXT_ES2_PROFILE_BIT_EXT: i32 = 0x00000004;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,6 +270,97 @@ mod tests {
     use std::ptr;
 
     #[test]
+    #[ignore]
+    fn gles2_context() {
+        unsafe {
+            let dpy = XOpenDisplay(ptr::null());
+            #[rustfmt::skip]
+            let attribs = [
+                GLX_X_RENDERABLE,   True,
+                GLX_DRAWABLE_TYPE,  GLX_WINDOW_BIT,
+                GLX_RENDER_TYPE,    GLX_RGBA_BIT,
+                GLX_X_VISUAL_TYPE,  GLX_TRUE_COLOR,
+                GLX_RED_SIZE,       8,
+                GLX_GREEN_SIZE,     8,
+                GLX_BLUE_SIZE,      8,
+                GLX_ALPHA_SIZE,     8,
+                GLX_DEPTH_SIZE,     24,
+                GLX_STENCIL_SIZE,   8,
+                GLX_DOUBLEBUFFER,   True,
+                //GLX_SAMPLE_BUFFERS, 1,
+                //GLX_SAMPLES,        4,
+                0,
+            ];
+            let mut fbcount = 0;
+            let fbconfigs = glXChooseFBConfig(dpy, XDefaultScreen(dpy), attribs.as_ptr(), &mut fbcount);
+            assert!(!fbconfigs.is_null());
+            println!("Found {} matching FB configs.", fbcount);
+            let fbconfig = *fbconfigs.offset(0);
+            XFree(fbconfigs as *mut c_void);
+
+            let vi = glXGetVisualFromFBConfig(dpy, fbconfig);
+            assert!(!vi.is_null());
+            println!("Chosen visual ID = 0x{:x}", (*vi).visualid);
+
+            let window = XCreateWindow(
+                dpy,
+                XRootWindow(dpy, (*vi).screen),
+                0,
+                0,
+                800,
+                600,
+                0,
+                (*vi).depth,
+                InputOutput,
+                (*vi).visual,
+                CWBorderPixel | CWColormap | CWEventMask,
+                &mut XSetWindowAttributes {
+                    colormap: XCreateColormap(dpy, XRootWindow(dpy, (*vi).screen), (*vi).visual, AllocNone),
+                    event_mask: StructureNotifyMask,
+                    ..XSetWindowAttributes::default()
+                },
+            );
+            assert!(window != 0);
+            XFree(vi as *mut c_void);
+
+            //let window = XCreateSimpleWindow(dpy, XDefaultRootWindow(dpy), 0, 0, 800, 600, 0, 0, 0);
+
+            #[rustfmt::skip]
+            let context_attribs = [
+                GLX_CONTEXT_MAJOR_VERSION_ARB, 2,
+                GLX_CONTEXT_MINOR_VERSION_ARB, 0,
+                GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_ES_PROFILE_BIT_EXT,
+                0,
+            ];
+            let ctx = glXCreateContextAttribsARB(dpy, fbconfig, GLXContext::default(), 1, context_attribs.as_ptr());
+            assert!(ctx != GLXContext::default());
+            assert!(glXMakeCurrent(dpy, window, ctx) != 0);
+            XSync(dpy, False);
+
+            let mut value = 0;
+            glGetIntegerv(GL_MAJOR_VERSION, &mut value);
+            println!("GL_MAJOR_VERSION = {}", value);
+            glGetIntegerv(GL_MINOR_VERSION, &mut value);
+            println!("GL_MINOR_VERSION = {}", value);
+
+            println!("{}", cstr_to_string(glGetString(GL_VERSION)));
+
+            glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &mut value);
+            println!("GL_CONTEXT_PROFILE_MASK = 0x{:x}", value);
+            glGetIntegerv(GL_CONTEXT_FLAGS, &mut value);
+            println!("GL_CONTEXT_FLAGS = 0x{:x}", value);
+            //XMapWindow(dpy, window);
+        }
+    }
+
+    #[test]
+    fn gles3_context() {}
+
+    #[test]
+    fn gl46_context() {}
+
+    #[test]
+    #[ignore]
     fn it_works() {
         unsafe {
             let dpy = XOpenDisplay(ptr::null());
