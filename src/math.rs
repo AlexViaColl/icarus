@@ -686,13 +686,6 @@ mod tests {
     }
 
     #[test]
-    fn mat4_times_scalar() {
-        let m = Mat4::identity();
-        let res = m * 4.0;
-        assert_eq!(Mat4::new([4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0]), res);
-    }
-
-    #[test]
     #[rustfmt::skip]
     fn mat4_addition() {
         let m1 = Mat4::new([
@@ -716,8 +709,34 @@ mod tests {
     }
 
     #[test]
+    fn mat4_times_scalar() {
+        let m = Mat4::identity();
+        let res = m * 4.0;
+        assert_eq!(Mat4::new([4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0]), res);
+    }
+
+    #[test]
     #[rustfmt::skip]
-    fn multiplication() {
+    fn mat4_times_mat4() {
+        let s = Mat4::scale(2.0, 3.0, 4.0);
+        let t = Mat4::translate([1.0, 2.0, 3.0]);
+        assert_eq!(t * s, Mat4::new([
+            2.0, 0.0, 0.0, 1.0,
+            0.0, 3.0, 0.0, 2.0,
+            0.0, 0.0, 4.0, 3.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]));
+        assert_eq!(s * t, Mat4::new([
+            2.0, 0.0, 0.0, 2.0,
+            0.0, 3.0, 0.0, 6.0,
+            0.0, 0.0, 4.0, 12.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]));
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn mat4_times_vec4() {
         let m = Mat4::identity();
         let v = Vec4::new(1.0, 2.0, 3.0, 4.0);
         assert_eq!(m * v, v);
