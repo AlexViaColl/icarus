@@ -598,6 +598,18 @@ impl Mat4 {
     }
 }
 
+impl Add for Mat4 {
+    type Output = Mat4;
+    fn add(self, m: Mat4) -> Mat4 {
+        Mat4::from_rows([
+            self.row(0) + m.row(0),
+            self.row(1) + m.row(1),
+            self.row(2) + m.row(2),
+            self.row(3) + m.row(3),
+        ])
+    }
+}
+
 impl Mul<f32> for Mat4 {
     type Output = Mat4;
 
@@ -678,6 +690,29 @@ mod tests {
         let m = Mat4::identity();
         let res = m * 4.0;
         assert_eq!(Mat4::new([4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0]), res);
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn mat4_addition() {
+        let m1 = Mat4::new([
+            1.0, 2.0, 3.0, 4.0,
+            5.0, 6.0, 7.0, 8.0,
+            9.0, 1.0, 2.0, 3.0,
+            4.0, 5.0, 6.0, 7.0,
+        ]);
+        let m2 = Mat4::new([
+            0.0, 1.0, 1.0, 2.0,
+            3.0, 5.0, 8.0, 9.0,
+            9.0, 8.0, 5.0, 3.0,
+            2.0, 1.0, 1.0, 0.0,
+        ]);
+        assert_eq!(m1 + m2, Mat4::new([
+             1.0,  3.0,  4.0,  6.0,
+             8.0, 11.0, 15.0, 17.0,
+            18.0,  9.0,  7.0,  6.0,
+             6.0,  6.0,  7.0,  7.0,
+        ]));
     }
 
     #[test]
