@@ -598,6 +598,15 @@ impl Mat4 {
     }
 }
 
+impl Mul<f32> for Mat4 {
+    type Output = Mat4;
+
+    #[rustfmt::skip]
+    fn mul(self, s: f32) -> Mat4 {
+        Mat4::from_rows([self.row(0) * s, self.row(1) * s, self.row(2) * s, self.row(3) * s])
+    }
+}
+
 impl Mul<Vec4> for Mat4 {
     type Output = Vec4;
 
@@ -662,6 +671,13 @@ mod tests {
     fn vec2_neg() {
         let v = Vec2::new(-1.0, 2.0);
         assert_eq!(-v, Vec2::new(1.0, -2.0));
+    }
+
+    #[test]
+    fn mat4_times_scalar() {
+        let m = Mat4::identity();
+        let res = m * 4.0;
+        assert_eq!(Mat4::new([4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 4.0]), res);
     }
 
     #[test]
