@@ -437,6 +437,10 @@ impl Mat4 {
         ])
     }
 
+    pub fn diag(&self) -> Vec4 {
+        Vec4::new(self.0[0], self.0[5], self.0[10], self.0[15])
+    }
+
     pub fn row(&self, idx: usize) -> Vec4 {
         Vec4::new(self.0[idx * 4], self.0[idx * 4 + 1], self.0[idx * 4 + 2], self.0[idx * 4 + 3])
     }
