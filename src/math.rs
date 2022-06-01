@@ -943,6 +943,38 @@ mod tests {
         assert_eq_v4!(m * Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(400.0, 300.0, 0.0, 1.0));
     }
 
+    #[test]
+    fn mat4_is_linear() {
+        assert!(Mat4::scale(1.0, 2.0, 3.0).is_linear());
+        assert!(Mat4::rotate_x(30.0_f32.to_radians()).is_linear());
+        assert!(!Mat4::translate((1.0, 2.0, 3.0)).is_linear());
+        assert!(!Mat4::perspective(45.0_f32.to_radians(), 16.0 / 9.0, 0.1, 256.0).is_linear());
+    }
+
+    #[test]
+    fn mat4_is_orthogonal() {
+        assert!(!Mat4::scale(1.0, 2.0, 3.0).is_orthogonal());
+        assert!(Mat4::rotate(31.223_f32.to_radians(), (1.12, 0.73, 0.29)).is_orthogonal());
+        assert!(!Mat4::translate((1.0, 2.0, 3.0)).is_orthogonal());
+        assert!(!Mat4::perspective(45.0_f32.to_radians(), 16.0 / 9.0, 0.1, 256.0).is_orthogonal());
+    }
+
+    #[test]
+    fn mat4_is_scale() {
+        assert!(Mat4::scale(1.0, 2.0, 3.0).is_scale());
+        assert!(!Mat4::rotate(31.223_f32.to_radians(), (1.12, 0.73, 0.29)).is_scale());
+        assert!(!Mat4::translate((1.0, 2.0, 3.0)).is_scale());
+        assert!(!Mat4::perspective(45.0_f32.to_radians(), 16.0 / 9.0, 0.1, 256.0).is_scale());
+    }
+
+    #[test]
+    fn mat4_is_translation() {
+        assert!(!Mat4::scale(1.0, 2.0, 3.0).is_translation());
+        assert!(!Mat4::rotate(31.223_f32.to_radians(), (1.12, 0.73, 0.29)).is_translation());
+        assert!(Mat4::translate((1.0, 2.0, 3.0)).is_translation());
+        assert!(Mat4::identity().is_translation());
+        assert!(!Mat4::perspective(45.0_f32.to_radians(), 16.0 / 9.0, 0.1, 256.0).is_translation());
+    }
 
         let v = Vec4::new(1.0, 0.0, 0.0, 1.0);
         let m = Mat4::rotate(std::f32::consts::PI, (0.0, 0.0, 1.0));
