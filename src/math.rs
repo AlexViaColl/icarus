@@ -64,6 +64,30 @@ pub struct Frame {
     pub v: Vec3, // Pointing upward
     pub w: Vec3, // Pointing backward (opposite to the view direction)
 }
+impl Frame {
+    /// Produces a matrix that transforms points specified relative to the frame into points
+    /// relative to the world, or canonical frame.
+    #[rustfmt::skip]
+    pub fn to_canonical(&self) -> Mat4 {
+        Mat4::new([
+            self.u.x, self.v.x, self.w.x, self.o.x,
+            self.u.y, self.v.y, self.w.y, self.o.y,
+            self.u.z, self.v.z, self.w.z, self.o.z,
+                 0.0,      0.0,      0.0,      1.0,
+        ])
+    }
+
+    #[rustfmt::skip]
+    pub fn from_canonical(&self) -> Mat4 {
+        Mat4::new([
+            self.u.x, self.u.y, self.u.z, 0.0,
+            self.v.x, self.v.y, self.v.z, 0.0,
+            self.w.x, self.w.y, self.w.z, 0.0,
+                 0.0,      0.0,      0.0, 1.0,
+        ]) *
+        Mat4::translate((-self.o.x, -self.o.y, -self.o.z))
+    }
+}
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
@@ -976,11 +1000,33 @@ mod tests {
         assert!(!Mat4::perspective(45.0_f32.to_radians(), 16.0 / 9.0, 0.1, 256.0).is_translation());
     }
 
-        let v = Vec4::new(1.0, 0.0, 0.0, 1.0);
-        let m = Mat4::rotate(std::f32::consts::PI, (0.0, 0.0, 1.0));
-        let actual = m * v;
-        let expected = Vec4::new(-1.0, 0.0, 0.0, 1.0);
-        assert!((actual - expected).abs() < epsilon);
+    #[test]
+    fn frame_convert_frame_point_to_canonical() {
+        let frame = Frame {
+            o: Vec3::new(0.0, 0.0, 10.0),
+            u: Vec3::new(1.0, 0.0, 0.0),
+            v: Vec3::new(0.0, 1.0, 0.0),
+            w: Vec3::new(0.0, 0.0, 1.0),
+        };
+        let p_frame = Vec4::new(1.0, 0.0, 0.0, 1.0);
+        let p_canonical = frame.to_canonical() * p_frame;
+        assert_eq_v4!(p_canonical, Vec4::new(1.0, 0.0, 10.0, 1.0));
+    }
+
+    #[test]
+    fn frame_convert_canonical_point_to_frame() {
+        let frame = Frame {
+            o: Vec3::new(0.0, 0.0, 10.0),
+            u: Vec3::new(1.0, 0.0, 0.0),
+            v: Vec3::new(0.0, 1.0, 0.0),
+            w: Vec3::new(0.0, 0.0, 1.0),
+        };
+        let p_canonical = Vec4::new(1.0, 0.0, 10.0, 1.0);
+        let p_frame = frame.from_canonical() * p_canonical;
+        assert_eq_v4!(p_frame, Vec4::new(1.0, 0.0, 0.0, 1.0));
+
+        assert_eq_mat4!(frame.to_canonical().inverse(), frame.from_canonical());
+        assert_eq_mat4!(frame.from_canonical().inverse(), frame.to_canonical());
     }
 
     #[test]
