@@ -878,27 +878,71 @@ mod tests {
     }
 
     #[test]
-    fn translation() {
-        let v = Vec4::new(10.0, 10.0, 10.0, 1.0);
+    fn mat4_translate() {
         let m = Mat4::translate((10.0, 0.0, 0.0));
-        assert_eq!(m * v, Vec4::new(20.0, 10.0, 10.0, 1.0));
+        assert_eq!(m * Vec4::new(10.0, 10.0, 10.0, 1.0), Vec4::new(20.0, 10.0, 10.0, 1.0));
+        assert_eq!(m * Vec4::new(10.0, 10.0, 10.0, 0.0), Vec4::new(10.0, 10.0, 10.0, 0.0));
     }
 
     #[test]
-    fn scale() {
+    fn mat4_scale() {
         let v = Vec4::new(1.0, 2.0, 3.0, 1.0);
         let m = Mat4::scale(2.0, 2.0, 2.0);
         assert_eq!(m * v, Vec4::new(2.0, 4.0, 6.0, 1.0));
     }
 
     #[test]
-    fn rotate() {
-        let v = Vec4::new(1.0, 0.0, 0.0, 1.0);
-        let m = Mat4::rotate(std::f32::consts::FRAC_PI_2, (0.0, 0.0, 1.0));
-        let actual = m * v;
-        let expected = Vec4::new(0.0, 1.0, 0.0, 1.0);
-        let epsilon: Vec4 = Vec4::new(f32::EPSILON, f32::EPSILON, f32::EPSILON, f32::EPSILON);
-        assert!((actual - expected).abs() < epsilon);
+    fn mat4_rotate_z() {
+        let v = Vec4::new(1.0, 0.0, 0.0, 0.0);
+        let m = Mat4::rotate_z(45.0_f32.to_radians());
+        assert_eq_v4!(m * v, Vec4::new(std::f32::consts::FRAC_1_SQRT_2, std::f32::consts::FRAC_1_SQRT_2, 0.0, 0.0));
+    }
+
+    #[test]
+    fn mat4_rotate_x() {
+        let v = Vec4::new(0.0, 0.0, 1.0, 0.0);
+        let m = Mat4::rotate_x(90.0_f32.to_radians());
+        assert_eq_v4!(m * v, Vec4::new(0.0, -1.0, 0.0, 0.0));
+    }
+
+    #[test]
+    fn mat4_rotate_y() {
+        let v = Vec4::new(1.0, 0.0, 0.0, 0.0);
+        let m = Mat4::rotate_y(90.0_f32.to_radians());
+        assert_eq_v4!(m * v, Vec4::new(0.0, 0.0, -1.0, 0.0));
+    }
+
+    #[test]
+    fn mat4_rotate() {
+        let angle = 23.2_f32.to_radians();
+        assert_eq_mat4!(Mat4::rotate_x(angle), Mat4::rotate(angle, (1.0, 0.0, 0.0)));
+        assert_eq_mat4!(Mat4::rotate_y(angle), Mat4::rotate(angle, (0.0, 1.0, 0.0)));
+        assert_eq_mat4!(Mat4::rotate_z(angle), Mat4::rotate(angle, (0.0, 0.0, 1.0)));
+
+        assert_eq_v4!(
+            Mat4::rotate(90_f32.to_radians(), (1.0, 1.0, 0.0)) * Vec4::new(1.0, 0.0, 0.0, 0.0),
+            Vec4::new(0.5, 0.5, -std::f32::consts::FRAC_1_SQRT_2, 0.0)
+        );
+    }
+
+    #[test]
+    fn mat4_windowing_transform() {
+        // (-1, -1)  ---  (+1, -1)            (0, 0)    --- (800, 0)
+        //          |   |              =>              |   |
+        // (-1, +1)  ---  (+1, +1)            (0, 600)  --- (800, 600)
+
+        let t1 = Mat4::translate((1.0, 1.0, 0.0)); // Translate point (-1,-1) to (0,0)
+        let s = Mat4::scale(800.0 / 2.0, 600.0 / 2.0, 1.0);
+        let t2 = Mat4::translate((0.0, 0.0, 0.0));
+
+        let m = t2 * s * t1;
+        assert_eq_v4!(m * Vec4::new(-1.0, -1.0, 0.0, 1.0), Vec4::new(0.0, 0.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(1.0, -1.0, 0.0, 1.0), Vec4::new(800.0, 0.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(-1.0, 1.0, 0.0, 1.0), Vec4::new(0.0, 600.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(1.0, 1.0, 0.0, 1.0), Vec4::new(800.0, 600.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(400.0, 300.0, 0.0, 1.0));
+    }
+
 
         let v = Vec4::new(1.0, 0.0, 0.0, 1.0);
         let m = Mat4::rotate(std::f32::consts::PI, (0.0, 0.0, 1.0));
