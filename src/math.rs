@@ -526,6 +526,96 @@ impl Mat4 {
             && self.col(2) == Vec4::new(0.0, 0.0, 1.0, 0.0)
             && self.0[15] == 1.0
     }
+
+    #[rustfmt::skip]
+    pub fn inverse(&self) -> Self {
+        match self {
+            r if r.is_rotation() => r.transpose(),
+            s if s.is_scale() => Mat4::scale(1.0 / s.0[0], 1.0 / s.0[5], 1.0 / s.0[10]),
+            t if t.is_translation() => Mat4::translate((-t.0[3], -t.0[7], -t.0[11])),
+            m => {
+                let m = m.0;
+                let adj00 = m[5] * m[10] * m[15] + m[6] * m[11] * m[13] + m[7] * m[9] * m[14]
+                    - m[7] * m[10] * m[13]
+                    - m[5] * m[11] * m[14]
+                    - m[6] * m[9] * m[15];
+                let adj01 = m[4] * m[10] * m[15] + m[6] * m[11] * m[12] + m[7] * m[8] * m[14]
+                    - m[7] * m[10] * m[12]
+                    - m[4] * m[11] * m[14]
+                    - m[6] * m[8] * m[15];
+                let adj02 = m[4] * m[9] * m[15] + m[5] * m[11] * m[12] + m[7] * m[8] * m[13]
+                    - m[7] * m[9] * m[12]
+                    - m[4] * m[11] * m[13]
+                    - m[5] * m[8] * m[15];
+                let adj03 = m[4] * m[9] * m[14] + m[5] * m[10] * m[12] + m[6] * m[8] * m[13]
+                    - m[6] * m[9] * m[12]
+                    - m[4] * m[10] * m[13]
+                    - m[5] * m[8] * m[14];
+
+                let adj10 = m[1] * m[10] * m[15] + m[2] * m[11] * m[13] + m[3] * m[9] * m[14]
+                    - m[3] * m[10] * m[13]
+                    - m[1] * m[11] * m[14]
+                    - m[2] * m[9] * m[15];
+                let adj11 = m[0] * m[10] * m[15] + m[2] * m[11] * m[12] + m[3] * m[8] * m[14]
+                    - m[3] * m[10] * m[12]
+                    - m[0] * m[11] * m[14]
+                    - m[2] * m[8] * m[15];
+                let adj12 = m[0] * m[9] * m[15] + m[1] * m[11] * m[12] + m[3] * m[8] * m[13]
+                    - m[3] * m[9] * m[12]
+                    - m[0] * m[11] * m[13]
+                    - m[1] * m[8] * m[15];
+                let adj13 = m[0] * m[9] * m[14] + m[1] * m[10] * m[12] + m[2] * m[8] * m[13]
+                    - m[2] * m[9] * m[12]
+                    - m[0] * m[10] * m[13]
+                    - m[1] * m[8] * m[14];
+
+                let adj20 = m[1] * m[6] * m[15] + m[2] * m[7] * m[13] + m[3] * m[5] * m[14]
+                    - m[3] * m[6] * m[13]
+                    - m[1] * m[7] * m[14]
+                    - m[2] * m[5] * m[15];
+                let adj21 = m[0] * m[6] * m[15] + m[2] * m[7] * m[12] + m[3] * m[4] * m[14]
+                    - m[3] * m[6] * m[12]
+                    - m[0] * m[7] * m[14]
+                    - m[2] * m[4] * m[15];
+                let adj22 = m[0] * m[5] * m[15] + m[1] * m[7] * m[12] + m[3] * m[4] * m[13]
+                    - m[3] * m[5] * m[12]
+                    - m[0] * m[7] * m[13]
+                    - m[1] * m[4] * m[15];
+                let adj23 = m[0] * m[5] * m[14] + m[1] * m[6] * m[12] + m[2] * m[4] * m[13]
+                    - m[2] * m[5] * m[12]
+                    - m[0] * m[6] * m[13]
+                    - m[1] * m[4] * m[14];
+
+                let adj30 = m[1] * m[6] * m[11] + m[2] * m[7] * m[9] + m[3] * m[5] * m[10]
+                    - m[3] * m[6] * m[9]
+                    - m[1] * m[7] * m[10]
+                    - m[2] * m[5] * m[11];
+                let adj31 = m[0] * m[6] * m[11] + m[2] * m[7] * m[8] + m[3] * m[4] * m[10]
+                    - m[3] * m[6] * m[8]
+                    - m[0] * m[7] * m[10]
+                    - m[2] * m[4] * m[11];
+                let adj32 = m[0] * m[5] * m[11] + m[1] * m[7] * m[8] + m[3] * m[4] * m[9]
+                    - m[3] * m[5] * m[8]
+                    - m[0] * m[7] * m[9]
+                    - m[1] * m[4] * m[11];
+                let adj33 = m[0] * m[5] * m[10] + m[1] * m[6] * m[8] + m[2] * m[4] * m[9]
+                    - m[2] * m[5] * m[8]
+                    - m[0] * m[6] * m[9]
+                    - m[1] * m[4] * m[10];
+
+                let det = m[0] * adj00 + m[1] * -adj01 + m[2] * adj02 + m[3] * -adj03;
+                let inv_det = 1.0 / det;
+
+                Mat4::new([
+                     adj00, -adj10,  adj20, -adj30,
+                    -adj01,  adj11, -adj21,  adj31,
+                     adj02, -adj12,  adj22, -adj32,
+                    -adj03,  adj13, -adj23,  adj33,
+                ]) * inv_det
+            }
+        }
+    }
+
     #[rustfmt::skip]
     pub fn translate<T: Into<Vec3>>(t: T) -> Self {
         let Vec3 {x, y, z} = t.into();
@@ -998,6 +1088,22 @@ mod tests {
         assert!(Mat4::translate((1.0, 2.0, 3.0)).is_translation());
         assert!(Mat4::identity().is_translation());
         assert!(!Mat4::perspective(45.0_f32.to_radians(), 16.0 / 9.0, 0.1, 256.0).is_translation());
+    }
+
+    #[test]
+    fn mat4_inverse() {
+        let s = Mat4::scale(2.0, 1.0, 1.0);
+        assert_eq_mat4!(s.inverse(), Mat4::scale(1.0 / 2.0, 1.0, 1.0));
+
+        let angle = 33.33_f32.to_radians();
+        let axis = (0.76, 0.13, 0.54);
+        let r = Mat4::rotate(angle, axis);
+        assert_eq_mat4!(r.inverse(), Mat4::rotate(-angle, axis));
+
+        let t = Mat4::translate((1.0, 2.0, 3.0));
+        assert_eq_mat4!(t.inverse(), Mat4::translate((-1.0, -2.0, -3.0)));
+
+        assert_eq_mat4!((t * s * r).inverse(), r.inverse() * s.inverse() * t.inverse(), f32::EPSILON * 2.0);
     }
 
     #[test]
