@@ -303,6 +303,14 @@ impl Vec4 {
         }
     }
 
+    pub fn len_sq(&self) -> f32 {
+        self.x * self.x + self.y * self.y + self.z * self.z + self.w * self.w
+    }
+
+    pub fn len(&self) -> f32 {
+        self.len_sq().sqrt()
+    }
+
     pub fn dot(&self, rhs: Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y + self.z * rhs.z + self.w * rhs.w
     }
