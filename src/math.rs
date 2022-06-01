@@ -51,6 +51,9 @@ pub struct Ray {
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Frame {
+    pub o: Vec3, // Origin
+
+    // Orthonormal base
     pub u: Vec3, // Pointing rightward
     pub v: Vec3, // Pointing upward
     pub w: Vec3, // Pointing backward (opposite to the view direction)
