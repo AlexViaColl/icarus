@@ -461,6 +461,18 @@ impl Mat4 {
         Self::from_rows(self.cols())
     }
 
+    pub fn is_linear(&self) -> bool {
+        self.row(3) == Vec4::new(0.0, 0.0, 0.0, 1.0) && self.col(3) == Vec4::new(0.0, 0.0, 0.0, 1.0)
+    }
+
+    pub fn is_orthogonal(&self) -> bool {
+        self.is_linear()
+            && eq_f32!(self.row(0).dot(self.row(1)), 0.0)
+            && eq_f32!(self.row(1).dot(self.row(2)), 0.0)
+            && eq_f32!(self.row(0).len_sq(), 1.0)
+            && eq_f32!(self.row(1).len_sq(), 1.0)
+            && eq_f32!(self.row(2).len_sq(), 1.0)
+    }
     #[rustfmt::skip]
     pub fn translate<T: Into<Vec3>>(t: T) -> Self {
         let Vec3 {x, y, z} = t.into();
