@@ -518,16 +518,53 @@ impl Mat4 {
     }
 
     #[rustfmt::skip]
+    pub fn rotate_x(angle_in_radians: f32) -> Self {
+        let c = angle_in_radians.cos();
+        let s = angle_in_radians.sin();
+        Self([
+            1.0, 0.0, 0.0, 0.0,
+            0.0,   c,  -s, 0.0,
+            0.0,   s,   c, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ])
+    }
+
+    #[rustfmt::skip]
+    pub fn rotate_y(angle_in_radians: f32) -> Self {
+        let c = angle_in_radians.cos();
+        let s = angle_in_radians.sin();
+        Self([
+              c, 0.0,   s, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+             -s, 0.0,   c, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ])
+    }
+
+    #[rustfmt::skip]
+    pub fn rotate_z(angle_in_radians: f32) -> Self {
+        let c = angle_in_radians.cos();
+        let s = angle_in_radians.sin();
+        Self([
+              c,  -s, 0.0, 0.0,
+              s,   c, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ])
+    }
+
+    #[rustfmt::skip]
     pub fn rotate(angle_in_radians: f32, axis: (f32, f32, f32)) -> Self {
         // Taken from: https://www.opengl-tutorial.org/assets/faq_quaternions/index.html#Q38
-        let rcos = angle_in_radians.cos();
-        let rsin = angle_in_radians.sin();
-        let (u, v, w) = axis;
+        let c = angle_in_radians.cos();
+        let s = angle_in_radians.sin();
+        let axis = Vec3::new(axis.0, axis.1, axis.2);
+        let Vec3{x: u, y: v, z: w} = axis.normalize();
         Self([
-                 rcos + u * u * (1.0 - rcos), -w * rsin + u * v * (1.0 - rcos),  v * rsin + u * w * (1.0 - rcos), 0.0,
-             w * rsin + v * u * (1.0 - rcos),      rcos + v * v * (1.0 - rcos), -u * rsin + v * w * (1.0 - rcos), 0.0,
-            -v * rsin + w * u * (1.0 - rcos),  u * rsin + w * v * (1.0 - rcos),      rcos + w * w * (1.0 - rcos), 0.0,
-                                         0.0,                               0.0,                             0.0, 1.0,
+                 c + u * u * (1.0 - c), -w * s + u * v * (1.0 - c),  v * s + u * w * (1.0 - c), 0.0,
+             w * s + v * u * (1.0 - c),      c + v * v * (1.0 - c), -u * s + v * w * (1.0 - c), 0.0,
+            -v * s + w * u * (1.0 - c),  u * s + w * v * (1.0 - c),      c + w * w * (1.0 - c), 0.0,
+                                   0.0,                        0.0,                        0.0, 1.0,
         ])
     }
 
