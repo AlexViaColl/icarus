@@ -752,17 +752,34 @@ mod tests {
 
     macro_rules! assert_eq_f32 {
         ($a:expr, $b:expr) => {
+            assert_eq_f32!($a, $b, f32::EPSILON);
+        };
+        ($a:expr, $b:expr, $eps:expr) => {
             let diff = ($a - $b).abs();
-            assert!(diff <= f32::EPSILON, "diff: {}, EPSILON: {}", diff, f32::EPSILON);
+            assert!(diff <= $eps, "diff: {}, EPSILON: {}", diff, $eps);
         };
     }
 
     macro_rules! assert_eq_v4 {
         ($a:expr, $b:expr) => {
-            assert_eq_f32!($a.x, $b.x);
-            assert_eq_f32!($a.y, $b.y);
-            assert_eq_f32!($a.z, $b.z);
-            assert_eq_f32!($a.w, $b.w);
+            assert_eq_v4!($a, $b, f32::EPSILON);
+        };
+        ($a:expr, $b:expr, $eps:expr) => {
+            assert_eq_f32!($a.x, $b.x, $eps);
+            assert_eq_f32!($a.y, $b.y, $eps);
+            assert_eq_f32!($a.z, $b.z, $eps);
+            assert_eq_f32!($a.w, $b.w, $eps);
+        };
+    }
+
+    macro_rules! assert_eq_mat4 {
+        ($a:expr, $b:expr) => {
+            assert_eq_mat4!($a, $b, f32::EPSILON);
+        };
+        ($a:expr, $b:expr, $eps:expr) => {
+            for i in 0..4 {
+                assert_eq_v4!($a.row(i), $b.row(i), $eps);
+            }
         };
     }
 
