@@ -1,6 +1,12 @@
 use std::fmt;
 use std::ops::{Add, AddAssign, Mul, Neg, Sub};
 
+macro_rules! eq_f32 {
+    ($a:expr, $b:expr) => {
+        ($a - $b).abs() <= f32::EPSILON
+    };
+}
+
 #[repr(C)]
 #[derive(Debug, PartialEq, Clone, Copy, Default)]
 pub struct Rect {
