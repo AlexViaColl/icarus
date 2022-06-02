@@ -2058,7 +2058,10 @@ impl VkContext {
     }
 
     fn allocate_command_buffers(&mut self) {
-        vk_allocate_command_buffers(self.device, self.command_pool, self.command_buffers.len());
+        let command_buffers = vk_allocate_command_buffers(self.device, self.command_pool, self.command_buffers.len());
+        for (i, cmd) in command_buffers.iter().enumerate() {
+            self.command_buffers[i] = *cmd;
+        }
     }
 
     #[allow(dead_code)]
