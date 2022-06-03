@@ -53,7 +53,6 @@ impl Platform {
                 ),
                 0
             );
-            assert_ne!(x11::XMapWindow(dpy, window), 0);
             Self {
                 dpy,
                 window,
@@ -61,6 +60,10 @@ impl Platform {
                 window_height,
             }
         }
+    }
+
+    pub fn show(&self) {
+        unsafe { assert_ne!(x11::XMapWindow(self.dpy, self.window), 0) };
     }
 
     pub fn process_messages(&mut self, input: &mut InputState) {

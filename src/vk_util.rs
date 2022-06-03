@@ -1166,6 +1166,8 @@ impl VkContext {
         vk_ctx.allocate_descriptor_sets();
         vk_ctx.update_descriptor_sets(global_state);
 
+        platform.show();
+
         vk_ctx
     }
 
