@@ -708,12 +708,15 @@ impl Mat4 {
     /// Y: Bottom < Top    <=>  -1, +1
     /// Z: Near   < Far    <=>  -1, +1
     #[rustfmt::skip]
-    pub fn ortho(left: f32, right: f32, bottom: f32, top: f32, near: f32, far: f32) -> Self {
+    pub fn ortho(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> Self {
+        assert!(l < r);
+        assert!(b < r);
+        assert!(f < n && n <= 0.0);
         Self([
-            2.0 / (right - left),                  0.0,                0.0, -(right + left) / (right - left),
-                             0.0, 2.0 / (top - bottom),                0.0, -(top + bottom) / (top - bottom),
-                             0.0,                  0.0, 2.0 / (far - near), -(far + near)   / (far -   near),
-                             0.0,                  0.0,                0.0,                              1.0,
+            2.0 / (r - l),            0.0,            0.0,  -(r + l) / (r - l),
+                      0.0,  2.0 / (t - b),            0.0,  -(t + b) / (t - b),
+                      0.0,            0.0,  2.0 / (n - f),  -(n + f) / (n - f),
+                      0.0,            0.0,            0.0,                 1.0,
         ])
     }
 
