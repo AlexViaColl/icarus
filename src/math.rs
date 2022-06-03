@@ -746,6 +746,16 @@ impl Mat4 {
         result
     }
 
+    #[rustfmt::skip]
+    pub fn perspective_lrbt(l: f32, r: f32, b: f32, t: f32, n: f32, f: f32) -> Self {
+        Self([
+            2.0 * n / (r - l),               0.0, (l + r) / (l - r),                     0.0,
+                          0.0, 2.0 * n / (t - b), (b + t) / (b - t),                     0.0,
+                          0.0,               0.0, (f + n) / (n - f),   2.0 * f * n / (f - n),
+                          0.0,               0.0,               1.0,                     0.0,
+        ])
+    }
+
     pub fn rotate_acum<T: Into<Vec3>>(&self, angle_rad: f32, axis: T) -> Mat4 {
         let a = angle_rad;
         let c = a.cos();
