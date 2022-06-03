@@ -6,7 +6,6 @@ use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
-use std::mem;
 use std::time::Instant;
 
 // TODO: Bunker destruction
@@ -14,8 +13,6 @@ use std::time::Instant;
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
-
-const MAX_ENTITIES: usize = 1000;
 
 const PLAYER_SPEED: f32 = 1000.0;
 const PLAYER_WIDTH: f32 = 60.0;
@@ -340,7 +337,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES);
+    let mut vk_ctx = VkContext::init(&platform);
     vk_ctx.set_shader("sprite");
 
     vk_ctx.vertex_buffer.destroy();

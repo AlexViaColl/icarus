@@ -3,7 +3,6 @@ use icarus::math::{Rect, Vec2};
 use icarus::platform::{Config, Platform};
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
-use std::mem;
 use std::time::Instant;
 
 // TODO: Change pipe height randomly
@@ -11,8 +10,6 @@ use std::time::Instant;
 
 const WIDTH: f32 = 1200.0;
 const HEIGHT: f32 = 675.0;
-
-const MAX_ENTITIES: usize = 200;
 
 fn main() {
     let mut platform = Platform::init(Config {
@@ -22,7 +19,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES);
+    let mut vk_ctx = VkContext::init(&platform);
     vk_ctx.set_shader("sprite");
 
     vk_ctx.vertex_buffer.destroy();

@@ -7,12 +7,10 @@ use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
-use std::mem;
 use std::time::Instant;
 
 const WINDOW_WIDTH: f32 = 1600.0;
 const WINDOW_HEIGHT: f32 = 900.0;
-const MAX_ENTITIES: usize = 10000;
 
 const TITLE_COLOR: Color = color!(rgb(0.8, 0.7, 0.1)); // Light yellow
 
@@ -90,7 +88,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init(0);
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES);
+    let mut vk_ctx = VkContext::init(&platform);
 
     // Main loop
     let start_time = Instant::now();

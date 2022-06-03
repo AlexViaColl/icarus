@@ -6,7 +6,6 @@ use icarus::platform::{Config, Platform};
 use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
-use std::mem;
 use std::time::Instant;
 
 // TODO: UI: render borders/boundaries of the board, preview of where the piece will fall, ...
@@ -14,7 +13,6 @@ use std::time::Instant;
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
-const MAX_ENTITIES: usize = 1000;
 const TILES_X: isize = 10;
 const TILES_Y: isize = 20;
 const TILE_SIZE: f32 = 30.0;
@@ -565,7 +563,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES);
+    let mut vk_ctx = VkContext::init(&platform);
 
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;

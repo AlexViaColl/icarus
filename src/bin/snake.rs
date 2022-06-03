@@ -6,7 +6,6 @@ use icarus::rand::Rand;
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
 use std::collections::VecDeque;
-use std::mem;
 use std::time::Instant;
 
 // TODO: Encapsule AI agent logic into a struct or trait.
@@ -16,7 +15,6 @@ use std::time::Instant;
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
 
-const MAX_ENTITIES: usize = 1000;
 const SNAKE_AI: bool = false;
 const SNAKE_SIZE: f32 = 100.0;
 //const SNAKE_SPEED: f32 = 0.0001;
@@ -30,7 +28,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES);
+    let mut vk_ctx = VkContext::init(&platform);
     vk_ctx.set_shader("sprite");
     vk_ctx.vertex_buffer.destroy();
     let vertices: [(f32, f32); 4] = [(-1.0, -1.0), (-1.0, 1.0), (1.0, 1.0), (1.0, -1.0)];

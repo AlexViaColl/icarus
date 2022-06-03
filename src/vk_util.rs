@@ -1117,8 +1117,7 @@ impl Default for VkContext {
 }
 
 impl VkContext {
-    // TODO: Create VkCtxOptions struct to provide arguments
-    pub fn init(platform: &Platform, ssbo_size: usize) -> Self {
+    pub fn init(platform: &Platform) -> Self {
         let mut vk_ctx = VkContext::default();
 
         let enabled_layers = [VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME];
@@ -1126,8 +1125,10 @@ impl VkContext {
             [VK_KHR_SURFACE_EXTENSION_NAME, VK_KHR_XLIB_SURFACE_EXTENSION_NAME, VK_EXT_DEBUG_UTILS_EXTENSION_NAME];
 
         vk_ctx.create_instance(&enabled_layers, &enabled_extensions);
+
         #[cfg(debug_assertions)]
         vk_ctx.create_debug_utils_messenger_ext(debug_callback);
+
         vk_ctx.create_xlib_surface_khr(platform);
         vk_ctx.pick_physical_device();
         vk_ctx.create_logical_device(&[VK_KHR_SWAPCHAIN_EXTENSION_NAME]);
@@ -1149,6 +1150,7 @@ impl VkContext {
         vk_ctx.texture_images.push(vk_ctx.create_texture_image(&[0xff, 0xff, 0xff, 0xff], 1, 1));
 
         // Shader Storage Buffer Object
+        let ssbo_size = 10000 * mem::size_of::<RenderCommand>();
         vk_ctx.create_ssbo(ssbo_size);
 
         // Uniform Buffer Object

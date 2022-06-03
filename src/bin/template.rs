@@ -4,13 +4,10 @@ use icarus::math::Rect;
 use icarus::platform::{Config, Platform};
 use icarus::vk_util::{self, RenderCommand, VkContext};
 
-use std::mem;
 use std::time::Instant;
 
 const WIDTH: f32 = 1600.0;
 const HEIGHT: f32 = 900.0;
-
-const MAX_ENTITIES: usize = 1000;
 
 struct Game {}
 impl Game {
@@ -36,7 +33,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<RenderCommand>() * MAX_ENTITIES);
+    let mut vk_ctx = VkContext::init(&platform);
 
     let start_time = Instant::now();
     let mut prev_frame_time = start_time;
