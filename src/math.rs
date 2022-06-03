@@ -77,6 +77,8 @@ impl Frame {
         ])
     }
 
+    /// Returns a matrix that transforms points specified in canonical coordinates into points
+    /// relative to the frame.
     #[rustfmt::skip]
     pub fn from_canonical(&self) -> Mat4 {
         Mat4::new([
