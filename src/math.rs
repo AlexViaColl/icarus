@@ -721,14 +721,39 @@ impl Mat4 {
     }
 
     #[rustfmt::skip]
-    // perspective RH
+    /// perspective RH
+    /// The homogeneous vector (x, y, z, w) represents the point (x/w, y/w, z/w).
+    /// Linear transformations: x' = ax + by + cz
+    /// Affine transformations: x' = ax + by + cz + d
+    /// Dividing by w:          x' = (ax + by + cz + d) / (ex + fy + gz + h)
+    /// With the constraint that the denominator has to be the same for all coordinates of the
+    /// transformed point.
+    /// In matrix form:
+    /// [x`]   [a1 b1 c1 d1][x]
+    /// [y`] = [a2 b2 c2 d2][y]
+    /// [z`]   [a3 b3 c3 d3][z]
+    /// [w`]   [ e  f  g  h][1]
+    ///
+    /// (x', y', z') = (x`/w`, y`/w`, z`/w`)
+    /// A transformation like this is known as projective transformation or homography.
+    ///
+    /// Example: The matrix M transforms the unit square [0,1]x[0,1] to a quadrilateral.
+    ///     [2  0  -1 ]
+    /// M = [0  3   0 ]
+    ///     [0 2/3 1/3]
+    /// Any matrix cM is equivalent, the numerator and denominator are both scaled by c.
+    ///
+    /// The near plane is where we project all points (n < 0).
+    /// The far plane is projected to the far plane of the canonical cube (scaled down).
+    /// The perspective projection maps any line through the origin/eye to a line parallel to the
+    /// z-axis.
     pub fn perspective(fovy_radians: f32, aspect: f32, n: f32, f: f32) -> Self {
         assert!(n < f);
 
         let tan_half_fovy = (fovy_radians * 0.5).tan();
 
         // https://vincent-p.github.io/posts/vulkan_perspective_matrix/
-        let result = Mat4::new([
+        let result = Self([
             1.0 / (aspect * tan_half_fovy), 0.0,                  0.0,         0.0,
             0.0,                            -1.0 / tan_half_fovy, 0.0,         0.0,
             0.0,                            0.0,                  n / (f - n), n*f / (f - n),
@@ -736,7 +761,7 @@ impl Mat4 {
         ]);
 
         // Vulkan Examples (GLM)
-        let _result = Mat4::new([
+        let _result = Self([
             1.0 / (aspect * tan_half_fovy), 0.0,                 0.0,         0.0,
             0.0,                            1.0 / tan_half_fovy, 0.0,         0.0,
             0.0,                            0.0,                 f / (n - f), -(f * n) / (f - n),
@@ -1046,24 +1071,6 @@ mod tests {
     }
 
     #[test]
-    fn mat4_windowing_transform() {
-        // (-1, -1)  ---  (+1, -1)            (0, 0)    --- (800, 0)
-        //          |   |              =>              |   |
-        // (-1, +1)  ---  (+1, +1)            (0, 600)  --- (800, 600)
-
-        let t1 = Mat4::translate((1.0, 1.0, 0.0)); // Translate point (-1,-1) to (0,0)
-        let s = Mat4::scale(800.0 / 2.0, 600.0 / 2.0, 1.0);
-        let t2 = Mat4::translate((0.0, 0.0, 0.0));
-
-        let m = t2 * s * t1;
-        assert_eq_v4!(m * Vec4::new(-1.0, -1.0, 0.0, 1.0), Vec4::new(0.0, 0.0, 0.0, 1.0));
-        assert_eq_v4!(m * Vec4::new(1.0, -1.0, 0.0, 1.0), Vec4::new(800.0, 0.0, 0.0, 1.0));
-        assert_eq_v4!(m * Vec4::new(-1.0, 1.0, 0.0, 1.0), Vec4::new(0.0, 600.0, 0.0, 1.0));
-        assert_eq_v4!(m * Vec4::new(1.0, 1.0, 0.0, 1.0), Vec4::new(800.0, 600.0, 0.0, 1.0));
-        assert_eq_v4!(m * Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(400.0, 300.0, 0.0, 1.0));
-    }
-
-    #[test]
     fn mat4_is_linear() {
         assert!(Mat4::scale(1.0, 2.0, 3.0).is_linear());
         assert!(Mat4::rotate_x(30.0_f32.to_radians()).is_linear());
@@ -1110,6 +1117,103 @@ mod tests {
         assert_eq_mat4!(t.inverse(), Mat4::translate((-1.0, -2.0, -3.0)));
 
         assert_eq_mat4!((t * s * r).inverse(), r.inverse() * s.inverse() * t.inverse(), f32::EPSILON * 2.0);
+    }
+
+    #[test]
+    fn mat4_windowing_transform() {
+        // Or viewport transformation
+        // Cannonical View Volume:
+        // x ∈ [-1, 1],     left: x = -1,  right:  x = +1
+        // y ∈ [-1, 1],     top:  y = -1,  bottom: y = +1
+        // z ∈ [ 0, 1],     near: z =  0,  far:    z = +1
+        // (-1, -1)  ---  (+1, -1)            (0, 0)    --- (800, 0)
+        //          |   |              =>              |   |
+        // (-1, +1)  ---  (+1, +1)            (0, 600)  --- (800, 600)
+        //
+        // [x screen]   [nx / 2      0     0   (nx-1) / 2] [x canonical]        nx: number of pixels in the x-dimension
+        // [y screen] = [   0     ny / 2   0   (ny-1) / 2] [y canonical]        ny: number of pixels in the y-direction
+        // [   1    ]   [   0        0     1          0  ] [     0     ]
+        // [        ]   [   0        0     0          1  ] [           ]
+
+        let t1 = Mat4::translate((1.0, 1.0, 0.0)); // Translate point (-1,-1) to (0,0)
+        let s = Mat4::scale(800.0 / 2.0, 600.0 / 2.0, 1.0);
+        let t2 = Mat4::translate((0.0, 0.0, 0.0));
+
+        let m = t2 * s * t1;
+
+        assert_eq_v4!(m * Vec4::new(-1.0, -1.0, 0.0, 1.0), Vec4::new(0.0, 0.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(1.0, -1.0, 0.0, 1.0), Vec4::new(800.0, 0.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(-1.0, 1.0, 0.0, 1.0), Vec4::new(0.0, 600.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(1.0, 1.0, 0.0, 1.0), Vec4::new(800.0, 600.0, 0.0, 1.0));
+        assert_eq_v4!(m * Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(400.0, 300.0, 0.0, 1.0));
+    }
+
+    #[test]
+    fn mat4_look_at() {
+        let m_cam = Mat4::look_at((-1.0, 1.0, 10.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0));
+
+        // The eye of the camera in world coordinates maps to:  (0, 0, 0) in camera space.
+        assert_eq_v4!(m_cam * Vec4::new(-1.0, 1.0, 10.0, 1.0), Vec4::new(0.0, 0.0, 0.0, 1.0));
+
+        // The origin of the world maps to:                     camera target (at) in camera space.
+        let d = (Vec3::new(-1.0, 1.0, 10.0) - Vec3::new(0.0, 0.0, 0.0)).len();
+        assert_eq_v4!(m_cam * Vec4::new(0.0, 0.0, 0.0, 1.0), Vec4::new(0.0, 0.0, -d, 1.0), f32::EPSILON * 8.0);
+
+        // Blender default camera location
+        //let m_cam = Mat4::look_at((-6.9258, 4.9583, 7.3589), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0));
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn mat4_ortho() {
+        let l = 0.0; // left < right
+        let r = 800.0;
+        let b = 0.0; // bottom < top
+        let t = 600.0;
+        let n = -0.0; // far < near < 0  (-z is forward)
+        let f = -1.0;
+        let orth = Mat4::ortho(l, r, b, t, n, f);
+                                                        //
+        assert_eq_v4!(orth * Vec4::new(  0.0,   0.0, 0.0, 1.0), Vec4::new(-1.0, -1.0, 1.0, 1.0)); // Top-Left
+        assert_eq_v4!(orth * Vec4::new(800.0,   0.0, 0.0, 1.0), Vec4::new( 1.0, -1.0, 1.0, 1.0)); // Top-Right
+        assert_eq_v4!(orth * Vec4::new(  0.0, 600.0, 0.0, 1.0), Vec4::new(-1.0,  1.0, 1.0, 1.0)); // Bottom-Left
+        assert_eq_v4!(orth * Vec4::new(800.0, 600.0, 0.0, 1.0), Vec4::new( 1.0,  1.0, 1.0, 1.0)); // Bottom-Right
+
+        assert_eq_v4!(orth * Vec4::new(  0.0,   0.0, -1.0, 1.0), Vec4::new(-1.0, -1.0, -1.0, 1.0)); // Top-Left
+        assert_eq_v4!(orth * Vec4::new(800.0,   0.0, -1.0, 1.0), Vec4::new( 1.0, -1.0, -1.0, 1.0)); // Top-Right
+        assert_eq_v4!(orth * Vec4::new(  0.0, 600.0, -1.0, 1.0), Vec4::new(-1.0,  1.0, -1.0, 1.0)); // Bottom-Left
+        assert_eq_v4!(orth * Vec4::new(800.0, 600.0, -1.0, 1.0), Vec4::new( 1.0,  1.0, -1.0, 1.0)); // Bottom-Right
+    }
+
+    #[test]
+    #[rustfmt::skip]
+    fn mat4_perspective() {
+        let n = -1.0;
+        let f = -10.0;
+
+        let p = Mat4::new([
+              n,  0.0,    0.0,     0.0,
+            0.0,    n,    0.0,     0.0,
+            0.0,  0.0,  n + f,  -f * n,
+            0.0,  0.0,    1.0,     0.0,
+        ]);
+        let orth = Mat4::ortho(0.0, 800.0, 0.0, 600.0, n, f);
+        assert_eq_mat4!(orth * p, Mat4::perspective_lrbt(0.0, 800.0, 0.0, 600.0, n, f));
+
+        let proj = |m: Mat4, p: Vec4| {
+            let res = m * p;
+            res * (1.0 / res.w)
+        };
+        // x-, and y-coordinates become smaller as z increases.
+        assert!(proj(p, Vec4::new(-1.0, 0.0, -10.0, 1.0)).x.abs() < proj(p, Vec4::new(-1.0, 0.0, -1.0, 1.0)).x.abs());
+
+        assert_eq_v4!(proj(p, Vec4::new(-1.0, 0.0, -1.0, 1.0)), Vec4::new(-1.0, 0.0, -1.0, 1.0));
+        assert_eq_v4!(proj(p, Vec4::new( 0.0, 0.0, -1.0, 1.0)), Vec4::new(0.0, 0.0, -1.0, 1.0));
+        assert_eq_v4!(proj(p, Vec4::new( 1.0, 0.0, -1.0, 1.0)), Vec4::new(1.0, 0.0, -1.0, 1.0));
+
+        assert_eq_v4!(proj(p, Vec4::new(-1.0, 0.0, -10.0, 1.0)), Vec4::new(-0.1, 0.0, -10.0, 1.0));
+        assert_eq_v4!(proj(p, Vec4::new( 0.0, 0.0, -10.0, 1.0)), Vec4::new(0.0, 0.0, -10.0, 1.0));
+        assert_eq_v4!(proj(p, Vec4::new( 1.0, 0.0, -10.0, 1.0)), Vec4::new(0.1, 0.0, -10.0, 1.0));
     }
 
     #[test]
