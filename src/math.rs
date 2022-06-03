@@ -935,6 +935,71 @@ mod tests {
     }
 
     #[test]
+    fn constructing_orthonormal_basis_from_single_vector() {
+        let a = Vec3::new(0.3, 1.0, 0.12);
+
+        let w = a * (1.0 / a.len());
+        let t = match (w.x, w.y, w.z) {
+            (x, y, z) if x < y && x < z => Vec3::new(1.0, y, z),
+            (x, y, z) if y < x && y < z => Vec3::new(x, 1.0, z),
+            (x, y, z) if z < x && z < y => Vec3::new(x, y, 1.0),
+            (_x, y, z) => Vec3::new(0.0, y, z),
+        };
+        let cross = t.cross(w);
+        let u = cross * (1.0 / cross.len());
+        let v = w.cross(u);
+
+        //println!("u = {:?}", u);
+        //println!("v = {:?}", v);
+        //println!("w = {:?}", w);
+
+        //println!("u ⸳ v = {}", u.dot(v));
+        //println!("u ⸳ w = {}", u.dot(w));
+        //println!("v ⸳ w = {}", v.dot(w));
+
+        assert_eq_f32!(u.dot(v), 0.0, std::f32::EPSILON);
+        assert_eq_f32!(u.dot(w), 0.0, std::f32::EPSILON);
+        assert_eq_f32!(v.dot(w), 0.0, std::f32::EPSILON);
+    }
+
+    #[test]
+    fn constructing_orthonormal_basis_from_two_vectors() {
+        let a = Vec3::new(0.65, -0.3, -1.0);
+        let b = Vec3::new(0.0, 1.0, 0.0);
+
+        let w = a * (1.0 / a.len());
+        let cross = b.cross(w);
+        let u = cross * (1.0 / cross.len());
+        let v = w.cross(u);
+
+        assert_eq_f32!(u.dot(v), 0.0, std::f32::EPSILON);
+        assert_eq_f32!(u.dot(w), 0.0, std::f32::EPSILON);
+        assert_eq_f32!(v.dot(w), 0.0, std::f32::EPSILON);
+    }
+
+    #[test]
+    fn determinant_2d() {
+        let a = Vec2::new(1.0, 0.0);
+        let b = Vec2::new(0.0, 1.0);
+        let det = |a: Vec2, b: Vec2| a.x * b.y - a.y * b.x;
+        assert_eq_f32!(det(a, b), 1.0, std::f32::EPSILON);
+        assert_eq_f32!(det(b, a), -1.0, std::f32::EPSILON);
+    }
+
+    #[test]
+    fn determinant_3d() {
+        let u = Vec3::new(1.0, 0.0, 0.0);
+        let v = Vec3::new(0.0, 1.0, 0.0);
+        let w = Vec3::new(0.0, 0.0, 1.0);
+        let det = |a: Vec3, b: Vec3, c: Vec3| {
+            a.x * b.y * c.z - a.x * b.z * c.y - a.y * b.x * c.z + a.y * b.z * c.x + a.z + b.x * c.y - a.z * b.y * c.x
+        };
+        let det2 = |a: Vec3, b: Vec3, c: Vec3| a.cross(b).dot(c);
+        assert_eq_f32!(det(u, v, w), 1.0, std::f32::EPSILON);
+        assert_eq_f32!(det2(u, v, w), 1.0, std::f32::EPSILON);
+    }
+
+    #[test]
     fn vec2_neg() {
         let v = Vec2::new(-1.0, 2.0);
         assert_eq!(-v, Vec2::new(1.0, -2.0));
