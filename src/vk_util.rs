@@ -1118,11 +1118,8 @@ impl Default for VkContext {
 
 impl VkContext {
     // TODO: Create VkCtxOptions struct to provide arguments
-    pub fn init(platform: &Platform, ssbo_size: usize, shader_id: Option<String>) -> Self {
+    pub fn init(platform: &Platform, ssbo_size: usize) -> Self {
         let mut vk_ctx = VkContext::default();
-        if let Some(shader_id) = shader_id {
-            vk_ctx.shader_id = shader_id;
-        }
 
         let enabled_layers = [VK_LAYER_KHRONOS_VALIDATION_LAYER_NAME];
         let enabled_extensions =
@@ -1170,6 +1167,10 @@ impl VkContext {
         vk_ctx.update_descriptor_sets(global_state);
 
         vk_ctx
+    }
+
+    pub fn set_shader<T: AsRef<str>>(&mut self, shader_id: T) {
+        self.shader_id = String::from(shader_id.as_ref());
     }
 
     //pub fn render_simple(&mut self, transforms: &[Transform]) {

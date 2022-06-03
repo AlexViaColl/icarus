@@ -55,7 +55,7 @@ fn main() {
     });
     let mut input = InputState::default();
     let mut game = Game::init();
-    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<Entity>() * MAX_ENTITIES, None);
+    let mut vk_ctx = VkContext::init(&platform, mem::size_of::<Entity>() * MAX_ENTITIES);
 
     // Main loop
     let start_time = Instant::now();
