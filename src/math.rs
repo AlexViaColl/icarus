@@ -717,7 +717,7 @@ impl Mat4 {
                       0.0,  2.0 / (t - b),            0.0,  -(t + b) / (t - b),
                       0.0,            0.0,  2.0 / (n - f),  -(n + f) / (n - f),
                       0.0,            0.0,            0.0,                 1.0,
-        ])
+        ]) 
     }
 
     #[rustfmt::skip]
@@ -1243,6 +1243,16 @@ mod tests {
 
         assert_eq_mat4!(frame.to_canonical().inverse(), frame.from_canonical());
         assert_eq_mat4!(frame.from_canonical().inverse(), frame.to_canonical());
+
+        let frame = Frame {
+            o: Vec3::new(-1.0, 0.0, 0.0),
+            u: Vec3::new(0.0, 0.0, 1.0),
+            v: Vec3::new(0.0, 1.0, 0.0),
+            w: Vec3::new(-1.0, 0.0, 0.0),
+        };
+        let p_canonical = Vec4::new(1.0, 0.0, 0.0, 1.0);
+        let p_frame = frame.from_canonical() * p_canonical;
+        assert_eq_v4!(p_frame, Vec4::new(0.0, 0.0, -2.0, 1.0));
     }
 
     #[test]
