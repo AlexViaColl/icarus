@@ -691,24 +691,15 @@ impl Mat4 {
     }
 
     #[rustfmt::skip]
-    #[allow(unused_variables)]
     pub fn look_at<T: Into<Vec3>>(eye: T, at: T, up: T) -> Self {
-        let eye = eye.into();
-        let forward = (at.into() - eye).normalize();
-        let up = up.into().normalize();
-        let right = forward.cross(up).normalize();
-        let up = forward.cross(right).normalize();
+        let eye = eye.into(); // Position of the camera
+        let w = -(at.into() - eye).normalize(); // Remember that w points in the opposite direction that the camera is looking into.
+        let u = up.into().cross(w).normalize(); // Camera right vector.
+        let v = w.cross(u).normalize(); // NOTE: In theory we shouldn't need to normalize here.
 
-        //let r = Mat4::rotate();
-        let t = Mat4::translate(-forward);
-
-        // TODO
-        Self([
-            right.x, up.x, forward.x, eye.x,
-            right.y, up.y, forward.y, eye.y,
-            right.z, up.z, forward.z, eye.z,
-                0.0,  0.0,       0.0,   1.0,
-        ])
+        let frame_cam = Frame {o: eye, u, v, w};
+        let m_cam = frame_cam.from_canonical();
+        m_cam
     }
 
     /// Produces a Matrix to convert the given a rectangular cuboid, into a cube from -1 to 1 in
