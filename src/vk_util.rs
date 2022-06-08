@@ -1175,18 +1175,11 @@ impl VkContext {
 
     pub fn set_shader<T: AsRef<str>>(&mut self, shader_id: T) {
         self.shader_id = String::from(shader_id.as_ref());
+        self.recreate_swapchain_internal();
     }
 
-    //pub fn render_simple(&mut self, transforms: &[Transform]) {
-    //    // TODO
-    //}
-
-    //pub fn render_sprite(&mut self, sprite_render_commands: &[SpriteRenderCommand]) {
-    //    // TODO
-    //}
-
     // TODO: Consider also returning the VkCommandBuffer being recorded
-    fn render_begin(&mut self) -> Option<u32> {
+    pub fn render_begin(&mut self, clear_color: Option<Color>) -> Option<u32> {
         self.generation += 1;
         unsafe {
             let fence = self.in_flight_fences[self.current_frame];
@@ -1216,13 +1209,43 @@ impl VkContext {
             // Record command buffer
             check!(vkBeginCommandBuffer(cmd, &VkCommandBufferBeginInfo::default()));
 
+            let width = self.surface_caps.currentExtent.width;
+            let height = self.surface_caps.currentExtent.height;
+            let cmd = self.command_buffers[self.current_frame];
+            vkCmdBeginRenderPass(
+                cmd,
+                &VkRenderPassBeginInfo {
+                    renderPass: self.render_pass,
+                    framebuffer: self.framebuffers[image_index as usize],
+                    renderArea: VkRect2D::new(0, 0, width, height),
+                    clearValueCount: 2,
+                    pClearValues: [
+                        VkClearColorValue::new(if let Some(color) = clear_color {
+                            color.as_f32()
+                        } else {
+                            BLACK.as_f32()
+                        }),
+                        VkClearDepthStencilValue::new(1.0, 0),
+                    ]
+                    .as_ptr(),
+                    ..VkRenderPassBeginInfo::default()
+                },
+                VK_SUBPASS_CONTENTS_INLINE,
+            );
+
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphics_pipeline);
+
+            vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
+            vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
+
             Some(image_index)
         }
     }
 
-    fn render_end(&mut self, image_index: u32) {
+    pub fn render_end(&mut self, image_index: u32) {
         unsafe {
             let cmd = self.command_buffers[self.current_frame];
+            vkCmdEndRenderPass(cmd);
             check!(vkEndCommandBuffer(cmd));
 
             // Submit command buffer
@@ -1274,36 +1297,9 @@ impl VkContext {
         material_ids: &[u32],
         rotations: &[u32],
     ) {
-        if let Some(image_index) = self.render_begin() {
+        if let Some(image_index) = self.render_begin(clear_color) {
             unsafe {
-                let width = self.surface_caps.currentExtent.width;
-                let height = self.surface_caps.currentExtent.height;
                 let cmd = self.command_buffers[self.current_frame];
-                vkCmdBeginRenderPass(
-                    cmd,
-                    &VkRenderPassBeginInfo {
-                        renderPass: self.render_pass,
-                        framebuffer: self.framebuffers[image_index as usize],
-                        renderArea: VkRect2D::new(0, 0, width, height),
-                        clearValueCount: 2,
-                        pClearValues: [
-                            VkClearColorValue::new(if let Some(color) = clear_color {
-                                color.as_f32()
-                            } else {
-                                BLACK.as_f32()
-                            }),
-                            VkClearDepthStencilValue::new(1.0, 0),
-                        ]
-                        .as_ptr(),
-                        ..VkRenderPassBeginInfo::default()
-                    },
-                    VK_SUBPASS_CONTENTS_INLINE,
-                );
-
-                vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, self.graphics_pipeline);
-
-                vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
-                vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
 
                 if self.vertex_buffer.buffer != VkBuffer::default() {
                     vkCmdBindVertexBuffers(cmd, 0, 1, &self.vertex_buffer.buffer, &0);
@@ -1377,8 +1373,6 @@ impl VkContext {
                     }
                     _ => {}
                 }
-
-                vkCmdEndRenderPass(cmd);
 
                 self.render_end(image_index);
             }
