@@ -202,6 +202,6 @@ fn main() {
         let mut cmd = vec![];
         game.render(&mut cmd);
 
-        vk_ctx.render(&cmd, None, &[], &[]);
+        vk_ctx.render_simple(&cmd, None);
     }
 }

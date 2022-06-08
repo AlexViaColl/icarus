@@ -101,7 +101,7 @@ fn main() {
         game.update(&input, seconds_elapsed);
         game.render();
 
-        vk_ctx.render(&game.render_commands, None, &[], &[]);
+        vk_ctx.render_simple(&game.render_commands, None);
     }
 
     vk_ctx.cleanup(&platform);

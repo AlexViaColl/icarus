@@ -1292,8 +1292,29 @@ impl VkContext {
         }
     }
 
-    // TODO: Figure out a better way to pass data from CPU -> GPU depending on the Shader.
-    pub fn render<RenderCommand>(
+    pub fn render_simple<RenderCommand>(&mut self, render_commands: &[RenderCommand], clear_color: Option<Color>) {
+        if let Some(image_index) = self.render_begin(clear_color) {
+            unsafe {
+                let cmd = self.command_buffers[self.current_frame];
+
+                let layout = self.pipeline_layout;
+                // Update transforms
+                vk_map_memory_copy(
+                    self.device,
+                    self.ssbo.memory,
+                    render_commands.as_ptr(),
+                    mem::size_of::<RenderCommand>() * render_commands.len(),
+                );
+
+                let dsc_set = self.descriptor_sets[self.current_frame];
+                vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, layout, 0, 1, &dsc_set, 0, ptr::null());
+                vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
+            }
+            self.render_end(image_index);
+        }
+    }
+
+    pub fn render_sprite<RenderCommand>(
         &mut self,
         render_commands: &[RenderCommand],
         clear_color: Option<Color>,
@@ -1305,73 +1326,54 @@ impl VkContext {
                 let cmd = self.command_buffers[self.current_frame];
 
                 let layout = self.pipeline_layout;
-                match self.shader_id.as_str() {
-                    "simple" => {
-                        // Update transforms
-                        vk_map_memory_copy(
-                            self.device,
-                            self.ssbo.memory,
-                            render_commands.as_ptr(),
-                            mem::size_of::<RenderCommand>() * render_commands.len(),
-                        );
 
-                        let dsc_set = self.descriptor_sets[self.current_frame];
-                        vkCmdBindDescriptorSets(
-                            cmd,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            layout,
-                            0,
-                            1,
-                            &dsc_set,
-                            0,
-                            ptr::null(),
-                        );
-                        vkCmdDrawIndexed(cmd, 6, render_commands.len() as u32, 0, 0, 0);
-                    }
-                    "sprite" => {
-                        for i in 0..render_commands.len() {
-                            let rotation_id = rotations[i];
-                            // TODO: Simplify this
-                            #[rustfmt::skip]
-                            let mut v = (
-                                0.0_f32, 0.0_f32, // offset
-                                0.0_f32, 0.0_f32, // size
-                                0.0_f32, // z
-                                0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
-                                rotation_id
-                            );
-                            ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 9);
-                            let v = &v as *const _ as *const c_void;
-                            vkCmdPushConstants(
-                                cmd,
-                                self.pipeline_layout,
-                                VK_SHADER_STAGE_VERTEX_BIT.into(),
-                                0,
-                                10 * 4,
-                                v,
-                            );
+                for i in 0..render_commands.len() {
+                    let rotation_id = rotations[i];
+                    // TODO: Simplify this
+                    #[rustfmt::skip]
+                    let mut v = (
+                        0.0_f32, 0.0_f32, // offset
+                        0.0_f32, 0.0_f32, // size
+                        0.0_f32, // z
+                        0.0_f32, 0.0_f32, 0.0_f32, 0.0_f32, // color
+                        rotation_id
+                    );
+                    ptr::copy(&render_commands[i] as *const _ as *const f32, &mut v as *mut _ as *mut f32, 9);
+                    let v = &v as *const _ as *const c_void;
+                    vkCmdPushConstants(cmd, self.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT.into(), 0, 10 * 4, v);
 
-                            let img_idx = material_ids[i] as usize;
-                            let dsc_set = self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame];
+                    let img_idx = material_ids[i] as usize;
+                    let dsc_set = self.descriptor_sets[img_idx * MAX_FRAMES_IN_FLIGHT + self.current_frame];
 
-                            vkCmdBindDescriptorSets(
-                                cmd,
-                                VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                layout,
-                                0,
-                                1,
-                                &dsc_set,
-                                0,
-                                ptr::null(),
-                            );
-                            vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
-                        }
-                    }
-                    _ => {}
+                    vkCmdBindDescriptorSets(
+                        cmd,
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        layout,
+                        0,
+                        1,
+                        &dsc_set,
+                        0,
+                        ptr::null(),
+                    );
+                    vkCmdDrawIndexed(cmd, 6, 1, 0, 0, 0);
                 }
-
-                self.render_end(image_index);
             }
+            self.render_end(image_index);
+        }
+    }
+
+    // TODO: Figure out a better way to pass data from CPU -> GPU depending on the Shader.
+    pub fn render<RenderCommand>(
+        &mut self,
+        render_commands: &[RenderCommand],
+        clear_color: Option<Color>,
+        material_ids: &[u32],
+        rotations: &[u32],
+    ) {
+        match self.shader_id.as_str() {
+            "simple" => self.render_simple(render_commands, clear_color),
+            "sprite" => self.render_sprite(render_commands, clear_color, material_ids, rotations),
+            _ => panic!("Unsupported shader"),
         }
     }
 

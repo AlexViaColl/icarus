@@ -579,6 +579,6 @@ fn main() {
 
         let mut cmd = vec![];
         game.render(&mut cmd);
-        vk_ctx.render(&cmd, Some(BG_COLOR), &[], &[]);
+        vk_ctx.render_simple(&cmd, Some(BG_COLOR));
     }
 }
