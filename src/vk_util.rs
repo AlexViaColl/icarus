@@ -1238,6 +1238,9 @@ impl VkContext {
             vkCmdSetViewport(cmd, 0, 1, &VkViewport::new(0.0, 0.0, width as f32, height as f32, 0.0, 1.0));
             vkCmdSetScissor(cmd, 0, 1, &VkRect2D::new(0, 0, width, height));
 
+            vkCmdBindVertexBuffers(cmd, 0, 1, &self.vertex_buffer.buffer, &0);
+            vkCmdBindIndexBuffer(cmd, self.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
             Some(image_index)
         }
     }
@@ -1300,13 +1303,6 @@ impl VkContext {
         if let Some(image_index) = self.render_begin(clear_color) {
             unsafe {
                 let cmd = self.command_buffers[self.current_frame];
-
-                if self.vertex_buffer.buffer != VkBuffer::default() {
-                    vkCmdBindVertexBuffers(cmd, 0, 1, &self.vertex_buffer.buffer, &0);
-                }
-                if self.index_buffer.buffer != VkBuffer::default() {
-                    vkCmdBindIndexBuffer(cmd, self.index_buffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-                }
 
                 let layout = self.pipeline_layout;
                 match self.shader_id.as_str() {
