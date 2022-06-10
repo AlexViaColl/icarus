@@ -19,6 +19,8 @@ lto = true
 [features]
 
 [dependencies]
+anyhow = "1.0.57"
+async-trait = "0.1.56"
 console_error_panic_hook = "0.1.7"
 futures = "0.3.21"
 getrandom = { version = "0.2.3", features = ["js"] }
@@ -37,6 +39,8 @@ features = [
     "Element",
     "HtmlCanvasElement",
     "HtmlImageElement",
+    "KeyboardEvent",
+    "Performance",
     "Response",
     "Window",
     "console",
